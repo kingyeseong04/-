@@ -9,26 +9,31 @@
     constructor(container) {
       this.chart = LightweightCharts.createChart(container, {
         layout: {
-          background: { color: '#0e1117' },
-          textColor: '#c9d1d9',
+          background: { color: '#131722' },
+          textColor: '#d1d4dc',
+          fontFamily: "'Trebuchet MS', Roboto, Ubuntu, sans-serif",
         },
         grid: {
-          vertLines: { color: '#1b2230' },
-          horzLines: { color: '#1b2230' },
+          vertLines: { color: '#1e222d' },
+          horzLines: { color: '#1e222d' },
         },
-        rightPriceScale: { borderColor: '#2a3344' },
-        timeScale: { borderColor: '#2a3344', timeVisible: true, secondsVisible: false },
-        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        rightPriceScale: { borderColor: '#2a2e39' },
+        timeScale: { borderColor: '#2a2e39', timeVisible: true, secondsVisible: false },
+        crosshair: {
+          mode: LightweightCharts.CrosshairMode.Normal,
+          vertLine: { color: '#9598a1', width: 1, style: 3, labelBackgroundColor: '#363a45' },
+          horzLine: { color: '#9598a1', width: 1, style: 3, labelBackgroundColor: '#363a45' },
+        },
         autoSize: true,
       });
 
       this.series = this.chart.addCandlestickSeries({
-        upColor: '#26a69a',
-        downColor: '#ef5350',
-        borderUpColor: '#26a69a',
-        borderDownColor: '#ef5350',
-        wickUpColor: '#26a69a',
-        wickDownColor: '#ef5350',
+        upColor: '#089981',
+        downColor: '#f23645',
+        borderUpColor: '#089981',
+        borderDownColor: '#f23645',
+        wickUpColor: '#089981',
+        wickDownColor: '#f23645',
       });
 
       this.entryLine = null;
@@ -54,7 +59,7 @@
       if (price == null) return;
       this.entryLine = this.series.createPriceLine({
         price,
-        color: '#e3b341',
+        color: '#2962ff',
         lineWidth: 1,
         lineStyle: LightweightCharts.LineStyle.Dashed,
         axisLabelVisible: true,
