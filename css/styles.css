@@ -58,7 +58,44 @@ body {
 /* ---- Layout ---- */
 .main { display: flex; flex: 1; min-height: 0; }
 .chart-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-#chart { flex: 1; min-height: 0; background: var(--bg); }
+#chart-wrap { position: relative; flex: 1; min-height: 0; background: var(--bg); }
+#chart { position: absolute; inset: 0; }
+
+/* TradingView-style top-left legend overlay */
+.tv-legend {
+  position: absolute; top: 8px; left: 12px; z-index: 3;
+  font: 13px/1.5 'Trebuchet MS', Roboto, sans-serif;
+  pointer-events: none; white-space: nowrap;
+}
+.tv-legend .sym { font-weight: 700; color: #d1d4dc; font-size: 15px; }
+.tv-legend .meta { color: var(--muted); margin-left: 6px; font-size: 13px; }
+.tv-legend .ohlc { display: block; margin-top: 2px; font-size: 12px; }
+.tv-legend .ohlc .lbl { color: var(--muted); margin-right: 1px; }
+.tv-legend .ohlc b { font-weight: 600; margin-right: 8px; }
+
+/* Candle-close countdown on the price axis (TradingView look) */
+.tv-countdown {
+  position: absolute; z-index: 3; right: 0; text-align: center;
+  font: 600 11px/1.4 'Trebuchet MS', monospace; color: #fff;
+  padding: 1px 0; pointer-events: none;
+}
+
+/* Floating exit button for clean/recording mode */
+.exit-clean {
+  position: absolute; top: 10px; right: 10px; z-index: 5;
+  width: 30px; height: 30px; border-radius: 6px; flex: none; padding: 0;
+  background: rgba(30,34,45,.7); color: var(--text); border: 1px solid var(--border);
+  display: none; align-items: center; justify-content: center; font-size: 14px;
+  opacity: 0; transition: opacity .2s;
+}
+body.clean .exit-clean { display: flex; }
+#chart-wrap:hover .exit-clean { opacity: 1; }
+
+/* Clean / recording mode: chart only, fills the viewport */
+body.clean .topbar,
+body.clean .side,
+body.clean .controls { display: none !important; }
+body.clean .main { height: 100vh; }
 
 .side {
   width: 300px; background: var(--pane); border-left: 1px solid var(--border);

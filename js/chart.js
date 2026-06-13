@@ -12,17 +12,37 @@
           background: { color: '#131722' },
           textColor: '#d1d4dc',
           fontFamily: "'Trebuchet MS', Roboto, Ubuntu, sans-serif",
+          fontSize: 12,
         },
         grid: {
           vertLines: { color: '#1e222d' },
           horzLines: { color: '#1e222d' },
         },
-        rightPriceScale: { borderColor: '#2a2e39' },
-        timeScale: { borderColor: '#2a2e39', timeVisible: true, secondsVisible: false },
+        rightPriceScale: {
+          borderColor: '#2a2e39',
+          scaleMargins: { top: 0.12, bottom: 0.12 },
+        },
+        timeScale: {
+          borderColor: '#2a2e39',
+          timeVisible: true,
+          secondsVisible: false,
+          rightOffset: 4,
+          barSpacing: 8,
+        },
         crosshair: {
           mode: LightweightCharts.CrosshairMode.Normal,
           vertLine: { color: '#9598a1', width: 1, style: 3, labelBackgroundColor: '#363a45' },
           horzLine: { color: '#9598a1', width: 1, style: 3, labelBackgroundColor: '#363a45' },
+        },
+        // TradingView-style faint symbol watermark in the background.
+        watermark: {
+          visible: true,
+          text: '',
+          color: 'rgba(120, 123, 134, 0.10)',
+          fontSize: 44,
+          fontFamily: "'Trebuchet MS', Roboto, sans-serif",
+          horzAlign: 'center',
+          vertAlign: 'center',
         },
         autoSize: true,
       });
@@ -38,6 +58,11 @@
         borderDownColor: '#f23645',
         wickUpColor: '#089981',
         wickDownColor: '#f23645',
+        // TradingView-style dashed current-price line + axis label.
+        priceLineVisible: true,
+        priceLineWidth: 1,
+        priceLineStyle: LightweightCharts.LineStyle.Dashed,
+        lastValueVisible: true,
         autoscaleInfoProvider: (original) => {
           const r = this.priceRangeProvider && this.priceRangeProvider();
           if (r && isFinite(r.min) && isFinite(r.max) && r.max > r.min) {
@@ -104,6 +129,15 @@
     // Register a callback returning { min, max } to drive the price-axis zoom,
     // or null to fall back to the default autoscale.
     setPriceRangeProvider(fn) { this.priceRangeProvider = fn; }
+
+    setWatermark(text) {
+      this.chart.applyOptions({ watermark: { visible: !!text, text: text || '' } });
+    }
+
+    // Pixel helpers for HTML overlays (legend / candle-close countdown).
+    priceToY(price) { return this.series.priceToCoordinate(price); }
+    priceScaleWidth() { return this.chart.priceScale('right').width(); }
+    resize() { /* autoSize handles it; kept for explicit calls */ }
   }
 
   global.ChartWrap = Chart;

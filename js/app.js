@@ -26,6 +26,9 @@
     zoomBars: 7,          // how many bars stay visible when focused
     lastPrice: 0,
     symbolLabel: 'DEMO',
+    symbol: 'DEMO',
+    interval: '',
+    exchange: '',
   };
 
   const chart = new ChartWrap($('chart'));
@@ -39,7 +42,7 @@
   }
 
   // ----- Load a candle dataset ------------------------------------------
-  function loadCandles(candles, label) {
+  function loadCandles(candles, label, meta) {
     if (!candles || candles.length < 5) {
       setStatus('Not enough candles to replay.', 'err');
       return;
@@ -47,6 +50,11 @@
     pause();
     state.candles = candles;
     state.symbolLabel = label || '';
+    meta = meta || {};
+    state.symbol = meta.symbol || (label || 'DATA').split('·')[0].trim();
+    state.interval = meta.interval || '';
+    state.exchange = meta.exchange || '';
+    chart.setWatermark(state.symbol + (state.interval ? ' · ' + state.interval : ''));
     state.warmup = Math.min(state.warmup, Math.max(2, Math.floor(candles.length * 0.3)));
     state.idx = state.warmup;
     state.ticks = [];
@@ -67,6 +75,7 @@
     updatePrice(state.lastPrice, 0);
     renderAccount();
     renderTrades();
+    renderOverlays();
     setStatus('Loaded ' + candles.length + ' candles. Press Play ▶', 'ok');
   }
 
@@ -174,6 +183,7 @@
     updatePrice(state.lastPrice, state.lastPrice - lastRenderedPrice);
     lastRenderedPrice = state.lastPrice;
     renderAccount();
+    renderOverlays();
   }
 
   // ----- rAF playback loop (decoupled from tick rate) --------------------
@@ -218,6 +228,77 @@
   }
 
   // ----- Rendering -------------------------------------------------------
+  // Sensible price decimals based on magnitude (like an exchange).
+  function dec(p) {
+    p = Math.abs(p);
+    if (p >= 1000) return 2;
+    if (p >= 1) return 2;
+    if (p >= 0.1) return 4;
+    return 6;
+  }
+
+  // The candle currently shown: the forming one mid-replay, else the last
+  // revealed candle.
+  function currentCandle() {
+    const cur = state.candles[state.idx];
+    if (cur && state.running.time === cur.time) return state.running;
+    const j = Math.min(state.idx, state.candles.length) - 1;
+    return state.candles[Math.max(0, j)];
+  }
+
+  // TradingView-style top-left legend: symbol, interval, exchange + OHLC.
+  function updateLegend() {
+    const c = currentCandle();
+    if (!c) return;
+    const d = dec(c.close);
+    const up = c.close >= c.open;
+    const col = up ? 'var(--up)' : 'var(--down)';
+    const chg = c.close - c.open;
+    const chgPct = c.open ? (chg / c.open) * 100 : 0;
+    const meta = [state.interval, state.exchange].filter(Boolean).join(' · ');
+    $('legend').innerHTML =
+      '<span class="sym">' + state.symbol + '</span>' +
+      (meta ? '<span class="meta">' + meta + '</span>' : '') +
+      '<span class="ohlc" style="color:' + col + '">' +
+      '<span class="lbl">O</span><b>' + fmt(c.open, d) + '</b>' +
+      '<span class="lbl">H</span><b>' + fmt(c.high, d) + '</b>' +
+      '<span class="lbl">L</span><b>' + fmt(c.low, d) + '</b>' +
+      '<span class="lbl">C</span><b>' + fmt(c.close, d) + '</b>' +
+      '<b>' + sign(chg) + fmt(chg, d) + ' (' + sign(chgPct) + fmt(chgPct, 2) + '%)</b>' +
+      '</span>';
+  }
+
+  function fmtDur(s) {
+    s = Math.max(0, s | 0);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    return h > 0 ? h + ':' + pad(m) + ':' + pad(sec) : pad(m) + ':' + pad(sec);
+  }
+
+  // Candle-close countdown sitting on the price axis, just below the last
+  // price label — like the live countdown on TradingView.
+  function updateCountdown() {
+    const el = $('countdown');
+    if (state.idx >= state.candles.length || state.lastPrice <= 0) {
+      el.style.display = 'none'; return;
+    }
+    const y = chart.priceToY(state.lastPrice);
+    if (y == null) { el.style.display = 'none'; return; }
+    const i = state.idx;
+    let dur = 60;
+    if (state.candles[i + 1]) dur = state.candles[i + 1].time - state.candles[i].time;
+    else if (state.candles[i - 1]) dur = state.candles[i].time - state.candles[i - 1].time;
+    const frac = state.ticks.length ? (state.tickIdx / state.ticks.length) : 0;
+    el.textContent = fmtDur(dur * (1 - frac));
+    const c = currentCandle();
+    el.style.background = (c && c.close >= c.open) ? 'var(--up)' : 'var(--down)';
+    el.style.width = chart.priceScaleWidth() + 'px';
+    el.style.top = (y + 9) + 'px';
+    el.style.display = 'block';
+  }
+
+  function renderOverlays() { updateLegend(); updateCountdown(); }
+
   function updatePrice(price, delta) {
     const el = $('price');
     el.textContent = fmt(price, price < 10 ? 5 : 2);
@@ -384,9 +465,8 @@
       setStatus('Fetching ' + sym + ' ' + intv + when + ' on Binance…');
       try {
         const candles = await DataSource.fromBinance(sym, intv, lim, startTime);
-        const label = 'Binance · ' + sym + ' · ' + intv +
-          (startVal ? (' · ' + startVal.replace('T', ' ')) : '');
-        loadCandles(candles, label);
+        const label = 'Binance · ' + sym + ' · ' + intv;
+        loadCandles(candles, label, { symbol: sym, interval: intv, exchange: 'Binance' });
       } catch (err) {
         setStatus('Binance failed (' + err.message + '). Try Demo or CSV.', 'err');
       }
@@ -399,7 +479,8 @@
       setStatus('Parsing ' + file.name + '…');
       try {
         const candles = await DataSource.fromCSVFile(file);
-        loadCandles(candles, file.name);
+        const sym = file.name.replace(/\.csv$/i, '');
+        loadCandles(candles, file.name, { symbol: sym, interval: '', exchange: 'CSV' });
       } catch (err) {
         setStatus('CSV error: ' + err.message, 'err');
       }
@@ -409,21 +490,43 @@
     // Data: Demo
     $('btn-demo').addEventListener('click', () => {
       const candles = DataSource.demo(600, 30000, 60);
-      loadCandles(candles, 'DEMO · synthetic');
+      loadCandles(candles, 'DEMO · synthetic', { symbol: 'DEMOUSDT', interval: '1m', exchange: 'Demo' });
     });
 
-    // Keyboard: space = play/pause, L/S/C orders.
+    // Clean / recording mode: chart-only, optionally real fullscreen.
+    $('btn-clean').addEventListener('click', () => setClean(true));
+    $('btn-exit-clean').addEventListener('click', () => setClean(false));
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) document.body.classList.remove('clean');
+    });
+
+    // Keyboard: space = play/pause, L/S/C orders, F = clean mode, Esc = exit.
     document.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
       if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
       else if (e.key === 'l' || e.key === 'L') placeOrder('long');
       else if (e.key === 's' || e.key === 'S') placeOrder('short');
       else if (e.key === 'c' || e.key === 'C') closePartial(1);
+      else if (e.key === 'f' || e.key === 'F') setClean(!document.body.classList.contains('clean'));
+      else if (e.key === 'Escape') setClean(false);
     });
+  }
+
+  // Toggle chart-only recording mode (and real fullscreen when available).
+  function setClean(on) {
+    document.body.classList.toggle('clean', on);
+    try {
+      if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else if (!on && document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    } catch (_) { /* fullscreen may be blocked; class toggle still applies */ }
   }
 
   // ----- Boot ------------------------------------------------------------
   bind();
   // Start with offline demo data so the app is immediately usable.
-  loadCandles(DataSource.demo(600, 30000, 60), 'DEMO · synthetic');
+  loadCandles(DataSource.demo(600, 30000, 60), 'DEMO · synthetic',
+    { symbol: 'DEMOUSDT', interval: '1m', exchange: 'Demo' });
 })();

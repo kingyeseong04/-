@@ -22,7 +22,15 @@
   <div class="main">
     <!-- Chart -->
     <div class="chart-col">
-      <div id="chart"></div>
+      <div id="chart-wrap">
+        <div id="chart"></div>
+        <!-- TradingView-style top-left legend overlay -->
+        <div id="legend" class="tv-legend"></div>
+        <!-- Candle-close countdown, sits on the price axis -->
+        <div id="countdown" class="tv-countdown" style="display:none;"></div>
+        <!-- Floating exit button, only visible in clean/recording mode -->
+        <button id="btn-exit-clean" class="exit-clean" title="Exit clean mode (Esc)">✕</button>
+      </div>
     </div>
 
     <!-- Side panel -->
@@ -75,6 +83,7 @@
   <div class="controls">
     <button id="btn-play">▶ Play</button>
     <button class="btn-ghost" id="btn-restart">⟲ Restart</button>
+    <button class="btn-ghost" id="btn-clean" title="Chart-only fullscreen for recording (F)">⛶ Clean</button>
 
     <div class="group">
       <label>Speed</label>
