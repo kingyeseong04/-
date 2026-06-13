@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChemDigest — 화학 뉴스 브리핑</title>
+  <link rel="stylesheet" href="css/chemistry.css" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-icon">⚗️</span>
+        <div>
+          <div class="brand-name">ChemDigest</div>
+          <div class="brand-sub">실시간 화학 뉴스 브리핑</div>
+        </div>
+      </div>
+      <div class="header-meta">
+        <div class="date-badge" id="date-badge">--</div>
+        <button class="theme-btn" id="theme-btn" title="다크/라이트 모드">🌙</button>
+        <button class="refresh-btn" id="refresh-btn" title="새로고침">↻ 새로고침</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Field filter -->
+  <nav class="filter-bar">
+    <div class="filter-inner">
+      <span class="filter-label">분야 선택</span>
+      <div class="filter-chips" id="filter-chips">
+        <button class="chip active" data-field="all">전체</button>
+        <button class="chip" data-field="organic">유기화학</button>
+        <button class="chip" data-field="inorganic">무기화학</button>
+        <button class="chip" data-field="biochem">생화학</button>
+        <button class="chip" data-field="materials">재료화학</button>
+        <button class="chip" data-field="analytical">분석화학</button>
+        <button class="chip" data-field="physical">물리화학</button>
+        <button class="chip" data-field="environmental">환경화학</button>
+        <button class="chip" data-field="medicinal">의약화학</button>
+        <button class="chip" data-field="nano">나노화학</button>
+        <button class="chip" data-field="polymer">고분자화학</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Date range filter -->
+  <div class="date-filter-bar">
+    <div class="filter-inner">
+      <span class="filter-label">기간</span>
+      <div class="filter-chips">
+        <button class="chip-sm active" data-days="1">어제·오늘</button>
+        <button class="chip-sm" data-days="3">최근 3일</button>
+        <button class="chip-sm" data-days="7">최근 1주</button>
+        <button class="chip-sm" data-days="0">전체</button>
+      </div>
+      <div class="source-toggles" id="source-toggles"></div>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar" id="status-bar">
+    <span id="status-text">뉴스를 불러오는 중...</span>
+    <span id="article-count"></span>
+  </div>
+
+  <!-- Main content -->
+  <main class="main">
+    <div class="loading-screen" id="loading-screen">
+      <div class="spinner"></div>
+      <div class="loading-text">화학 뉴스를 수집하는 중...</div>
+    </div>
+
+    <div class="news-grid" id="news-grid"></div>
+
+    <div class="empty-state" id="empty-state" style="display:none;">
+      <div class="empty-icon">🔬</div>
+      <div class="empty-title">해당 조건의 뉴스가 없습니다</div>
+      <div class="empty-sub">다른 분야나 기간을 선택해 보세요</div>
+    </div>
+  </main>
+
+  <!-- Source info footer -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <span class="footer-label">📡 뉴스 출처</span>
+      <div class="source-list">
+        <span class="src-badge src-cen">C&amp;EN</span>
+        <span class="src-badge src-sciday">ScienceDaily</span>
+        <span class="src-badge src-phys">Phys.org</span>
+        <span class="src-badge src-rsc">RSC</span>
+        <span class="src-badge src-acs">ACS</span>
+      </div>
+      <span class="footer-note">자동 갱신 · 10분마다</span>
+    </div>
+  </footer>
+
+  <script src="js/chemistry.js"></script>
+</body>
+</html>
