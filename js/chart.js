@@ -27,6 +27,10 @@
         autoSize: true,
       });
 
+      // A provider lets the app override the autoscale price range (used for
+      // smooth, eased vertical zoom when "Focus" is on). Returns null = default.
+      this.priceRangeProvider = null;
+
       this.series = this.chart.addCandlestickSeries({
         upColor: '#089981',
         downColor: '#f23645',
@@ -34,6 +38,13 @@
         borderDownColor: '#f23645',
         wickUpColor: '#089981',
         wickDownColor: '#f23645',
+        autoscaleInfoProvider: (original) => {
+          const r = this.priceRangeProvider && this.priceRangeProvider();
+          if (r && isFinite(r.min) && isFinite(r.max) && r.max > r.min) {
+            return { priceRange: { minValue: r.min, maxValue: r.max } };
+          }
+          return original();
+        },
       });
 
       this.entryLine = null;
@@ -89,6 +100,10 @@
     setVisibleLogicalRange(from, to) {
       this.chart.timeScale().setVisibleLogicalRange({ from, to });
     }
+
+    // Register a callback returning { min, max } to drive the price-axis zoom,
+    // or null to fall back to the default autoscale.
+    setPriceRangeProvider(fn) { this.priceRangeProvider = fn; }
   }
 
   global.ChartWrap = Chart;

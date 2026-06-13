@@ -24,7 +24,6 @@
     ticksPerCandle: 40,
     focus: false,         // motion-tracking zoom on the forming candle
     zoomBars: 7,          // how many bars stay visible when focused
-    timer: null,
     lastPrice: 0,
     symbolLabel: 'DEMO',
   };
@@ -56,11 +55,13 @@
 
     // Show the warmup history; replay continues from there.
     chart.setHistory(candles.slice(0, state.warmup));
-    chart.fitContent();
+    cam.init = false; // re-aim the focus camera for the new dataset
+    if (state.focus) stepCamera(true); else chart.fitContent();
     chart.setEntryLine(null);
     chart.setLiqLine(null);
 
     state.lastPrice = candles[state.warmup - 1].close;
+    lastRenderedPrice = state.lastPrice;
     $('symbol-label').textContent = label || 'data';
     $('candle-count').textContent = (candles.length - state.warmup) + ' candles to replay';
     updatePrice(state.lastPrice, 0);
@@ -81,15 +82,57 @@
     };
   }
 
-  // Keep a tight window around the forming candle (logical index = state.idx)
-  // so it stays large and the view tracks it. Price autoscale does the rest.
-  function applyFocus() {
+  // ----- Camera (smooth focus / motion-tracking) -------------------------
+  // The camera eases toward a target window every frame instead of snapping,
+  // so panning (when a candle finalizes) and the price-axis zoom glide.
+  const cam = { from: 0, to: 0, pmin: 0, pmax: 0, init: false };
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // The chart's logical bar index equals the candle array index, because we
+  // seed history with candles[0..warmup-1] then update() candles[warmup..].
+  // So the forming candle sits at logical index === state.idx.
+  function focusTarget() {
     const i = state.idx;
-    chart.setVisibleLogicalRange(i - (state.zoomBars - 1), i + 1.2);
+    const from = i - (state.zoomBars - 1);
+    const to = i + 1.2; // a little breathing room on the right
+    let lo = Infinity, hi = -Infinity;
+    const start = Math.max(0, Math.floor(from));
+    const end = Math.min(i, state.candles.length - 1);
+    for (let j = start; j <= end; j++) {
+      const formingHere = j === state.idx &&
+        state.candles[j] && state.running.time === state.candles[j].time;
+      const c = formingHere ? state.running : state.candles[j];
+      if (!c) continue;
+      if (c.low < lo) lo = c.low;
+      if (c.high > hi) hi = c.high;
+    }
+    if (!isFinite(lo)) { lo = hi = state.lastPrice || 0; }
+    const pad = (hi - lo) * 0.12 || (hi * 0.001) || 1;
+    return { from, to, pmin: lo - pad, pmax: hi + pad };
   }
 
-  // ----- One tick step ---------------------------------------------------
-  function step() {
+  // Provider consulted by lightweight-charts during autoscale (each redraw):
+  // when focused we return the eased price range so the vertical zoom is smooth.
+  chart.setPriceRangeProvider(() =>
+    (state.focus && cam.init) ? { min: cam.pmin, max: cam.pmax } : null);
+
+  function stepCamera(immediate) {
+    const t = focusTarget();
+    if (immediate || !cam.init) {
+      cam.from = t.from; cam.to = t.to; cam.pmin = t.pmin; cam.pmax = t.pmax;
+      cam.init = true;
+    } else {
+      const k = 0.22; // easing factor
+      cam.from = lerp(cam.from, t.from, k);
+      cam.to = lerp(cam.to, t.to, k);
+      cam.pmin = lerp(cam.pmin, t.pmin, k);
+      cam.pmax = lerp(cam.pmax, t.pmax, k);
+    }
+    chart.setVisibleLogicalRange(cam.from, cam.to);
+  }
+
+  // ----- Tick advance (data only; no view work) --------------------------
+  function stepTick() {
     if (state.idx >= state.candles.length) { finishReplay(); return; }
     if (state.tickIdx === 0 && state.ticks.length === 0) prepareCandle();
 
@@ -98,24 +141,15 @@
     r.high = Math.max(r.high, price);
     r.low = Math.min(r.low, price);
     r.close = price;
-
-    chart.updateCandle(r);
-    if (state.focus) applyFocus();
-
-    const prev = state.lastPrice;
     state.lastPrice = price;
     account.setMark(price);
 
-    // Liquidation check on every tick.
     if (account.checkLiquidation(r.time)) {
       onPositionChanged();
       renderTrades();
       setStatus(account.liquidated ? '💥 Account liquidated — balance wiped.'
         : '💥 Position liquidated.', 'err');
     }
-
-    updatePrice(price, price - prev);
-    renderAccount();
 
     state.tickIdx++;
     if (state.tickIdx >= state.ticks.length) {
@@ -128,29 +162,51 @@
       state.idx++;
       state.ticks = [];
       state.tickIdx = 0;
-      if (state.focus) applyFocus(); else chart.scrollToRealTime();
+      if (!state.focus) chart.scrollToRealTime();
     }
   }
 
-  function loop() {
-    if (!state.playing) return;
-    step();
-    if (!state.playing) return;
-    state.timer = setTimeout(loop, state.speedMs);
+  // ----- Per-frame render (once per rAF, regardless of ticks done) --------
+  let lastRenderedPrice = 0;
+  function renderFrame() {
+    if (state.focus) stepCamera(false);
+    if (state.idx < state.candles.length) chart.updateCandle(state.running);
+    updatePrice(state.lastPrice, state.lastPrice - lastRenderedPrice);
+    lastRenderedPrice = state.lastPrice;
+    renderAccount();
+  }
+
+  // ----- rAF playback loop (decoupled from tick rate) --------------------
+  let rafId = null, lastTs = 0, acc = 0;
+  function frame(ts) {
+    if (!state.playing) { rafId = null; return; }
+    if (lastTs === 0) lastTs = ts;
+    acc += Math.min(ts - lastTs, 250); // clamp gaps (e.g. tab was backgrounded)
+    lastTs = ts;
+    let steps = 0;
+    while (acc >= state.speedMs && steps < 200) {
+      stepTick();
+      acc -= state.speedMs;
+      steps++;
+      if (!state.playing) break;
+    }
+    renderFrame();
+    rafId = state.playing ? requestAnimationFrame(frame) : null;
   }
 
   function play() {
     if (state.playing || state.candles.length === 0) return;
     if (state.idx >= state.candles.length) return;
     state.playing = true;
+    lastTs = 0; acc = 0;
     $('btn-play').textContent = '⏸ Pause';
     setStatus('Replaying…', 'ok');
-    loop();
+    rafId = requestAnimationFrame(frame);
   }
 
   function pause() {
     state.playing = false;
-    if (state.timer) { clearTimeout(state.timer); state.timer = null; }
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     $('btn-play').textContent = '▶ Play';
   }
 
@@ -291,13 +347,17 @@
       const btn = $('btn-focus');
       btn.textContent = state.focus ? '🎯 Focus: On' : '🎯 Focus: Off';
       btn.classList.toggle('active', state.focus);
-      if (state.focus) applyFocus();
-      else chart.setVisibleLogicalRange(state.idx - 80, state.idx + 2);
+      if (state.focus) {
+        stepCamera(true); // snap to the candle, then ease from there
+      } else {
+        cam.init = false;
+        chart.setVisibleLogicalRange(state.idx - 80, state.idx + 2);
+      }
     });
     $('zoom').addEventListener('input', (e) => {
       state.zoomBars = Number(e.target.value);
       $('zoom-label').textContent = state.zoomBars + ' bars';
-      if (state.focus) applyFocus();
+      if (state.focus) stepCamera(!state.playing); // snap when paused, ease when live
     });
 
     $('btn-long').addEventListener('click', () => placeOrder('long'));
