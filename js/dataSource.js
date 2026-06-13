@@ -11,15 +11,15 @@
   // --- Binance ------------------------------------------------------------
   // GET /api/v3/klines -> array of:
   //   [openTime(ms), open, high, low, close, volume, closeTime, ...]
-  async function fromBinance(symbol, interval, limit, startTime, endTime) {
-    symbol = (symbol || 'BTCUSDT').toUpperCase().trim();
-    interval = interval || '1h';
-    limit = Math.min(1000, Math.max(1, limit || 500));
+  // Binance caps each request at 1000 candles, so we paginate to fetch more.
+  const MAX_CANDLES = 5000;
 
-    const params = new URLSearchParams({ symbol, interval, limit: String(limit) });
+  async function klinesBatch(symbol, interval, n, startTime, endTime) {
+    const params = new URLSearchParams({
+      symbol, interval, limit: String(Math.min(1000, n)),
+    });
     if (startTime) params.set('startTime', String(startTime));
     if (endTime) params.set('endTime', String(endTime));
-
     const url = 'https://api.binance.com/api/v3/klines?' + params.toString();
     const res = await fetch(url);
     if (!res.ok) {
@@ -27,9 +27,7 @@
       throw new Error('Binance API error ' + res.status + ': ' + txt.slice(0, 200));
     }
     const raw = await res.json();
-    if (!Array.isArray(raw) || raw.length === 0) {
-      throw new Error('No candles returned (check symbol / interval).');
-    }
+    if (!Array.isArray(raw)) throw new Error('Unexpected Binance response.');
     return raw.map((k) => ({
       time: Math.floor(k[0] / 1000),
       open: parseFloat(k[1]),
@@ -38,6 +36,47 @@
       close: parseFloat(k[4]),
       volume: parseFloat(k[5]),
     }));
+  }
+
+  async function fromBinance(symbol, interval, limit, startTime, endTime) {
+    symbol = (symbol || 'BTCUSDT').toUpperCase().trim();
+    interval = interval || '1h';
+    limit = Math.min(MAX_CANDLES, Math.max(1, limit || 500));
+
+    let out = [];
+    if (startTime) {
+      // Forward pagination from the chosen start date.
+      let cursor = startTime;
+      while (out.length < limit) {
+        const batch = await klinesBatch(symbol, interval, limit - out.length, cursor, endTime);
+        if (batch.length === 0) break;
+        out = out.concat(batch);
+        if (batch.length < 1000) break; // reached the present / no more data
+        cursor = batch[batch.length - 1].time * 1000 + 1;
+        if (endTime && cursor > endTime) break;
+      }
+    } else {
+      // Backward pagination to collect the most recent `limit` candles.
+      let end = endTime;
+      while (out.length < limit) {
+        const batch = await klinesBatch(symbol, interval, limit - out.length, undefined, end);
+        if (batch.length === 0) break;
+        out = batch.concat(out);
+        if (batch.length < 1000) break; // no older data available
+        end = batch[0].time * 1000 - 1;
+      }
+    }
+
+    if (out.length === 0) {
+      throw new Error('No candles returned (check symbol / interval / date).');
+    }
+    // Sort ascending and drop any duplicate timestamps from overlap.
+    out.sort((a, b) => a.time - b.time);
+    const dedup = [];
+    for (const c of out) {
+      if (!dedup.length || c.time > dedup[dedup.length - 1].time) dedup.push(c);
+    }
+    return dedup;
   }
 
   // --- CSV ----------------------------------------------------------------
