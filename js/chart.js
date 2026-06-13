@@ -82,6 +82,13 @@
 
     fitContent() { this.chart.timeScale().fitContent(); }
     scrollToRealTime() { this.chart.timeScale().scrollToRealTime(); }
+
+    // Zoom/track: restrict the visible logical range to a few bars. With the
+    // price axis on autoScale, this fits those bars' price range too, so the
+    // forming candle appears large and the view "follows" it (motion-tracking).
+    setVisibleLogicalRange(from, to) {
+      this.chart.timeScale().setVisibleLogicalRange({ from, to });
+    }
   }
 
   global.ChartWrap = Chart;

@@ -22,6 +22,8 @@
     playing: false,
     speedMs: 60,          // delay between ticks
     ticksPerCandle: 40,
+    focus: false,         // motion-tracking zoom on the forming candle
+    zoomBars: 7,          // how many bars stay visible when focused
     timer: null,
     lastPrice: 0,
     symbolLabel: 'DEMO',
@@ -79,6 +81,13 @@
     };
   }
 
+  // Keep a tight window around the forming candle (logical index = state.idx)
+  // so it stays large and the view tracks it. Price autoscale does the rest.
+  function applyFocus() {
+    const i = state.idx;
+    chart.setVisibleLogicalRange(i - (state.zoomBars - 1), i + 1.2);
+  }
+
   // ----- One tick step ---------------------------------------------------
   function step() {
     if (state.idx >= state.candles.length) { finishReplay(); return; }
@@ -91,6 +100,7 @@
     r.close = price;
 
     chart.updateCandle(r);
+    if (state.focus) applyFocus();
 
     const prev = state.lastPrice;
     state.lastPrice = price;
@@ -118,7 +128,7 @@
       state.idx++;
       state.ticks = [];
       state.tickIdx = 0;
-      chart.scrollToRealTime();
+      if (state.focus) applyFocus(); else chart.scrollToRealTime();
     }
   }
 
@@ -273,6 +283,21 @@
     $('tpc').addEventListener('input', (e) => {
       state.ticksPerCandle = Number(e.target.value);
       $('tpc-label').textContent = state.ticksPerCandle + ' ticks/candle';
+    });
+
+    // Focus / motion-tracking zoom on the forming candle.
+    $('btn-focus').addEventListener('click', () => {
+      state.focus = !state.focus;
+      const btn = $('btn-focus');
+      btn.textContent = state.focus ? '🎯 Focus: On' : '🎯 Focus: Off';
+      btn.classList.toggle('active', state.focus);
+      if (state.focus) applyFocus();
+      else chart.setVisibleLogicalRange(state.idx - 80, state.idx + 2);
+    });
+    $('zoom').addEventListener('input', (e) => {
+      state.zoomBars = Number(e.target.value);
+      $('zoom-label').textContent = state.zoomBars + ' bars';
+      if (state.focus) applyFocus();
     });
 
     $('btn-long').addEventListener('click', () => placeOrder('long'));

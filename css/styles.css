@@ -102,6 +102,7 @@ button:hover { filter: brightness(1.08); }
 .btn-close-half { background: #2a2e39; color: var(--text); }
 .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
 .btn-ghost:hover { background: var(--hover); filter: none; }
+.btn-ghost.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 /* ---- Bottom controls ---- */
 .controls {
