@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Candle Tick Replay — 과거 캔들 실시간 매매 시뮬레이터</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="brand">Candle Tick Replay <small>과거 캔들 틱 리플레이</small></div>
+    <div class="ticker">
+      <span id="symbol-label">data</span>
+      <span id="price">0.00</span>
+      <span id="price-change" class="price-change">0.00%</span>
+    </div>
+    <div id="status" class="status">Loading…</div>
+  </header>
+
+  <div class="main">
+    <!-- Chart -->
+    <div class="chart-col">
+      <div id="chart"></div>
+    </div>
+
+    <!-- Side panel -->
+    <aside class="side">
+      <!-- Account -->
+      <div class="card">
+        <h3>Account</h3>
+        <div class="row"><span class="k">Balance</span><span class="v" id="balance">-</span></div>
+        <div class="row"><span class="k">Equity</span><span class="v" id="equity">-</span></div>
+        <div class="row"><span class="k">Available</span><span class="v" id="available">-</span></div>
+        <div class="row"><span class="k">Unrealized PnL</span><span class="val" id="upnl">-</span></div>
+      </div>
+
+      <!-- Position -->
+      <div class="card flat" id="position-box">
+        <h3>Position</h3>
+        <div class="row"><span class="k">Side</span><span class="pos-side flat" id="pos-side">FLAT</span></div>
+        <div class="row"><span class="k">Size</span><span class="v" id="pos-size">-</span></div>
+        <div class="row"><span class="k">Entry</span><span class="v" id="pos-entry">-</span></div>
+        <div class="row"><span class="k">Mark</span><span class="v" id="pos-mark">-</span></div>
+        <div class="row"><span class="k">Liq. price</span><span class="v" id="pos-liq">-</span></div>
+        <div class="row"><span class="k">Leverage</span><span class="v" id="pos-lev">-</span></div>
+      </div>
+
+      <!-- Order entry -->
+      <div class="card">
+        <h3>Order</h3>
+        <div class="field">
+          <label>Margin (USDT)</label>
+          <input type="number" id="order-margin" value="500" min="1" step="10" />
+        </div>
+        <div class="field">
+          <label>Leverage <span class="lev-readout" id="lev-label">10×</span></label>
+          <input type="range" id="order-lev" min="1" max="125" value="10" />
+        </div>
+        <div class="btns" style="margin-bottom:8px;">
+          <button class="btn-long" id="btn-long">Long (L)</button>
+          <button class="btn-short" id="btn-short">Short (S)</button>
+        </div>
+        <div class="btns">
+          <button class="btn-close-half" id="btn-close-half">Close 50%</button>
+          <button class="btn-close" id="btn-close">Close All (C)</button>
+        </div>
+        <div class="hint">Space = play/pause · L/S/C = long/short/close</div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Playback + data controls -->
+  <div class="controls">
+    <button id="btn-play">▶ Play</button>
+    <button class="btn-ghost" id="btn-restart">⟲ Restart</button>
+
+    <div class="group">
+      <label>Speed</label>
+      <input type="range" id="speed" min="1" max="100" value="73" />
+      <label id="speed-label">60 ms/tick</label>
+    </div>
+    <div class="group">
+      <label>Ticks</label>
+      <input type="range" id="tpc" min="6" max="120" value="40" />
+      <label id="tpc-label">40 ticks/candle</label>
+    </div>
+
+    <div class="data-group">
+      <input type="text" id="inp-symbol" value="BTCUSDT" title="Symbol" />
+      <select id="inp-interval" title="Interval">
+        <option>1m</option><option>3m</option><option>5m</option>
+        <option>15m</option><option>1h</option><option>4h</option><option>1d</option>
+      </select>
+      <input type="number" id="inp-limit" value="500" min="50" max="1000" title="Limit" />
+      <button class="btn-ghost" id="btn-binance">Load Binance</button>
+      <label class="file-btn">CSV<input type="file" id="inp-csv" accept=".csv,text/csv" /></label>
+      <button class="btn-ghost" id="btn-demo">Demo</button>
+    </div>
+  </div>
+
+  <!-- Trade history -->
+  <div class="controls" style="border-top:none; padding-top:0;">
+    <div class="trades-card card" style="width:100%;">
+      <h3>Trade History</h3>
+      <div class="trades-scroll">
+        <table>
+          <thead>
+            <tr><th>Side</th><th>Entry</th><th>Exit</th><th>Qty</th><th>PnL</th><th>PnL%</th></tr>
+          </thead>
+          <tbody id="trades-body"></tbody>
+        </table>
+      </div>
+      <div class="summary">
+        <span><span class="k">Realized:</span><b id="realized-total">0.00</b></span>
+        <span><span class="k">Fees:</span><b id="fees-total">0.00</b></span>
+        <span><span class="k">Trades:</span><b id="trade-count">0</b></span>
+        <span><span class="k" id="candle-count"></span></span>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/tickEngine.js"></script>
+  <script src="js/dataSource.js"></script>
+  <script src="js/trading.js"></script>
+  <script src="js/chart.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
