@@ -55,7 +55,11 @@
     state.interval = meta.interval || '';
     state.exchange = meta.exchange || '';
     chart.setWatermark(state.symbol + (state.interval ? ' · ' + state.interval : ''));
-    state.warmup = Math.min(state.warmup, Math.max(2, Math.floor(candles.length * 0.3)));
+    // History shown before the playhead. Explicit when a centered date window
+    // is requested; otherwise a sensible default. Clamp so both sides exist.
+    const w = (meta.warmup != null) ? meta.warmup
+      : Math.min(60, Math.floor(candles.length * 0.3));
+    state.warmup = Math.max(2, Math.min(w, candles.length - 2));
     state.idx = state.warmup;
     state.ticks = [];
     state.tickIdx = 0;
@@ -451,22 +455,38 @@
     });
 
     // Data: Binance (the single fixed exchange — real market data)
+    const SIDE = 30; // candles fetched on each side of a chosen date
     $('btn-binance').addEventListener('click', async () => {
       const sym = ($('inp-symbol').value.trim() || 'BTCUSDT').toUpperCase();
       const intv = $('inp-interval').value;
       const lim = parseInt($('inp-limit').value, 10) || 500;
       const startVal = $('inp-start').value; // datetime-local, local time
-      let startTime;
-      if (startVal) {
-        const ms = new Date(startVal).getTime();
-        if (!isNaN(ms)) startTime = ms;
-      }
-      const when = startVal ? (' from ' + startVal) : '';
-      setStatus('Fetching ' + sym + ' ' + intv + when + ' on Binance…');
+      const meta = { symbol: sym, interval: intv, exchange: 'Binance' };
+      const label = 'Binance · ' + sym + ' · ' + intv;
       try {
-        const candles = await DataSource.fromBinance(sym, intv, lim, startTime);
-        const label = 'Binance · ' + sym + ' · ' + intv;
-        loadCandles(candles, label, { symbol: sym, interval: intv, exchange: 'Binance' });
+        if (startVal) {
+          // Centered window: ~30 candles before (context) + ~30 after (replay),
+          // regardless of interval. Replay starts at the chosen candle.
+          const center = new Date(startVal).getTime();
+          if (isNaN(center)) { setStatus('Invalid date.', 'err'); return; }
+          const ms = DataSource.intervalToMs(intv);
+          setStatus('Fetching ' + sym + ' ' + intv + ' around ' + startVal.replace('T', ' ') + '…');
+          const candles = await DataSource.fromBinance(
+            sym, intv, SIDE * 2 + 5, center - SIDE * ms, center + SIDE * ms);
+          // The chosen candle = last one starting at/before the picked time.
+          let chosen = 0;
+          for (let i = 0; i < candles.length; i++) {
+            if (candles[i].time * 1000 <= center) chosen = i; else break;
+          }
+          meta.warmup = chosen;
+          loadCandles(candles, label, meta);
+          setStatus('Loaded ' + candles.length + ' candles centered on ' +
+            startVal.replace('T', ' ') + '. Press Play ▶', 'ok');
+        } else {
+          setStatus('Fetching latest ' + lim + ' ' + sym + ' ' + intv + ' on Binance…');
+          const candles = await DataSource.fromBinance(sym, intv, lim);
+          loadCandles(candles, label, meta);
+        }
       } catch (err) {
         setStatus('Binance failed (' + err.message + '). Try Demo or CSV.', 'err');
       }

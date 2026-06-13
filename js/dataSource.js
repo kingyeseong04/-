@@ -14,6 +14,14 @@
   // Binance caps each request at 1000 candles, so we paginate to fetch more.
   const MAX_CANDLES = 5000;
 
+  // Duration of one candle in ms, per interval (used to build time windows).
+  const INTERVAL_MS = {
+    '1m': 60e3, '3m': 180e3, '5m': 300e3, '15m': 900e3, '30m': 1800e3,
+    '1h': 3600e3, '2h': 7200e3, '4h': 14400e3, '6h': 21600e3, '8h': 28800e3,
+    '12h': 43200e3, '1d': 86400e3, '3d': 259200e3, '1w': 604800e3,
+  };
+  function intervalToMs(interval) { return INTERVAL_MS[interval] || 3600e3; }
+
   async function klinesBatch(symbol, interval, n, startTime, endTime) {
     const params = new URLSearchParams({
       symbol, interval, limit: String(Math.min(1000, n)),
@@ -196,5 +204,5 @@
     return out;
   }
 
-  global.DataSource = { fromBinance, fromCSVFile, parseCSV, demo };
+  global.DataSource = { fromBinance, fromCSVFile, parseCSV, demo, intervalToMs };
 })(window);
