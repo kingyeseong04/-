@@ -31,14 +31,6 @@
         wickDownColor: '#ef5350',
       });
 
-      this.volume = this.chart.addHistogramSeries({
-        priceFormat: { type: 'volume' },
-        priceScaleId: 'vol',
-      });
-      this.chart.priceScale('vol').applyOptions({
-        scaleMargins: { top: 0.85, bottom: 0 },
-      });
-
       this.entryLine = null;
       this.liqLine = null;
     }
@@ -48,11 +40,6 @@
       this.series.setData(candles.map(c => ({
         time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
       })));
-      this.volume.setData(candles.map(c => ({
-        time: c.time,
-        value: c.volume || 0,
-        color: c.close >= c.open ? 'rgba(38,166,154,0.4)' : 'rgba(239,83,80,0.4)',
-      })));
     }
 
     // Update (or create) the currently forming candle.
@@ -60,13 +47,6 @@
       this.series.update({
         time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
       });
-      if (c.volume != null) {
-        this.volume.update({
-          time: c.time,
-          value: c.volume,
-          color: c.close >= c.open ? 'rgba(38,166,154,0.4)' : 'rgba(239,83,80,0.4)',
-        });
-      }
     }
 
     setEntryLine(price, side) {

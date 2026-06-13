@@ -18,7 +18,7 @@
     idx: 0,               // index of the candle currently being replayed
     ticks: [],            // synthesized ticks for the current candle
     tickIdx: 0,
-    running: { time: 0, open: 0, high: 0, low: 0, close: 0, volume: 0 }, // forming candle
+    running: { time: 0, open: 0, high: 0, low: 0, close: 0 }, // forming candle
     playing: false,
     speedMs: 60,          // delay between ticks
     ticksPerCandle: 40,
@@ -75,10 +75,8 @@
     );
     state.tickIdx = 0;
     state.running = {
-      time: c.time, open: c.open, high: c.open, low: c.open,
-      close: c.open, volume: 0,
+      time: c.time, open: c.open, high: c.open, low: c.open, close: c.open,
     };
-    state._candleVol = c.volume || 0;
   }
 
   // ----- One tick step ---------------------------------------------------
@@ -91,8 +89,6 @@
     r.high = Math.max(r.high, price);
     r.low = Math.min(r.low, price);
     r.close = price;
-    // Accumulate volume proportionally across the candle's ticks.
-    r.volume = state._candleVol * ((state.tickIdx + 1) / state.ticks.length);
 
     chart.updateCandle(r);
 
@@ -116,8 +112,7 @@
       // Finalize candle exactly to real OHLC, then advance.
       const c = state.candles[state.idx];
       chart.updateCandle({
-        time: c.time, open: c.open, high: c.high, low: c.low,
-        close: c.close, volume: c.volume,
+        time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
       });
       state.lastPrice = c.close;
       state.idx++;
@@ -289,15 +284,24 @@
       $('lev-label').textContent = e.target.value + '×';
     });
 
-    // Data: Binance
+    // Data: Binance (the single fixed exchange — real market data)
     $('btn-binance').addEventListener('click', async () => {
-      const sym = $('inp-symbol').value.trim() || 'BTCUSDT';
+      const sym = ($('inp-symbol').value.trim() || 'BTCUSDT').toUpperCase();
       const intv = $('inp-interval').value;
       const lim = parseInt($('inp-limit').value, 10) || 500;
-      setStatus('Fetching ' + sym + ' ' + intv + ' from Binance…');
+      const startVal = $('inp-start').value; // datetime-local, local time
+      let startTime;
+      if (startVal) {
+        const ms = new Date(startVal).getTime();
+        if (!isNaN(ms)) startTime = ms;
+      }
+      const when = startVal ? (' from ' + startVal) : '';
+      setStatus('Fetching ' + sym + ' ' + intv + when + ' on Binance…');
       try {
-        const candles = await DataSource.fromBinance(sym, intv, lim);
-        loadCandles(candles, sym + ' · ' + intv);
+        const candles = await DataSource.fromBinance(sym, intv, lim, startTime);
+        const label = 'Binance · ' + sym + ' · ' + intv +
+          (startVal ? (' · ' + startVal.replace('T', ' ')) : '');
+        loadCandles(candles, label);
       } catch (err) {
         setStatus('Binance failed (' + err.message + '). Try Demo or CSV.', 'err');
       }

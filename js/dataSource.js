@@ -11,13 +11,14 @@
   // --- Binance ------------------------------------------------------------
   // GET /api/v3/klines -> array of:
   //   [openTime(ms), open, high, low, close, volume, closeTime, ...]
-  async function fromBinance(symbol, interval, limit, startTime) {
+  async function fromBinance(symbol, interval, limit, startTime, endTime) {
     symbol = (symbol || 'BTCUSDT').toUpperCase().trim();
-    interval = interval || '1m';
+    interval = interval || '1h';
     limit = Math.min(1000, Math.max(1, limit || 500));
 
     const params = new URLSearchParams({ symbol, interval, limit: String(limit) });
     if (startTime) params.set('startTime', String(startTime));
+    if (endTime) params.set('endTime', String(endTime));
 
     const url = 'https://api.binance.com/api/v3/klines?' + params.toString();
     const res = await fetch(url);
