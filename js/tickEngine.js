@@ -47,13 +47,15 @@
 
   // Generate an array of tick prices for one candle.
   //   o,h,l,c : candle OHLC
-  //   n       : approximate number of ticks (>= 4)
-  //   vol     : noise factor (fraction of the candle range), default 0.18
-  // Returns a price array of length ~n, first ≈ open, last === close,
-  // touching both high and low.
+  //   n       : approximate number of ticks (>= 8)
+  //   vol     : noise factor (fraction of the candle range), default 0.12
+  // Returns a price array of length ~n, first === open, last === close,
+  // touching both high and low. The path swings up and down several times
+  // across the candle (choppy, like real intra-candle action) so that a
+  // position's P&L oscillates through the bar rather than moving one way.
   function generateTicks(o, h, l, c, n, vol) {
-    n = Math.max(4, n | 0);
-    vol = (vol == null) ? 0.18 : vol;
+    n = Math.max(8, n | 0);
+    vol = (vol == null) ? 0.12 : vol;
 
     // Degenerate candle (flat / no range): just repeat.
     if (h === l) {
@@ -62,26 +64,34 @@
       return out;
     }
 
-    // Decide the order in which the extremes are visited.
-    // Bullish candles tend to dip first then rally (and vice-versa),
-    // but keep it stochastic so replays vary.
-    const bullish = c >= o;
-    let lowFirst;
-    if (bullish) lowFirst = Math.random() < 0.7;   // dip -> rally
-    else lowFirst = Math.random() < 0.3;           // pop -> drop
-    const e1 = lowFirst ? l : h;
-    const e2 = lowFirst ? h : l;
+    // Build a sequence of waypoints inside [low, high] so the price reverses
+    // several times: open -> (random swings, incl. a forced high and low) ->
+    // close. More waypoints = more up/down oscillation within the candle.
+    let swings = 4 + Math.floor(Math.random() * 4);     // 4..7 interior turns
+    swings = Math.max(2, Math.min(swings, Math.floor(n / 4)));
 
-    // Split the available intervals across 3 legs: open->e1->e2->close.
+    const pts = [o];
+    for (let i = 0; i < swings; i++) pts.push(l + Math.random() * (h - l));
+    // Force one interior waypoint to the high and a different one to the low
+    // so the candle's real extremes are always touched.
+    const iHigh = 1 + Math.floor(Math.random() * swings);
+    let iLow = 1 + Math.floor(Math.random() * swings);
+    if (iLow === iHigh) iLow = 1 + (iHigh % swings);
+    pts[iHigh] = h;
+    pts[iLow] = l;
+    pts.push(c);
+
+    // Distribute the ticks across the segments and bridge between waypoints.
+    const segs = pts.length - 1;
     const intervals = n - 1;
-    const k1 = Math.max(1, Math.round(intervals / 3));
-    const k2 = Math.max(1, Math.round(intervals / 3));
-    const k3 = Math.max(1, intervals - k1 - k2);
-
+    const per = Math.max(1, Math.floor(intervals / segs));
     const arr = [o];
-    bridgeTo(arr, e1, k1, l, h, vol);
-    bridgeTo(arr, e2, k2, l, h, vol);
-    bridgeTo(arr, c, k3, l, h, vol);
+    for (let s = 0; s < segs; s++) {
+      const steps = (s === segs - 1)
+        ? Math.max(1, intervals - per * (segs - 1)) // remainder into last leg
+        : per;
+      bridgeTo(arr, pts[s + 1], steps, l, h, vol);
+    }
     return arr;
   }
 

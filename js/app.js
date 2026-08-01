@@ -21,7 +21,7 @@
     running: { time: 0, open: 0, high: 0, low: 0, close: 0 }, // forming candle
     playing: false,
     speedMs: 60,          // delay between ticks
-    ticksPerCandle: 40,
+    ticksPerCandle: 60,
     focus: false,         // motion-tracking zoom on the forming candle
     zoomBars: 7,          // how many bars stay visible when focused
     lastPrice: 0,
