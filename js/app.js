@@ -29,6 +29,10 @@
     symbol: 'DEMO',
     interval: '',
     exchange: '',
+    sessHigh: 0,          // "24h" high/low over the replayed session
+    sessLow: 0,
+    tape: [],             // recent-trades feed (synthetic)
+    _loadMeta: null,
   };
 
   const chart = new ChartWrap($('chart'));
@@ -74,12 +78,21 @@
 
     state.lastPrice = candles[state.warmup - 1].close;
     lastRenderedPrice = state.lastPrice;
-    $('symbol-label').textContent = label || 'data';
+    state.sessHigh = state.sessLow = state.lastPrice;
+    state.tape = [];
+    state._tapePrev = state.lastPrice;
+    state._loadMeta = {
+      symbol: state.symbol, interval: state.interval,
+      exchange: state.exchange, warmup: state.warmup,
+    };
+    $('symbol-label').textContent = state.symbol;
     $('candle-count').textContent = (candles.length - state.warmup) + ' candles to replay';
     updatePrice(state.lastPrice, 0);
     renderAccount();
     renderTrades();
     renderOverlays();
+    updateStats();
+    renderMarket(0, true);
     setStatus('Loaded ' + candles.length + ' candles. Press Play ▶', 'ok');
   }
 
@@ -155,6 +168,8 @@
     r.low = Math.min(r.low, price);
     r.close = price;
     state.lastPrice = price;
+    if (price > state.sessHigh) state.sessHigh = price;
+    if (price < state.sessLow) state.sessLow = price;
     account.setMark(price);
 
     if (account.checkLiquidation(r.time)) {
@@ -181,13 +196,18 @@
 
   // ----- Per-frame render (once per rAF, regardless of ticks done) --------
   let lastRenderedPrice = 0;
-  function renderFrame() {
+  function renderFrame(ts) {
     if (state.focus) stepCamera(false);
-    if (state.idx < state.candles.length) chart.updateCandle(state.running);
+    // Only draw the forming candle once it's been prepared for the current
+    // index (its time matches), else lightweight-charts rejects the stale time.
+    const cur = state.candles[state.idx];
+    if (cur && state.running.time === cur.time) chart.updateCandle(state.running);
     updatePrice(state.lastPrice, state.lastPrice - lastRenderedPrice);
     lastRenderedPrice = state.lastPrice;
     renderAccount();
     renderOverlays();
+    updateStats();
+    renderMarket(ts);
   }
 
   // ----- rAF playback loop (decoupled from tick rate) --------------------
@@ -204,7 +224,7 @@
       steps++;
       if (!state.playing) break;
     }
-    renderFrame();
+    renderFrame(ts);
     rafId = state.playing ? requestAnimationFrame(frame) : null;
   }
 
@@ -305,7 +325,7 @@
 
   function updatePrice(price, delta) {
     const el = $('price');
-    el.textContent = fmt(price, price < 10 ? 5 : 2);
+    el.textContent = fmt(price, dec(price));
     el.classList.remove('up', 'down');
     if (delta > 0) el.classList.add('up');
     else if (delta < 0) el.classList.add('down');
@@ -317,37 +337,105 @@
     chgEl.className = 'price-change ' + (chg >= 0 ? 'up' : 'down');
   }
 
+  // Duration (seconds) of the candle currently being replayed.
+  function candleDur() {
+    const i = state.idx;
+    if (state.candles[i + 1] && state.candles[i]) return state.candles[i + 1].time - state.candles[i].time;
+    if (state.candles[i] && state.candles[i - 1]) return state.candles[i].time - state.candles[i - 1].time;
+    return 60;
+  }
+
+  function hhmmss(sec) {
+    const dt = new Date(sec * 1000);
+    const p = (n) => String(n).padStart(2, '0');
+    return p(dt.getHours()) + ':' + p(dt.getMinutes()) + ':' + p(dt.getSeconds());
+  }
+
+  // Top market-stats bar (mark / 24h high-low / funding countdown).
+  function updateStats() {
+    const d = dec(state.lastPrice);
+    $('stat-mark').textContent = fmt(state.lastPrice, d);
+    $('stat-high').textContent = fmt(state.sessHigh, d);
+    $('stat-low').textContent = fmt(state.sessLow, d);
+    // Funding countdown to the next 8h boundary (cosmetic, uses the wall clock).
+    const now = Date.now() / 1000;
+    const period = 8 * 3600;
+    $('stat-countdown').textContent = fmtDur(period - (now % period));
+  }
+
+  // ----- Order book + trade tape (synthetic, Bybit look) -----------------
+  let _bookSeed = 1, _lastMktTs = -1e9;
+  function obRow(side, lvl, maxTotal, d) {
+    const w = Math.max(2, (lvl.total / maxTotal) * 100);
+    return '<div class="ob-row ' + side + '">' +
+      '<span class="p">' + fmt(lvl.price, d) + '</span>' +
+      '<span class="q">' + fmt(lvl.size, 3) + '</span>' +
+      '<span class="t">' + fmt(lvl.total, 2) + '</span>' +
+      '<span class="depth" style="width:' + w.toFixed(1) + '%"></span></div>';
+  }
+
+  function renderMarket(ts, force) {
+    if (state.lastPrice <= 0) return;
+    if (!force && ts != null && (ts - _lastMktTs) < 130) return;
+    _lastMktTs = (ts == null ? _lastMktTs : ts);
+
+    const d = dec(state.lastPrice);
+    _bookSeed++;
+    const book = OrderBook.build(state.lastPrice, 11, _bookSeed);
+    $('ob-asks').innerHTML = book.asks.slice().reverse()
+      .map((l) => obRow('ask', l, book.maxTotal, d)).join('');
+    $('ob-bids').innerHTML = book.bids
+      .map((l) => obRow('bid', l, book.maxTotal, d)).join('');
+
+    const obEl = $('ob-spread');
+    const upDir = state.lastPrice >= (state._prevMkt || state.lastPrice);
+    state._prevMkt = state.lastPrice;
+    obEl.textContent = fmt(state.lastPrice, d);
+    obEl.className = 'ob-last ' + (upDir ? 'up' : 'down');
+
+    // Append one synthetic trade to the tape.
+    const side = state.lastPrice >= (state._tapePrev || state.lastPrice) ? 'buy' : 'sell';
+    state._tapePrev = state.lastPrice;
+    const frac = state.ticks.length ? state.tickIdx / state.ticks.length : 0;
+    const tsec = (state.running.time || (state.candles[state.warmup - 1] || {}).time || 0) + frac * candleDur();
+    const base = state.lastPrice < 1 ? 5000 : state.lastPrice < 100 ? 200 : state.lastPrice < 5000 ? 3 : 0.6;
+    const size = +(base * (0.05 + Math.random() * 0.6)).toFixed(3);
+    state.tape.unshift({ p: state.lastPrice, size, side, tsec });
+    if (state.tape.length > 28) state.tape.pop();
+    $('recent-trades').innerHTML = state.tape.map((t) =>
+      '<div class="rt-row ' + t.side + '"><span class="p">' + fmt(t.p, d) + '</span>' +
+      '<span class="q">' + fmt(t.size, 3) + '</span>' +
+      '<span class="tm">' + hhmmss(t.tsec) + '</span></div>').join('');
+  }
+
   function renderAccount() {
     $('balance').textContent = fmt(account.balance);
     $('equity').textContent = fmt(account.equity);
     $('available').textContent = fmt(account.available);
 
-    const pnl = account.unrealizedPnl;
-    const pnlEl = $('upnl');
-    pnlEl.textContent = sign(pnl) + fmt(pnl) + '  (' + sign(account.unrealizedPnlPct) + fmt(account.unrealizedPnlPct) + '%)';
-    pnlEl.className = 'val ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
-
-    const pos = $('position-box');
+    const tbody = $('pos-rows');
     if (account.qty === 0) {
-      pos.classList.add('flat');
-      $('pos-side').textContent = 'FLAT';
-      $('pos-side').className = 'pos-side flat';
-      $('pos-size').textContent = '-';
-      $('pos-entry').textContent = '-';
-      $('pos-mark').textContent = fmt(account.markPrice, account.markPrice < 10 ? 5 : 2);
-      $('pos-liq').textContent = '-';
-      $('pos-lev').textContent = '-';
-    } else {
-      pos.classList.remove('flat');
-      const isLong = account.qty > 0;
-      $('pos-side').textContent = isLong ? 'LONG' : 'SHORT';
-      $('pos-side').className = 'pos-side ' + (isLong ? 'up' : 'down');
-      $('pos-size').textContent = fmt(Math.abs(account.qty), 4) + '  (' + fmt(account.notional) + ' USDT)';
-      $('pos-entry').textContent = fmt(account.avgEntry, account.avgEntry < 10 ? 5 : 2);
-      $('pos-mark').textContent = fmt(account.markPrice, account.markPrice < 10 ? 5 : 2);
-      $('pos-liq').textContent = fmt(account.liquidationPrice, account.avgEntry < 10 ? 5 : 2);
-      $('pos-lev').textContent = fmt(account.leverage, 0) + '×';
+      tbody.innerHTML = '<tr id="pos-empty"><td colspan="8" class="empty">No open position</td></tr>';
+      return;
     }
+    const isLong = account.qty > 0;
+    const d = dec(account.avgEntry);
+    const pnl = account.unrealizedPnl;
+    const cls = pnl >= 0 ? 'up' : 'down';
+    tbody.innerHTML = '<tr>' +
+      '<td>' + state.symbol + '</td>' +
+      '<td class="' + (isLong ? 'side-long' : 'side-short') + '">' +
+        (isLong ? 'Long' : 'Short') + ' ' + fmt(Math.abs(account.qty), 4) + '</td>' +
+      '<td>' + fmt(account.notional) + '</td>' +
+      '<td>' + fmt(account.avgEntry, d) + '</td>' +
+      '<td>' + fmt(account.markPrice, d) + '</td>' +
+      '<td>' + fmt(account.liquidationPrice, d) + '</td>' +
+      '<td class="' + cls + '">' + sign(pnl) + fmt(pnl) +
+        ' (' + sign(account.unrealizedPnlPct) + fmt(account.unrealizedPnlPct, 2) + '%)</td>' +
+      '<td><button class="row-close" id="row-close-btn">Close</button></td>' +
+      '</tr>';
+    const btn = $('row-close-btn');
+    if (btn) btn.addEventListener('click', () => closePartial(1));
   }
 
   function onPositionChanged() {
@@ -412,8 +500,19 @@
   function bind() {
     $('btn-play').addEventListener('click', togglePlay);
     $('btn-restart').addEventListener('click', () => {
-      if (state.candles.length) loadCandles(state.candles, state.symbolLabel);
+      if (state.candles.length) loadCandles(state.candles, state.symbolLabel, state._loadMeta);
     });
+
+    // Tabs (Positions / Trade History)
+    const switchTab = (which) => {
+      const p = which === 'positions';
+      $('tab-positions').classList.toggle('active', p);
+      $('tab-history').classList.toggle('active', !p);
+      $('panel-positions').style.display = p ? '' : 'none';
+      $('panel-history').style.display = p ? 'none' : '';
+    };
+    $('tab-positions').addEventListener('click', () => switchTab('positions'));
+    $('tab-history').addEventListener('click', () => switchTab('history'));
 
     $('speed').addEventListener('input', (e) => {
       // Slider 1..100 -> faster on the right. Map to ms (5..200).
@@ -451,7 +550,8 @@
     $('btn-close-half').addEventListener('click', () => closePartial(0.5));
 
     $('order-lev').addEventListener('input', (e) => {
-      $('lev-label').textContent = e.target.value + '×';
+      $('lev-label').textContent = e.target.value + 'x';
+      $('lev-chip').textContent = e.target.value + 'x';
     });
 
     // Data: Binance (the single fixed exchange — real market data)
@@ -461,8 +561,8 @@
       const intv = $('inp-interval').value;
       const lim = parseInt($('inp-limit').value, 10) || 500;
       const startVal = $('inp-start').value; // datetime-local, local time
-      const meta = { symbol: sym, interval: intv, exchange: 'Binance' };
-      const label = 'Binance · ' + sym + ' · ' + intv;
+      const meta = { symbol: sym, interval: intv, exchange: 'Bybit' };
+      const label = 'Bybit · ' + sym + ' · ' + intv;
       try {
         if (startVal) {
           // Centered window: ~30 candles before (context) + ~30 after (replay),
@@ -483,12 +583,12 @@
           setStatus('Loaded ' + candles.length + ' candles centered on ' +
             startVal.replace('T', ' ') + '. Press Play ▶', 'ok');
         } else {
-          setStatus('Fetching latest ' + lim + ' ' + sym + ' ' + intv + ' on Binance…');
+          setStatus('Fetching latest ' + lim + ' ' + sym + ' ' + intv + '…');
           const candles = await DataSource.fromBinance(sym, intv, lim);
           loadCandles(candles, label, meta);
         }
       } catch (err) {
-        setStatus('Binance failed (' + err.message + '). Try Demo or CSV.', 'err');
+        setStatus('Fetch failed (' + err.message + '). Try Demo or CSV.', 'err');
       }
     });
 

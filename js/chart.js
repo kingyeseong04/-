@@ -9,21 +9,21 @@
     constructor(container) {
       this.chart = LightweightCharts.createChart(container, {
         layout: {
-          background: { color: '#131722' },
-          textColor: '#d1d4dc',
+          background: { color: '#17181e' },
+          textColor: '#b7bdc6',
           fontFamily: "'Trebuchet MS', Roboto, Ubuntu, sans-serif",
           fontSize: 12,
         },
         grid: {
-          vertLines: { color: '#1e222d' },
-          horzLines: { color: '#1e222d' },
+          vertLines: { color: '#20232b' },
+          horzLines: { color: '#20232b' },
         },
         rightPriceScale: {
-          borderColor: '#2a2e39',
+          borderColor: '#2a2d35',
           scaleMargins: { top: 0.12, bottom: 0.12 },
         },
         timeScale: {
-          borderColor: '#2a2e39',
+          borderColor: '#2a2d35',
           timeVisible: true,
           secondsVisible: false,
           rightOffset: 4,
@@ -52,13 +52,13 @@
       this.priceRangeProvider = null;
 
       this.series = this.chart.addCandlestickSeries({
-        upColor: '#089981',
-        downColor: '#f23645',
-        borderUpColor: '#089981',
-        borderDownColor: '#f23645',
-        wickUpColor: '#089981',
-        wickDownColor: '#f23645',
-        // TradingView-style dashed current-price line + axis label.
+        upColor: '#20b26c',
+        downColor: '#ef454a',
+        borderUpColor: '#20b26c',
+        borderDownColor: '#ef454a',
+        wickUpColor: '#20b26c',
+        wickDownColor: '#ef454a',
+        // Dashed current-price line + axis label.
         priceLineVisible: true,
         priceLineWidth: 1,
         priceLineStyle: LightweightCharts.LineStyle.Dashed,
