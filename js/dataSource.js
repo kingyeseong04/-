@@ -87,6 +87,99 @@
     return dedup;
   }
 
+  // --- Bybit (v5) ---------------------------------------------------------
+  // GET /v5/market/kline -> result.list of (newest-first):
+  //   [startTime(ms), open, high, low, close, volume, turnover]
+  // Bybit uses numeric-minute / letter interval codes.
+  const BYBIT_INTERVAL = {
+    '1m': '1', '3m': '3', '5m': '5', '15m': '15', '30m': '30',
+    '1h': '60', '2h': '120', '4h': '240', '6h': '360', '12h': '720',
+    '1d': 'D', '1w': 'W',
+  };
+
+  function dedupAsc(out) {
+    out.sort((a, b) => a.time - b.time);
+    const dedup = [];
+    for (const c of out) {
+      if (!dedup.length || c.time > dedup[dedup.length - 1].time) dedup.push(c);
+    }
+    return dedup;
+  }
+
+  async function bybitBatch(symbol, interval, n, startTime, endTime) {
+    const params = new URLSearchParams({
+      category: 'linear',
+      symbol,
+      interval: BYBIT_INTERVAL[interval] || '60',
+      limit: String(Math.min(1000, n)),
+    });
+    if (startTime) params.set('start', String(Math.floor(startTime)));
+    if (endTime) params.set('end', String(Math.floor(endTime)));
+    const url = 'https://api.bybit.com/v5/market/kline?' + params.toString();
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Bybit HTTP ' + res.status);
+    const j = await res.json();
+    if (j.retCode !== 0) throw new Error('Bybit ' + j.retCode + ': ' + j.retMsg);
+    const list = (j.result && j.result.list) || [];
+    return list.map((k) => ({
+      time: Math.floor(Number(k[0]) / 1000),
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low: parseFloat(k[3]),
+      close: parseFloat(k[4]),
+      volume: parseFloat(k[5]),
+    }));
+  }
+
+  async function fromBybit(symbol, interval, limit, startTime, endTime) {
+    symbol = (symbol || 'BTCUSDT').toUpperCase().trim();
+    interval = interval || '1h';
+    limit = Math.min(MAX_CANDLES, Math.max(1, limit || 500));
+
+    let out = [];
+    if (startTime) {
+      // Forward window from the chosen start (Bybit returns newest-first;
+      // we sort each batch to advance the cursor correctly).
+      let cursor = startTime;
+      while (out.length < limit) {
+        const batch = await bybitBatch(symbol, interval, limit - out.length, cursor, endTime);
+        if (batch.length === 0) break;
+        out = out.concat(batch);
+        if (batch.length < 1000) break;
+        batch.sort((a, b) => a.time - b.time);
+        cursor = batch[batch.length - 1].time * 1000 + 1;
+        if (endTime && cursor > endTime) break;
+      }
+    } else {
+      // Backward pagination for the most recent `limit` candles.
+      let end = endTime;
+      while (out.length < limit) {
+        const batch = await bybitBatch(symbol, interval, limit - out.length, undefined, end);
+        if (batch.length === 0) break;
+        out = out.concat(batch);
+        if (batch.length < 1000) break;
+        batch.sort((a, b) => a.time - b.time);
+        end = batch[0].time * 1000 - 1;
+      }
+    }
+    if (out.length === 0) {
+      throw new Error('No candles returned (check symbol / interval / date).');
+    }
+    return dedupAsc(out);
+  }
+
+  // Try Bybit first (real Bybit data), fall back to Binance on any failure
+  // (e.g. CORS / geo block). Prices for the same symbol are effectively equal.
+  async function fetchCandles(symbol, interval, limit, startTime, endTime) {
+    try {
+      const candles = await fromBybit(symbol, interval, limit, startTime, endTime);
+      return { candles, source: 'Bybit' };
+    } catch (e1) {
+      const candles = await fromBinance(symbol, interval, limit, startTime, endTime);
+      return { candles, source: 'Bybit', fallback: 'Binance', note: e1.message };
+    }
+  }
+
   // --- CSV ----------------------------------------------------------------
   // Flexible parser:
   //   * With a header row: matches columns named time/date, open, high, low,
@@ -204,5 +297,7 @@
     return out;
   }
 
-  global.DataSource = { fromBinance, fromCSVFile, parseCSV, demo, intervalToMs };
+  global.DataSource = {
+    fromBinance, fromBybit, fetchCandles, fromCSVFile, parseCSV, demo, intervalToMs,
+  };
 })(window);

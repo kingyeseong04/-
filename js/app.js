@@ -554,7 +554,7 @@
       $('lev-chip').textContent = e.target.value + 'x';
     });
 
-    // Data: Binance (the single fixed exchange — real market data)
+    // Data: Bybit v5 (real market data), with automatic Binance fallback.
     const SIDE = 30; // candles fetched on each side of a chosen date
     $('btn-binance').addEventListener('click', async () => {
       const sym = ($('inp-symbol').value.trim() || 'BTCUSDT').toUpperCase();
@@ -564,6 +564,7 @@
       const meta = { symbol: sym, interval: intv, exchange: 'Bybit' };
       const label = 'Bybit · ' + sym + ' · ' + intv;
       try {
+        let res;
         if (startVal) {
           // Centered window: ~30 candles before (context) + ~30 after (replay),
           // regardless of interval. Replay starts at the chosen candle.
@@ -571,21 +572,26 @@
           if (isNaN(center)) { setStatus('Invalid date.', 'err'); return; }
           const ms = DataSource.intervalToMs(intv);
           setStatus('Fetching ' + sym + ' ' + intv + ' around ' + startVal.replace('T', ' ') + '…');
-          const candles = await DataSource.fromBinance(
+          res = await DataSource.fetchCandles(
             sym, intv, SIDE * 2 + 5, center - SIDE * ms, center + SIDE * ms);
           // The chosen candle = last one starting at/before the picked time.
           let chosen = 0;
-          for (let i = 0; i < candles.length; i++) {
-            if (candles[i].time * 1000 <= center) chosen = i; else break;
+          for (let i = 0; i < res.candles.length; i++) {
+            if (res.candles[i].time * 1000 <= center) chosen = i; else break;
           }
           meta.warmup = chosen;
-          loadCandles(candles, label, meta);
-          setStatus('Loaded ' + candles.length + ' candles centered on ' +
-            startVal.replace('T', ' ') + '. Press Play ▶', 'ok');
+          loadCandles(res.candles, label, meta);
+          setStatus('Loaded ' + res.candles.length + ' candles centered on ' +
+            startVal.replace('T', ' ') + (res.fallback ? ' (via ' + res.fallback + ')' : '') +
+            '. Press Play ▶', 'ok');
         } else {
-          setStatus('Fetching latest ' + lim + ' ' + sym + ' ' + intv + '…');
-          const candles = await DataSource.fromBinance(sym, intv, lim);
-          loadCandles(candles, label, meta);
+          setStatus('Fetching latest ' + lim + ' ' + sym + ' ' + intv + ' from Bybit…');
+          res = await DataSource.fetchCandles(sym, intv, lim);
+          loadCandles(res.candles, label, meta);
+          if (res.fallback) {
+            setStatus('Loaded ' + res.candles.length + ' candles (Bybit unavailable — via ' +
+              res.fallback + '). Press Play ▶', 'ok');
+          }
         }
       } catch (err) {
         setStatus('Fetch failed (' + err.message + '). Try Demo or CSV.', 'err');
