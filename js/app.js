@@ -560,43 +560,31 @@
       $('lev-chip').textContent = e.target.value + 'x';
     });
 
-    // Data: real exchange (Bybit or Binance perpetual), with real intra-candle
-    // ticks from a finer timeframe when the window is small enough.
-    const SIDE = 30; // candles fetched on each side of a chosen date
+    // Data: Bybit perpetual around a chosen date (+ real intra-candle ticks).
+    const SIDE = 30; // candles fetched on each side of the chosen date
     $('btn-binance').addEventListener('click', async () => {
       const sym = ($('inp-symbol').value.trim() || 'BTCUSDT').toUpperCase();
       const intv = $('inp-interval').value;
-      const lim = parseInt($('inp-limit').value, 10) || 500;
       const exch = 'Bybit'; // Bybit only (Binance kept as silent fallback)
       const startVal = $('inp-start').value; // datetime-local, local time
+      if (!startVal) { setStatus('날짜·시각을 먼저 선택하세요.', 'err'); return; }
       try {
-        let res, warmup;
-        if (startVal) {
-          const center = new Date(startVal).getTime();
-          if (isNaN(center)) { setStatus('Invalid date.', 'err'); return; }
-          const ms = DataSource.intervalToMs(intv);
-          setStatus('Fetching ' + sym + ' ' + intv + ' around ' + startVal.replace('T', ' ') + '…');
-          res = await DataSource.fetchCandles(
-            sym, intv, SIDE * 2 + 5, center - SIDE * ms, center + SIDE * ms, exch);
-          warmup = 0;
-          for (let i = 0; i < res.candles.length; i++) {
-            if (res.candles[i].time * 1000 <= center) warmup = i; else break;
-          }
-        } else {
-          setStatus('Fetching latest ' + lim + ' ' + sym + ' ' + intv + ' from ' + exch + '…');
-          res = await DataSource.fetchCandles(sym, intv, lim, undefined, undefined, exch);
-          warmup = null; // let loadCandles pick the default warmup
+        const center = new Date(startVal).getTime();
+        if (isNaN(center)) { setStatus('Invalid date.', 'err'); return; }
+        const ms = DataSource.intervalToMs(intv);
+        setStatus('Fetching ' + sym + ' ' + intv + ' around ' + startVal.replace('T', ' ') + '…');
+        const res = await DataSource.fetchCandles(
+          sym, intv, SIDE * 2 + 5, center - SIDE * ms, center + SIDE * ms, exch);
+        let warmup = 0;
+        for (let i = 0; i < res.candles.length; i++) {
+          if (res.candles[i].time * 1000 <= center) warmup = i; else break;
         }
 
         const source = res.source; // exchange that actually served the data
-        // Try to build REAL ticks from a finer timeframe for the replay region.
-        const wIdx = (warmup != null) ? warmup
-          : Math.max(2, Math.min(60, Math.floor(res.candles.length * 0.3)));
         setStatus('Loading real intra-candle data…');
-        const subMap = await fetchSubMap(sym, intv, res.candles, wIdx, source);
+        const subMap = await fetchSubMap(sym, intv, res.candles, warmup, source);
 
-        const meta = { symbol: sym, interval: intv, exchange: source, subMap };
-        if (warmup != null) meta.warmup = warmup;
+        const meta = { symbol: sym, interval: intv, exchange: source, subMap, warmup };
         const label = source + ' · ' + sym + ' · ' + intv;
         loadCandles(res.candles, label, meta);
 
@@ -605,29 +593,8 @@
         bits.push(subMap ? 'real ticks ✓' : 'synthetic ticks');
         setStatus(bits.join(' · ') + '. Press Play ▶', res.fallback ? 'err' : 'ok');
       } catch (err) {
-        setStatus('Fetch failed (' + err.message + '). Try Demo or CSV.', 'err');
+        setStatus('불러오기 실패 (' + err.message + '). 네트워크·심볼·날짜를 확인하세요.', 'err');
       }
-    });
-
-    // Data: CSV
-    $('inp-csv').addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      setStatus('Parsing ' + file.name + '…');
-      try {
-        const candles = await DataSource.fromCSVFile(file);
-        const sym = file.name.replace(/\.csv$/i, '');
-        loadCandles(candles, file.name, { symbol: sym, interval: '', exchange: 'CSV' });
-      } catch (err) {
-        setStatus('CSV error: ' + err.message, 'err');
-      }
-      e.target.value = '';
-    });
-
-    // Data: Demo
-    $('btn-demo').addEventListener('click', () => {
-      const candles = DataSource.demo(600, 30000, 60);
-      loadCandles(candles, 'DEMO · synthetic', { symbol: 'DEMOUSDT', interval: '1m', exchange: 'Demo' });
     });
 
     // Clean / recording mode: chart-only, optionally real fullscreen.
@@ -663,7 +630,5 @@
 
   // ----- Boot ------------------------------------------------------------
   bind();
-  // Start with offline demo data so the app is immediately usable.
-  loadCandles(DataSource.demo(600, 30000, 60), 'DEMO · synthetic',
-    { symbol: 'DEMOUSDT', interval: '1m', exchange: 'Demo' });
+  setStatus('심볼·시간봉·날짜를 정하고 Load ▶ 를 누르세요.');
 })();
