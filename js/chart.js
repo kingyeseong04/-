@@ -66,18 +66,18 @@
     constructor(container) {
       this.chart = LightweightCharts.createChart(container, {
         layout: {
-          background: { color: '#17181e' },
-          textColor: '#b7bdc6',
+          background: { color: '#16171c' }, // Bybit chart background
+          textColor: '#8a8e99',
           fontFamily: "'Trebuchet MS', Roboto, Ubuntu, sans-serif",
           fontSize: 12,
         },
         grid: {
-          vertLines: { color: '#20232b' },
-          horzLines: { color: '#20232b' },
+          vertLines: { color: '#20222a' },
+          horzLines: { color: '#20222a' },
         },
         rightPriceScale: {
           borderColor: '#2a2d35',
-          scaleMargins: { top: 0.12, bottom: 0.12 },
+          scaleMargins: { top: 0.1, bottom: 0.1 },
         },
         timeScale: {
           borderColor: '#2a2d35',
@@ -99,6 +99,12 @@
           },
         },
         localization: {
+          // Thousand-separated prices on the axis / labels, like Bybit.
+          priceFormatter: (p) => {
+            const a = Math.abs(p);
+            const d = a >= 1 ? 2 : a >= 0.1 ? 4 : 6;
+            return p.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+          },
           // Crosshair time label, also local time.
           timeFormatter: (t) => {
             const d = new Date(t * 1000);
@@ -112,16 +118,8 @@
           vertLine: { color: '#9598a1', width: 1, style: 3, labelBackgroundColor: '#363a45' },
           horzLine: { color: '#9598a1', width: 1, style: 3, labelBackgroundColor: '#363a45' },
         },
-        // TradingView-style faint symbol watermark in the background.
-        watermark: {
-          visible: true,
-          text: '',
-          color: 'rgba(120, 123, 134, 0.10)',
-          fontSize: 44,
-          fontFamily: "'Trebuchet MS', Roboto, sans-serif",
-          horzAlign: 'center',
-          vertAlign: 'center',
-        },
+        // Bybit's chart has no big symbol watermark.
+        watermark: { visible: false, text: '' },
         autoSize: true,
       });
 
@@ -130,16 +128,16 @@
       this.priceRangeProvider = null;
 
       this.series = this.chart.addCandlestickSeries({
-        upColor: '#20b26c',
-        downColor: '#ef454a',
-        borderUpColor: '#20b26c',
-        borderDownColor: '#ef454a',
-        wickUpColor: '#20b26c',
-        wickDownColor: '#ef454a',
-        // Dashed current-price line + axis label.
+        upColor: '#2ebd85',       // Bybit green
+        downColor: '#f6465d',     // Bybit red
+        borderUpColor: '#2ebd85',
+        borderDownColor: '#f6465d',
+        wickUpColor: '#2ebd85',
+        wickDownColor: '#f6465d',
+        // Bybit-style dotted current-price line + colored axis label.
         priceLineVisible: true,
         priceLineWidth: 1,
-        priceLineStyle: LightweightCharts.LineStyle.Dashed,
+        priceLineStyle: LightweightCharts.LineStyle.Dotted,
         lastValueVisible: true,
         autoscaleInfoProvider: (original) => {
           const r = this.priceRangeProvider && this.priceRangeProvider();
@@ -179,7 +177,7 @@
         (size != null ? ' ' + (Math.abs(size) >= 1 ? size.toFixed(2) : size.toFixed(3)) : '');
       this.entryLine = this.series.createPriceLine({
         price,
-        color: isLong ? '#20b26c' : '#ef454a',
+        color: isLong ? '#2ebd85' : '#f6465d',
         lineWidth: 1,
         lineStyle: LightweightCharts.LineStyle.Solid,
         axisLabelVisible: true,
@@ -279,8 +277,8 @@
     // or null to fall back to the default autoscale.
     setPriceRangeProvider(fn) { this.priceRangeProvider = fn; }
 
-    setWatermark(text) {
-      this.chart.applyOptions({ watermark: { visible: !!text, text: text || '' } });
+    setWatermark(_text) {
+      // Bybit's chart shows no watermark — intentionally a no-op.
     }
 
     // Pixel helpers for HTML overlays (legend / candle-close countdown).

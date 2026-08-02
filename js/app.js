@@ -348,7 +348,13 @@
     return state.candles[Math.max(0, j)];
   }
 
-  // TradingView-style top-left legend: symbol, interval, exchange + OHLC.
+  // TradingView resolution code shown in Bybit's legend (5m→5, 1h→60, 1d→1D).
+  function tvRes(intv) {
+    return { '5m': '5', '15m': '15', '30m': '30', '1h': '60', '2h': '120',
+      '4h': '240', '6h': '360', '12h': '720', '1d': '1D', '1w': '1W' }[intv] || intv;
+  }
+
+  // Bybit-style top-left legend: "SYM Perpetual · RES · Bybit" + colored OHLC.
   function updateLegend() {
     const c = currentCandle();
     if (!c) return;
@@ -357,16 +363,16 @@
     const col = up ? 'var(--up)' : 'var(--down)';
     const chg = c.close - c.open;
     const chgPct = c.open ? (chg / c.open) * 100 : 0;
-    const meta = [state.interval, state.exchange].filter(Boolean).join(' · ');
+    const meta = 'Perpetual · ' + tvRes(state.interval) + ' · ' + (state.exchange || 'Bybit');
     $('legend').innerHTML =
       '<span class="sym">' + state.symbol + '</span>' +
-      (meta ? '<span class="meta">' + meta + '</span>' : '') +
+      '<span class="meta"> ' + meta + '</span>' +
       '<span class="ohlc" style="color:' + col + '">' +
-      '<span class="lbl">O</span><b>' + fmt(c.open, d) + '</b>' +
-      '<span class="lbl">H</span><b>' + fmt(c.high, d) + '</b>' +
-      '<span class="lbl">L</span><b>' + fmt(c.low, d) + '</b>' +
-      '<span class="lbl">C</span><b>' + fmt(c.close, d) + '</b>' +
-      '<b>' + sign(chg) + fmt(chg, d) + ' (' + sign(chgPct) + fmt(chgPct, 2) + '%)</b>' +
+      '<span class="lbl">O</span>' + fmt(c.open, d) + ' ' +
+      '<span class="lbl">H</span>' + fmt(c.high, d) + ' ' +
+      '<span class="lbl">L</span>' + fmt(c.low, d) + ' ' +
+      '<span class="lbl">C</span>' + fmt(c.close, d) + '  ' +
+      sign(chg) + fmt(chg, d) + ' (' + sign(chgPct) + fmt(chgPct, 2) + '%)' +
       '</span>';
   }
 

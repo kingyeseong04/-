@@ -7,8 +7,8 @@
   --hover: #23262e;
   --text: #eaecef;
   --muted: #7a7e87;
-  --buy: #20b26c;    /* Bybit green (long/buy) */
-  --sell: #ef454a;   /* Bybit red (short/sell) */
+  --buy: #2ebd85;    /* Bybit green (long/buy) */
+  --sell: #f6465d;   /* Bybit red (short/sell) */
   --accent: #f7a600; /* Bybit yellow */
   --field: #232630;
 }
@@ -62,11 +62,10 @@ body {
   position: absolute; top: 8px; left: 12px; z-index: 3;
   font: 13px/1.5 'Trebuchet MS', Roboto, sans-serif; pointer-events: none; white-space: nowrap;
 }
-.tv-legend .sym { font-weight: 700; color: var(--text); font-size: 15px; }
-.tv-legend .meta { color: var(--muted); margin-left: 6px; font-size: 13px; }
-.tv-legend .ohlc { display: block; margin-top: 2px; font-size: 12px; }
-.tv-legend .ohlc .lbl { color: var(--muted); margin-right: 1px; }
-.tv-legend .ohlc b { font-weight: 600; margin-right: 8px; }
+.tv-legend .sym { font-weight: 600; color: var(--text); font-size: 14px; }
+.tv-legend .meta { color: var(--muted); font-size: 13px; font-weight: 400; }
+.tv-legend .ohlc { display: block; margin-top: 3px; font-size: 12.5px; font-weight: 500; }
+.tv-legend .ohlc .lbl { opacity: .6; margin-right: 2px; }
 
 /* Indicator settings panel */
 .ind-panel {
