@@ -20,7 +20,7 @@
     tickIdx: 0,
     running: { time: 0, open: 0, high: 0, low: 0, close: 0 }, // forming candle
     playing: false,
-    speedMs: 60,          // delay between ticks
+    speedX: 60,           // playback speed multiplier vs real time (1x = real)
     ticksPerCandle: 60,
     focus: false,         // motion-tracking zoom on the forming candle
     zoomBars: 7,          // how many bars stay visible when focused
@@ -131,8 +131,7 @@
     const subDurMs = DataSource.intervalToMs(subIntv);
     const subsPer = Math.max(1, Math.round(durMs / subDurMs));
     const replayCount = candles.length - warmupIdx;
-    const needed = replayCount * subsPer + subsPer;
-    if (needed > 5000) return null; // too much data — keep synthetic ticks
+    const needed = replayCount * subsPer + subsPer; // always fetch real data
     const startMs = candles[warmupIdx].time * 1000;
     const endMs = candles[candles.length - 1].time * 1000 + durMs;
     let subRes;
@@ -258,7 +257,17 @@
     renderMarket(ts);
   }
 
-  // ----- rAF playback loop (decoupled from tick rate) --------------------
+  // Real milliseconds each tick should take, so playback tracks real time:
+  // one tick represents (candle duration / #ticks) of market time, divided by
+  // the speed multiplier. At 1x a 1-minute candle plays over a real minute.
+  function tickDelayMs() {
+    const durSec = candleDur();
+    const nt = state.ticks.length || state.ticksPerCandle;
+    const marketMsPerTick = (durSec * 1000) / Math.max(1, nt);
+    return marketMsPerTick / Math.max(0.05, state.speedX);
+  }
+
+  // ----- rAF playback loop (real-time paced) -----------------------------
   let rafId = null, lastTs = 0, acc = 0;
   function frame(ts) {
     if (!state.playing) { rafId = null; return; }
@@ -266,9 +275,11 @@
     acc += Math.min(ts - lastTs, 250); // clamp gaps (e.g. tab was backgrounded)
     lastTs = ts;
     let steps = 0;
-    while (acc >= state.speedMs && steps < 200) {
+    while (steps < 2000) {
+      const delay = tickDelayMs();
+      if (acc < delay) break;
       stepTick();
-      acc -= state.speedMs;
+      acc -= delay;
       steps++;
       if (!state.playing) break;
     }
@@ -562,12 +573,20 @@
     $('tab-positions').addEventListener('click', () => switchTab('positions'));
     $('tab-history').addEventListener('click', () => switchTab('history'));
 
+    // Speed = real-time multiplier (배속). Slider 0..100 maps exponentially to
+    // 1x .. 3600x so both real-time and heavy fast-forward are reachable.
+    const MAXX = 3600;
+    const sliderToX = (v) => Math.max(1, Math.round(Math.exp(Math.log(MAXX) * (v / 100))));
+    const fmtDurLabel = (s) => s >= 60 ? (s / 60).toFixed(1) + '분'
+      : s >= 1 ? s.toFixed(1) + '초' : (s * 1000).toFixed(0) + 'ms';
+    const updateSpeedLabel = () => {
+      $('speed-label').textContent = state.speedX + '× · 1분≈' + fmtDurLabel(60 / state.speedX);
+    };
     $('speed').addEventListener('input', (e) => {
-      // Slider 1..100 -> faster on the right. Map to ms (5..200).
-      const v = Number(e.target.value);
-      state.speedMs = Math.round(205 - v * 2);
-      $('speed-label').textContent = state.speedMs + ' ms/tick';
+      state.speedX = sliderToX(Number(e.target.value));
+      updateSpeedLabel();
     });
+    updateSpeedLabel();
     $('tpc').addEventListener('input', (e) => {
       state.ticksPerCandle = Number(e.target.value);
       $('tpc-label').textContent = state.ticksPerCandle + ' ticks/candle';

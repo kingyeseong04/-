@@ -11,8 +11,9 @@
   // --- Binance ------------------------------------------------------------
   // GET /api/v3/klines -> array of:
   //   [openTime(ms), open, high, low, close, volume, closeTime, ...]
-  // Binance caps each request at 1000 candles, so we paginate to fetch more.
-  const MAX_CANDLES = 5000;
+  // Exchanges cap each request at ~1000 candles, so we paginate to fetch more.
+  // Kept high so real sub-candle (tick) data can always be fetched.
+  const MAX_CANDLES = 60000;
 
   // Duration of one candle in ms, per interval (used to build time windows).
   const INTERVAL_MS = {
