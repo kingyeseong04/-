@@ -157,7 +157,10 @@
     <div id="status" class="status"></div>
 
     <div class="data-group">
-      <span class="exchange-badge">Bybit</span>
+      <select id="inp-exchange" class="exchange-sel" title="Exchange (match your TradingView)">
+        <option value="Bybit" selected>Bybit</option>
+        <option value="Binance">Binance</option>
+      </select>
       <input type="text" id="inp-symbol" value="BTCUSDT" title="Symbol" />
       <select id="inp-interval" title="Interval">
         <option value="5m">5m</option>

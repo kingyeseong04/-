@@ -32,6 +32,7 @@
     sessHigh: 0,          // "24h" high/low over the replayed session
     sessLow: 0,
     tape: [],             // recent-trades feed (synthetic)
+    subMap: null,         // Map candleTime -> real sub-candles (for real ticks)
     _loadMeta: null,
   };
 
@@ -58,6 +59,7 @@
     state.symbol = meta.symbol || (label || 'DATA').split('·')[0].trim();
     state.interval = meta.interval || '';
     state.exchange = meta.exchange || '';
+    state.subMap = meta.subMap || null;
     chart.setWatermark(state.symbol + (state.interval ? ' · ' + state.interval : ''));
     // History shown before the playhead. Explicit when a centered date window
     // is requested; otherwise a sensible default. Clamp so both sides exist.
@@ -83,7 +85,7 @@
     state._tapePrev = state.lastPrice;
     state._loadMeta = {
       symbol: state.symbol, interval: state.interval,
-      exchange: state.exchange, warmup: state.warmup,
+      exchange: state.exchange, warmup: state.warmup, subMap: state.subMap,
     };
     $('symbol-label').textContent = state.symbol;
     $('candle-count').textContent = (candles.length - state.warmup) + ' candles to replay';
@@ -99,13 +101,59 @@
   // ----- Prepare ticks for the candle at state.idx -----------------------
   function prepareCandle() {
     const c = state.candles[state.idx];
-    state.ticks = TickEngine.generateTicks(
-      c.open, c.high, c.low, c.close, state.ticksPerCandle
-    );
+    let ticks = null;
+    // Prefer REAL intra-candle motion built from lower-timeframe sub-candles.
+    if (state.subMap) {
+      const subs = state.subMap.get(c.time);
+      if (subs && subs.length) {
+        const perSub = Math.max(3, Math.min(8, Math.ceil(state.ticksPerCandle / subs.length)));
+        ticks = TickEngine.ticksFromSubs(subs, perSub);
+      }
+    }
+    // Fall back to synthesized ticks (CSV/demo, or no sub data available).
+    if (!ticks) {
+      ticks = TickEngine.generateTicks(c.open, c.high, c.low, c.close, state.ticksPerCandle);
+    }
+    state.ticks = ticks;
     state.tickIdx = 0;
     state.running = {
       time: c.time, open: c.open, high: c.open, low: c.open, close: c.open,
     };
+  }
+
+  // Fetch finer-timeframe candles for the replay region and group them per
+  // parent candle, so playback can use REAL intra-candle motion. Returns a
+  // Map(candleTimeSec -> sub-candles[]) or null if not feasible/available.
+  async function fetchSubMap(sym, intv, candles, warmupIdx, exch) {
+    const subIntv = DataSource.subInterval(intv);
+    if (!subIntv) return null;
+    const durMs = DataSource.intervalToMs(intv);
+    const subDurMs = DataSource.intervalToMs(subIntv);
+    const subsPer = Math.max(1, Math.round(durMs / subDurMs));
+    const replayCount = candles.length - warmupIdx;
+    const needed = replayCount * subsPer + subsPer;
+    if (needed > 5000) return null; // too much data — keep synthetic ticks
+    const startMs = candles[warmupIdx].time * 1000;
+    const endMs = candles[candles.length - 1].time * 1000 + durMs;
+    let subRes;
+    try {
+      subRes = await DataSource.fetchCandles(sym, subIntv, needed, startMs, endMs, exch);
+    } catch (e) { return null; }
+    const subs = subRes.candles;
+    if (!subs || !subs.length) return null;
+    const durSec = durMs / 1000;
+    const map = new Map();
+    let p = 0;
+    for (let ci = warmupIdx; ci < candles.length; ci++) {
+      const c = candles[ci];
+      const lo = c.time, hi = c.time + durSec;
+      while (p < subs.length && subs[p].time < lo) p++;
+      let q = p; const list = [];
+      while (q < subs.length && subs[q].time < hi) { list.push(subs[q]); q++; }
+      if (list.length) map.set(c.time, list);
+      p = q;
+    }
+    return map.size ? map : null;
   }
 
   // ----- Camera (smooth focus / motion-tracking) -------------------------
@@ -554,45 +602,50 @@
       $('lev-chip').textContent = e.target.value + 'x';
     });
 
-    // Data: Bybit v5 (real market data), with automatic Binance fallback.
+    // Data: real exchange (Bybit or Binance perpetual), with real intra-candle
+    // ticks from a finer timeframe when the window is small enough.
     const SIDE = 30; // candles fetched on each side of a chosen date
     $('btn-binance').addEventListener('click', async () => {
       const sym = ($('inp-symbol').value.trim() || 'BTCUSDT').toUpperCase();
       const intv = $('inp-interval').value;
       const lim = parseInt($('inp-limit').value, 10) || 500;
+      const exch = $('inp-exchange').value || 'Bybit';
       const startVal = $('inp-start').value; // datetime-local, local time
-      const meta = { symbol: sym, interval: intv, exchange: 'Bybit' };
-      const label = 'Bybit · ' + sym + ' · ' + intv;
       try {
-        let res;
+        let res, warmup;
         if (startVal) {
-          // Centered window: ~30 candles before (context) + ~30 after (replay),
-          // regardless of interval. Replay starts at the chosen candle.
           const center = new Date(startVal).getTime();
           if (isNaN(center)) { setStatus('Invalid date.', 'err'); return; }
           const ms = DataSource.intervalToMs(intv);
           setStatus('Fetching ' + sym + ' ' + intv + ' around ' + startVal.replace('T', ' ') + '…');
           res = await DataSource.fetchCandles(
-            sym, intv, SIDE * 2 + 5, center - SIDE * ms, center + SIDE * ms);
-          // The chosen candle = last one starting at/before the picked time.
-          let chosen = 0;
+            sym, intv, SIDE * 2 + 5, center - SIDE * ms, center + SIDE * ms, exch);
+          warmup = 0;
           for (let i = 0; i < res.candles.length; i++) {
-            if (res.candles[i].time * 1000 <= center) chosen = i; else break;
+            if (res.candles[i].time * 1000 <= center) warmup = i; else break;
           }
-          meta.warmup = chosen;
-          loadCandles(res.candles, label, meta);
-          setStatus('Loaded ' + res.candles.length + ' candles centered on ' +
-            startVal.replace('T', ' ') + (res.fallback ? ' (via ' + res.fallback + ')' : '') +
-            '. Press Play ▶', 'ok');
         } else {
-          setStatus('Fetching latest ' + lim + ' ' + sym + ' ' + intv + ' from Bybit…');
-          res = await DataSource.fetchCandles(sym, intv, lim);
-          loadCandles(res.candles, label, meta);
-          if (res.fallback) {
-            setStatus('Loaded ' + res.candles.length + ' candles (Bybit unavailable — via ' +
-              res.fallback + '). Press Play ▶', 'ok');
-          }
+          setStatus('Fetching latest ' + lim + ' ' + sym + ' ' + intv + ' from ' + exch + '…');
+          res = await DataSource.fetchCandles(sym, intv, lim, undefined, undefined, exch);
+          warmup = null; // let loadCandles pick the default warmup
         }
+
+        const source = res.source; // exchange that actually served the data
+        // Try to build REAL ticks from a finer timeframe for the replay region.
+        const wIdx = (warmup != null) ? warmup
+          : Math.max(2, Math.min(60, Math.floor(res.candles.length * 0.3)));
+        setStatus('Loading real intra-candle data…');
+        const subMap = await fetchSubMap(sym, intv, res.candles, wIdx, source);
+
+        const meta = { symbol: sym, interval: intv, exchange: source, subMap };
+        if (warmup != null) meta.warmup = warmup;
+        const label = source + ' · ' + sym + ' · ' + intv;
+        loadCandles(res.candles, label, meta);
+
+        const bits = [source + ' ' + res.candles.length + ' candles'];
+        if (res.fallback) bits.push('(⚠ ' + exch + ' unavailable → ' + source + ')');
+        bits.push(subMap ? 'real ticks ✓' : 'synthetic ticks');
+        setStatus(bits.join(' · ') + '. Press Play ▶', res.fallback ? 'err' : 'ok');
       } catch (err) {
         setStatus('Fetch failed (' + err.message + '). Try Demo or CSV.', 'err');
       }

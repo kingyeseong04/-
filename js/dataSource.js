@@ -22,13 +22,22 @@
   };
   function intervalToMs(interval) { return INTERVAL_MS[interval] || 3600e3; }
 
+  // Finer timeframe used to drive real intra-candle ticks for each interval.
+  const SUB_INTERVAL = {
+    '5m': '1m', '15m': '1m', '30m': '1m', '1h': '1m',
+    '2h': '5m', '4h': '5m', '6h': '5m', '12h': '15m', '1d': '15m', '1w': '1h',
+  };
+  function subInterval(interval) { return SUB_INTERVAL[interval] || null; }
+
   async function klinesBatch(symbol, interval, n, startTime, endTime) {
     const params = new URLSearchParams({
       symbol, interval, limit: String(Math.min(1000, n)),
     });
     if (startTime) params.set('startTime', String(startTime));
     if (endTime) params.set('endTime', String(endTime));
-    const url = 'https://api.binance.com/api/v3/klines?' + params.toString();
+    // Binance USDT-M *perpetual futures* (fapi), so it matches "BTCUSDT.P"
+    // — not spot (api.binance.com/api/v3), which prints slightly different bars.
+    const url = 'https://fapi.binance.com/fapi/v1/klines?' + params.toString();
     const res = await fetch(url);
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
@@ -168,15 +177,21 @@
     return dedupAsc(out);
   }
 
-  // Try Bybit first (real Bybit data), fall back to Binance on any failure
-  // (e.g. CORS / geo block). Prices for the same symbol are effectively equal.
-  async function fetchCandles(symbol, interval, limit, startTime, endTime) {
+  // Fetch from the preferred exchange. Bybit falls back to Binance on failure
+  // (CORS / geo block); Binance is fetched directly. `source` reports the
+  // exchange that actually served the data (honest labelling).
+  async function fetchCandles(symbol, interval, limit, startTime, endTime, preferred) {
+    preferred = (preferred || 'Bybit');
+    if (preferred === 'Binance') {
+      const candles = await fromBinance(symbol, interval, limit, startTime, endTime);
+      return { candles, source: 'Binance' };
+    }
     try {
       const candles = await fromBybit(symbol, interval, limit, startTime, endTime);
       return { candles, source: 'Bybit' };
     } catch (e1) {
       const candles = await fromBinance(symbol, interval, limit, startTime, endTime);
-      return { candles, source: 'Bybit', fallback: 'Binance', note: e1.message };
+      return { candles, source: 'Binance', fallback: true, note: e1.message };
     }
   }
 
@@ -298,6 +313,7 @@
   }
 
   global.DataSource = {
-    fromBinance, fromBybit, fetchCandles, fromCSVFile, parseCSV, demo, intervalToMs,
+    fromBinance, fromBybit, fetchCandles, fromCSVFile, parseCSV, demo,
+    intervalToMs, subInterval,
   };
 })(window);

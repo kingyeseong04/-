@@ -28,6 +28,27 @@
           secondsVisible: false,
           rightOffset: 4,
           barSpacing: 8,
+          // Render axis ticks in the viewer's LOCAL timezone so bars line up
+          // with TradingView (which shows local time), instead of UTC.
+          tickMarkFormatter: (t, type) => {
+            const d = new Date(t * 1000);
+            const p = (n) => String(n).padStart(2, '0');
+            // type: 0 Year, 1 Month, 2 DayOfMonth, 3 Time, 4 TimeWithSeconds
+            if (type === 0) return String(d.getFullYear());
+            if (type === 1) return d.toLocaleString(undefined, { month: 'short' });
+            if (type === 2) return (d.getMonth() + 1) + '/' + d.getDate();
+            if (type === 4) return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+            return p(d.getHours()) + ':' + p(d.getMinutes());
+          },
+        },
+        localization: {
+          // Crosshair time label, also local time.
+          timeFormatter: (t) => {
+            const d = new Date(t * 1000);
+            const p = (n) => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+              ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+          },
         },
         crosshair: {
           mode: LightweightCharts.CrosshairMode.Normal,

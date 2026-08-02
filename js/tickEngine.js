@@ -95,5 +95,34 @@
     return arr;
   }
 
-  global.TickEngine = { generateTicks, randn, clamp };
+  // Build a tick path from REAL lower-timeframe sub-candles (e.g. 1m bars
+  // inside a 5m/1h candle). Each sub-candle contributes its actual
+  // open -> extreme -> extreme -> close movement, so the intra-candle motion
+  // matches the real market instead of being synthesized.
+  //   subs   : ordered array of { open, high, low, close } sub-candles
+  //   perSub : ticks emitted per sub-candle (>= 3)
+  // Returns a price path starting at the first sub's open and ending at the
+  // last sub's close, or null if there are no subs.
+  function ticksFromSubs(subs, perSub, vol) {
+    if (!subs || !subs.length) return null;
+    perSub = Math.max(3, perSub | 0);
+    vol = (vol == null) ? 0.08 : vol;
+    const arr = [subs[0].open];
+    for (const s of subs) {
+      if (s.high === s.low) { // flat sub-candle
+        for (let i = 0; i < perSub; i++) arr.push(s.close);
+        continue;
+      }
+      const bull = s.close >= s.open;
+      const e1 = bull ? s.low : s.high;   // dip first if bullish, else pop
+      const e2 = bull ? s.high : s.low;
+      const k = Math.max(1, Math.floor(perSub / 3));
+      bridgeTo(arr, e1, k, s.low, s.high, vol);
+      bridgeTo(arr, e2, k, s.low, s.high, vol);
+      bridgeTo(arr, s.close, Math.max(1, perSub - 2 * k), s.low, s.high, vol);
+    }
+    return arr;
+  }
+
+  global.TickEngine = { generateTicks, ticksFromSubs, randn, clamp };
 })(window);
