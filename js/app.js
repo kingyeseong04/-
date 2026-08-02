@@ -33,6 +33,8 @@
     tape: [],             // recent-trades feed (synthetic)
     subMap: null,         // Map candleTime -> real sub-candles (for real ticks)
     pnlBig: false,        // enlarged unrealized-P&L overlay (for video)
+    walletBig: false,     // enlarged wallet-balance overlay (for video)
+    lockView: true,       // lock the chart to the forming candle (no mouse pan)
     _loadMeta: null,
   };
 
@@ -229,8 +231,14 @@
       state.ticks = [];
       state.tickIdx = 0;
       indicatorsDirty = true; // a candle closed -> indicators need updating
-      chart.scrollToRealTime();
+      if (!state.lockView) chart.scrollToRealTime();
     }
+  }
+
+  // Keep the visible window anchored to the forming candle (view lock).
+  function anchorView() {
+    if (!state.lockView || state.candles.length === 0) return;
+    chart.setVisibleLogicalRange(state.idx - 46, state.idx + 12);
   }
 
   // ----- Per-frame render (once per rAF, regardless of ticks done) --------
@@ -240,6 +248,7 @@
     // index (its time matches), else lightweight-charts rejects the stale time.
     const cur = state.candles[state.idx];
     if (cur && state.running.time === cur.time) chart.updateCandle(state.running);
+    if (state.lockView) anchorView();
     updatePrice(state.lastPrice, state.lastPrice - lastRenderedPrice);
     lastRenderedPrice = state.lastPrice;
     renderAccount();
@@ -290,7 +299,7 @@
   // These inputs change how the replay behaves, so they're locked while it's
   // playing and only editable when paused (changes then apply on resume).
   function setInputsLocked(locked) {
-    ['inp-capital', 'speed'].forEach((id) => {
+    ['inp-capital', 'speed', 'speed-num'].forEach((id) => {
       const el = $(id); if (el) el.disabled = locked;
     });
   }
@@ -416,7 +425,18 @@
       '<span class="pnl-big-pct">' + sign(pct) + fmt(pct, 2) + '%</span>';
   }
 
-  function renderOverlays() { updateLegend(); updateCountdown(); updatePnlBig(); }
+  // Enlarged wallet-balance overlay (toggle + draggable) for video emphasis.
+  function updateWalletBig() {
+    const el = $('wallet-big');
+    if (!state.walletBig) { el.style.display = 'none'; return; }
+    el.className = 'pnl-big';
+    el.innerHTML =
+      '<span class="pnl-big-label">Wallet Balance</span>' +
+      '<span class="pnl-big-val" style="color:var(--text)">' + fmt(account.balance) + ' USDT</span>';
+    el.style.display = 'flex';
+  }
+
+  function renderOverlays() { updateLegend(); updateCountdown(); updatePnlBig(); updateWalletBig(); }
 
   // Cost (initial margin) shown on the Buy/Sell buttons.
   function updateCost() {
@@ -569,6 +589,7 @@
     }
     renderAccount();
     updatePnlBig();
+    updateWalletBig();
   }
 
   function renderTrades() {
@@ -640,7 +661,8 @@
     // 1×..3600×. The label shows how long ONE candle of the current interval
     // takes at the chosen speed.
     const MAXX = 3600;
-    const sliderToX = (v) => Math.max(1, Math.round(Math.exp(Math.log(MAXX) * (v / 100))));
+    const sliderToX = (v) => Math.max(1, Math.min(MAXX, Math.round(Math.exp(Math.log(MAXX) * (v / 100)))));
+    const xToSlider = (x) => Math.round(100 * Math.log(Math.max(1, x)) / Math.log(MAXX));
     const fmtDurLabel = (s) => s >= 60 ? (s / 60).toFixed(1) + '분'
       : s >= 1 ? s.toFixed(1) + '초' : (s * 1000).toFixed(0) + 'ms';
     const currentIntervalSec = () => {
@@ -651,12 +673,17 @@
       const perCandle = currentIntervalSec() / state.speedX;
       $('speed-label').textContent = state.speedX + '× · 1봉≈' + fmtDurLabel(perCandle);
     };
-    $('speed').addEventListener('input', (e) => {
-      state.speedX = sliderToX(Number(e.target.value));
+    // Slider and the direct-entry number box both drive speedX and sync.
+    const setSpeed = (x, from) => {
+      state.speedX = Math.max(1, Math.min(MAXX, Math.round(x || 1)));
+      if (from !== 'num') $('speed-num').value = state.speedX;
+      if (from !== 'slider') $('speed').value = xToSlider(state.speedX);
       updateSpeedLabel();
-    });
+    };
+    $('speed').addEventListener('input', (e) => setSpeed(sliderToX(Number(e.target.value)), 'slider'));
+    $('speed-num').addEventListener('input', (e) => setSpeed(Number(e.target.value), 'num'));
     $('inp-interval').addEventListener('change', updateSpeedLabel);
-    updateSpeedLabel();
+    setSpeed(state.speedX);
     // Keep the reference so the label can refresh after data loads.
     refreshSpeedLabel = updateSpeedLabel;
 
@@ -723,7 +750,8 @@
         const label = source + ' · ' + sym + ' · ' + intv;
         loadCandles(res.candles, label, meta);
         // Focus the view near the chosen date (extra lookback stays off-screen).
-        chart.setVisibleLogicalRange(warmup - VIEW_BEFORE, res.candles.length + 2);
+        if (state.lockView) anchorView();
+        else chart.setVisibleLogicalRange(warmup - VIEW_BEFORE, res.candles.length + 2);
         hideLoadMsg();
 
         const bits = [source + ' ' + res.candles.length + ' candles'];
@@ -737,13 +765,8 @@
       }
     });
 
-    // Enlarged P&L overlay toggle + drag-to-move.
-    $('btn-pnl').addEventListener('click', () => {
-      state.pnlBig = !state.pnlBig;
-      $('btn-pnl').classList.toggle('active', state.pnlBig);
-      updatePnlBig();
-    });
-    (function makeDraggable(el) {
+    // Draggable helper (works with touch via pointer events).
+    const makeDraggable = (el) => {
       let dragging = false, ox = 0, oy = 0;
       el.addEventListener('pointerdown', (e) => {
         dragging = true; el.setPointerCapture(e.pointerId);
@@ -760,7 +783,33 @@
       const end = () => { dragging = false; };
       el.addEventListener('pointerup', end);
       el.addEventListener('pointercancel', end);
-    })($('pnl-big'));
+    };
+    makeDraggable($('pnl-big'));
+    makeDraggable($('wallet-big'));
+
+    // Enlarged P&L overlay toggle.
+    $('btn-pnl').addEventListener('click', () => {
+      state.pnlBig = !state.pnlBig;
+      $('btn-pnl').classList.toggle('active', state.pnlBig);
+      updatePnlBig();
+    });
+    // Enlarged Wallet-balance overlay toggle.
+    $('btn-wallet').addEventListener('click', () => {
+      state.walletBig = !state.walletBig;
+      $('btn-wallet').classList.toggle('active', state.walletBig);
+      updateWalletBig();
+    });
+    // Lock the chart to the forming candle (disable mouse pan/zoom).
+    const applyLock = () => {
+      $('btn-lock').classList.toggle('active', state.lockView);
+      chart.setInteraction(!state.lockView);
+      if (state.lockView) anchorView();
+    };
+    $('btn-lock').addEventListener('click', () => {
+      state.lockView = !state.lockView;
+      applyLock();
+    });
+    applyLock(); // set initial interaction state (locked by default)
 
     // Indicators: toggle panel + apply settings live.
     $('btn-ind').addEventListener('click', () => {

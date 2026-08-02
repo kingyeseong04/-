@@ -37,6 +37,7 @@
         <div id="countdown" class="tv-countdown" style="display:none;"></div>
         <div id="load-msg" class="load-msg" style="display:none;"></div>
         <div id="pnl-big" class="pnl-big" style="display:none;"></div>
+        <div id="wallet-big" class="pnl-big" style="display:none;"></div>
         <!-- Indicator settings -->
         <div id="ind-panel" class="ind-panel" style="display:none;">
           <div class="ind-row">
@@ -173,28 +174,31 @@
     <button id="btn-play">▶ Play</button>
     <button class="btn-ghost" id="btn-restart">⟲ Restart</button>
     <button class="btn-ghost" id="btn-clean" title="Chart-only fullscreen for recording (F)">⛶ Clean</button>
+    <button class="btn-ghost active" id="btn-lock" title="현재 봉에 차트 고정 (마우스로 안 움직임)">🔒 고정</button>
     <button class="btn-ghost" id="btn-pnl" title="미실현 손익 크게 표시 (드래그로 위치 이동)">💰 손익</button>
+    <button class="btn-ghost" id="btn-wallet" title="지갑 잔고 크게 표시 (드래그로 위치 이동)">💵 잔고</button>
     <button class="btn-ghost" id="btn-ind" title="지표 설정 (볼린저·일목)">📈 지표</button>
 
     <div class="group">
       <label>배속</label>
       <input type="range" id="speed" min="0" max="100" value="50" title="실시간 대비 배속 (1×=실시간)" />
-      <label id="speed-label">60× · 1봉≈…</label>
+      <input type="number" id="speed-num" min="1" max="3600" value="60" title="배속 직접 입력 (1~3600)" />
+      <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
-      <input type="text" id="inp-symbol" value="BTCUSDT" title="Symbol" />
-      <select id="inp-interval" title="Interval">
+      <span class="step"><b>①</b><input type="text" id="inp-symbol" value="BTCUSDT" title="심볼" /></span>
+      <span class="step"><b>②</b><select id="inp-interval" title="시간봉">
         <option value="5m">5m</option>
         <option value="15m">15m</option>
         <option value="1h" selected>1h</option>
         <option value="4h">4h</option>
         <option value="1d">1d</option>
-      </select>
-      <input type="datetime-local" id="inp-start" title="시작 날짜·시각 (그 시점 앞뒤 30개씩 불러옴)" />
-      <button class="btn-ghost" id="btn-binance">Load</button>
+      </select></span>
+      <span class="step"><b>③</b><input type="datetime-local" id="inp-start" title="시작 날짜·시각" /></span>
+      <button class="btn-ghost step-btn" id="btn-binance">④ Load</button>
     </div>
   </div>
 

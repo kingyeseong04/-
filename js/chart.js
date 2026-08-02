@@ -259,6 +259,12 @@
       this.ichi = null;
     }
 
+    // Enable/disable mouse pan+zoom so the chart can be locked to the forming
+    // candle (no drift when the mouse touches it — important for recording).
+    setInteraction(enabled) {
+      this.chart.applyOptions({ handleScroll: enabled, handleScale: enabled });
+    }
+
     fitContent() { this.chart.timeScale().fitContent(); }
     scrollToRealTime() { this.chart.timeScale().scrollToRealTime(); }
 

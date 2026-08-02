@@ -103,6 +103,7 @@ body {
 .pnl-big.up { color: var(--buy); }
 .pnl-big.down { color: var(--sell); }
 .pnl-big.up .pnl-big-label, .pnl-big.down .pnl-big-label { color: var(--muted); }
+#wallet-big { top: 172px; } /* offset so it doesn't overlap the P&L overlay */
 .load-msg {
   position: absolute; z-index: 4; top: 50%; left: 50%; transform: translate(-50%, -50%);
   max-width: 80%; text-align: center; white-space: pre-line;
@@ -228,6 +229,10 @@ button:hover { filter: brightness(1.08); }
 #btn-play { background: var(--accent); color: #111; min-width: 88px; }
 #btn-play:hover { filter: brightness(1.05); }
 .exchange-badge { background: var(--accent); color: #111; font-weight: 700; font-size: 12px; padding: 5px 9px; border-radius: 4px; }
+.controls .step { display: inline-flex; align-items: center; gap: 5px; }
+.controls .step b { color: var(--accent); font-size: 13px; }
+.step-btn { border-color: var(--accent) !important; color: var(--accent) !important; font-weight: 700; }
+#speed-num { width: 58px; }
 .exchange-sel { background: var(--accent); color: #17181e; font-weight: 700; border: none; border-radius: 4px; padding: 6px 8px; cursor: pointer; }
 .ctrl-label { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .file-btn { display: inline-block; padding: 7px 12px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font-weight: 600; }
