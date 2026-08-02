@@ -34,6 +34,7 @@
     subMap: null,         // Map candleTime -> real sub-candles (for real ticks)
     pnlBig: false,        // enlarged unrealized-P&L overlay (for video)
     walletBig: false,     // enlarged wallet-balance overlay (for video)
+    fx: 1350,             // ₩ per USDT (for KRW conversion)
     lockView: true,       // lock the chart to the forming candle (no mouse pan)
     _loadMeta: null,
   };
@@ -375,6 +376,12 @@
     return h > 0 ? h + ':' + pad(m) + ':' + pad(sec) : pad(m) + ':' + pad(sec);
   }
 
+  // Convert a USDT amount to a "₩1,234,567" Korean-won string.
+  function fmtKRW(usdt) {
+    const won = Math.round((usdt || 0) * state.fx);
+    return (won < 0 ? '-₩' : '₩') + Math.abs(won).toLocaleString('en-US');
+  }
+
   // Enlarged unrealized-P&L overlay (toggle + draggable) for video emphasis.
   function updatePnlBig() {
     const el = $('pnl-big');
@@ -393,7 +400,8 @@
     el.innerHTML =
       '<span class="pnl-big-label">Unrealized P&amp;L</span>' +
       '<span class="pnl-big-val">' + sign(pnl) + fmt(pnl) + ' USDT</span>' +
-      '<span class="pnl-big-pct">' + sign(pct) + fmt(pct, 2) + '%</span>';
+      '<span class="pnl-big-pct">' + sign(pct) + fmt(pct, 2) + '%</span>' +
+      '<span class="pnl-big-krw">' + fmtKRW(pnl) + '</span>';
   }
 
   // Enlarged wallet-balance overlay (toggle + draggable) for video emphasis.
@@ -403,7 +411,8 @@
     el.className = 'pnl-big';
     el.innerHTML =
       '<span class="pnl-big-label">Wallet Balance</span>' +
-      '<span class="pnl-big-val" style="color:var(--text)">' + fmt(account.balance) + ' USDT</span>';
+      '<span class="pnl-big-val" style="color:var(--text)">' + fmt(account.balance) + ' USDT</span>' +
+      '<span class="pnl-big-krw">' + fmtKRW(account.balance) + '</span>';
     el.style.display = 'flex';
   }
 
@@ -663,6 +672,12 @@
       const v = Math.max(1, Number(e.target.value) || 10000);
       account.startBalance = v;
       if (account.qty === 0) { account.reset(); onPositionChanged(); renderTrades(); }
+    });
+    // Exchange rate (₩/USDT) for the KRW readouts on the overlays.
+    $('inp-fx').addEventListener('input', (e) => {
+      state.fx = Math.max(0, Number(e.target.value) || 0);
+      updatePnlBig();
+      updateWalletBig();
     });
     $('btn-long').addEventListener('click', () => placeOrder('long'));
     $('btn-short').addEventListener('click', () => placeOrder('short'));

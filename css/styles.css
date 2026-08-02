@@ -94,6 +94,7 @@ body {
 .pnl-big .pnl-big-label { font-size: 13px; color: var(--muted); letter-spacing: .5px; }
 .pnl-big .pnl-big-val { font-size: 44px; font-weight: 800; line-height: 1.1; }
 .pnl-big .pnl-big-pct { font-size: 22px; font-weight: 700; }
+.pnl-big .pnl-big-krw { font-size: 20px; font-weight: 700; margin-top: 2px; }
 .pnl-big.up { color: var(--buy); }
 .pnl-big.down { color: var(--sell); }
 .pnl-big.up .pnl-big-label, .pnl-big.down .pnl-big-label { color: var(--muted); }
