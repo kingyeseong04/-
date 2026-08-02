@@ -5,6 +5,63 @@
 (function (global) {
   'use strict';
 
+  // ---- Fill primitive: shades the area between two price series (used for the
+  // Bollinger band fill and the Ichimoku cloud). Colour can differ per segment
+  // based on whether a >= b (green cloud) or a < b (red cloud). ----
+  class FillRenderer {
+    constructor(points, colUp, colDn) { this._p = points; this._cu = colUp; this._cd = colDn; }
+    draw(target) {
+      const pts = this._p;
+      if (!pts || pts.length < 2) return;
+      target.useBitmapCoordinateSpace((scope) => {
+        const ctx = scope.context;
+        const hr = scope.horizontalPixelRatio, vr = scope.verticalPixelRatio;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p0 = pts[i], p1 = pts[i + 1];
+          ctx.beginPath();
+          ctx.moveTo(p0.x * hr, p0.ya * vr);
+          ctx.lineTo(p1.x * hr, p1.ya * vr);
+          ctx.lineTo(p1.x * hr, p1.yb * vr);
+          ctx.lineTo(p0.x * hr, p0.yb * vr);
+          ctx.closePath();
+          ctx.fillStyle = p0.up ? this._cu : this._cd;
+          ctx.fill();
+        }
+      });
+    }
+  }
+  class FillPaneView {
+    constructor(src) { this._src = src; this._points = []; }
+    update() {
+      const s = this._src;
+      const ts = s._chart && s._chart.timeScale();
+      const series = s._series;
+      if (!ts || !series) { this._points = []; return; }
+      this._points = [];
+      for (const d of s._data) {
+        const x = ts.timeToCoordinate(d.time);
+        const ya = series.priceToCoordinate(d.a);
+        const yb = series.priceToCoordinate(d.b);
+        if (x == null || ya == null || yb == null) continue;
+        this._points.push({ x, ya, yb, up: d.a >= d.b });
+      }
+    }
+    renderer() { return new FillRenderer(this._points, this._src._colUp, this._src._colDn); }
+    zOrder() { return 'bottom'; }
+  }
+  class FillPrimitive {
+    constructor(colUp, colDn) {
+      this._data = []; this._chart = null; this._series = null; this._requestUpdate = null;
+      this._colUp = colUp; this._colDn = colDn;
+      this._pv = new FillPaneView(this);
+    }
+    attached(p) { this._chart = p.chart; this._series = p.series; this._requestUpdate = p.requestUpdate; }
+    detached() { this._chart = null; this._series = null; }
+    setData(d) { this._data = d || []; if (this._requestUpdate) this._requestUpdate(); }
+    updateAllViews() { this._pv.update(); }
+    paneViews() { return [this._pv]; }
+  }
+
   class Chart {
     constructor(container) {
       this.chart = LightweightCharts.createChart(container, {
@@ -141,6 +198,65 @@
         axisLabelVisible: true,
         title: 'Liq',
       });
+    }
+
+    // ---- Indicators ----
+    _mkLine(color, width) {
+      return this.chart.addLineSeries({
+        color, lineWidth: width || 1,
+        priceLineVisible: false, lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+    }
+
+    renderBollinger(data) {
+      if (!this.bb) {
+        this.bb = {
+          upper: this._mkLine('#5a9cf8', 1),
+          lower: this._mkLine('#5a9cf8', 1),
+          mid: this._mkLine('#e3b341', 1),
+          fill: new FillPrimitive('rgba(90,156,248,0.06)', 'rgba(90,156,248,0.06)'),
+        };
+        this.series.attachPrimitive(this.bb.fill);
+      }
+      this.bb.upper.setData(data.upper);
+      this.bb.lower.setData(data.lower);
+      this.bb.mid.setData(data.mid);
+      this.bb.fill.setData(data.band);
+    }
+    clearBollinger() {
+      if (!this.bb) return;
+      this.series.detachPrimitive(this.bb.fill);
+      this.chart.removeSeries(this.bb.upper);
+      this.chart.removeSeries(this.bb.lower);
+      this.chart.removeSeries(this.bb.mid);
+      this.bb = null;
+    }
+
+    renderIchimoku(data) {
+      if (!this.ichi) {
+        this.ichi = {
+          tenkan: this._mkLine('#2962ff', 1),   // conversion
+          kijun: this._mkLine('#d13d47', 1),    // base
+          spanA: this._mkLine('#43a047', 1),    // leading A
+          spanB: this._mkLine('#ef5350', 1),    // leading B
+          chikou: this._mkLine('#8e6fd8', 1),   // lagging
+          cloud: new FillPrimitive('rgba(76,175,80,0.13)', 'rgba(239,83,80,0.13)'),
+        };
+        this.series.attachPrimitive(this.ichi.cloud);
+      }
+      this.ichi.tenkan.setData(data.tenkan);
+      this.ichi.kijun.setData(data.kijun);
+      this.ichi.spanA.setData(data.spanA);
+      this.ichi.spanB.setData(data.spanB);
+      this.ichi.chikou.setData(data.chikou);
+      this.ichi.cloud.setData(data.cloud);
+    }
+    clearIchimoku() {
+      if (!this.ichi) return;
+      this.series.detachPrimitive(this.ichi.cloud);
+      ['tenkan', 'kijun', 'spanA', 'spanB', 'chikou'].forEach((k) => this.chart.removeSeries(this.ichi[k]));
+      this.ichi = null;
     }
 
     fitContent() { this.chart.timeScale().fitContent(); }

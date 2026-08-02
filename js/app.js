@@ -39,6 +39,31 @@
   const account = new Trading.Account(10000);
   let refreshSpeedLabel = null; // set in bind(); refreshes the 배속 label
 
+  // Indicator settings (both use OHLC only — no volume needed).
+  const ind = {
+    bb: { on: false, period: 20, mult: 2 },
+    ichi: { on: false, tenkan: 9, kijun: 26, senkouB: 52, disp: 26 },
+  };
+  let indicatorsDirty = false;
+
+  // Recompute indicators from the revealed (closed) candles and redraw.
+  function recomputeIndicators() {
+    const revealed = state.candles.slice(0, Math.max(1, state.idx));
+    if (ind.bb.on && revealed.length >= ind.bb.period) {
+      chart.renderBollinger(Indicators.bollinger(revealed, ind.bb.period, ind.bb.mult));
+    } else {
+      chart.clearBollinger();
+    }
+    const intervalSec = DataSource.intervalToMs(state.interval || '1h') / 1000;
+    if (ind.ichi.on && revealed.length >= Math.max(ind.ichi.kijun, ind.ichi.senkouB)) {
+      chart.renderIchimoku(Indicators.ichimoku(
+        revealed, ind.ichi.tenkan, ind.ichi.kijun, ind.ichi.senkouB, ind.ichi.disp, intervalSec));
+    } else {
+      chart.clearIchimoku();
+    }
+    indicatorsDirty = false;
+  }
+
   // ----- Status / toast --------------------------------------------------
   function setStatus(msg, kind) {
     const el = $('status');
@@ -104,6 +129,7 @@
     renderOverlays();
     updateStats();
     renderMarket(0, true);
+    recomputeIndicators();
     if (refreshSpeedLabel) refreshSpeedLabel(); // label uses the loaded interval
     setStatus('Loaded ' + candles.length + ' candles. Press Play ▶', 'ok');
   }
@@ -198,6 +224,7 @@
       state.idx++;
       state.ticks = [];
       state.tickIdx = 0;
+      indicatorsDirty = true; // a candle closed -> indicators need updating
       chart.scrollToRealTime();
     }
   }
@@ -215,6 +242,7 @@
     renderOverlays();
     updateStats();
     renderMarket(ts);
+    if (indicatorsDirty && (ind.bb.on || ind.ichi.on)) recomputeIndicators();
   }
 
   // Real milliseconds each tick should take, so playback tracks real time:
@@ -609,7 +637,10 @@
     });
 
     // Data: Bybit perpetual around a chosen date (+ real intra-candle ticks).
-    const SIDE = 30; // candles fetched on each side of the chosen date
+    // Extra history is pulled BEFORE the date so indicators (Ichimoku needs
+    // ~78 bars of lookback) are valid immediately; the view still focuses near
+    // the chosen date and only the AFTER candles are replayed.
+    const BEFORE = 130, AFTER = 30, VIEW_BEFORE = 34;
     $('btn-binance').addEventListener('click', async () => {
       const sym = ($('inp-symbol').value.trim() || 'BTCUSDT').toUpperCase();
       const intv = $('inp-interval').value;
@@ -623,7 +654,7 @@
         showLoadMsg('불러오는 중… ' + sym + ' ' + intv);
         setStatus('Fetching ' + sym + ' ' + intv + ' around ' + startVal.replace('T', ' ') + '…');
         const res = await DataSource.fetchCandles(
-          sym, intv, SIDE * 2 + 5, center - SIDE * ms, center + SIDE * ms, exch);
+          sym, intv, BEFORE + AFTER + 5, center - BEFORE * ms, center + AFTER * ms, exch);
         let warmup = 0;
         for (let i = 0; i < res.candles.length; i++) {
           if (res.candles[i].time * 1000 <= center) warmup = i; else break;
@@ -636,6 +667,8 @@
         const meta = { symbol: sym, interval: intv, exchange: source, subMap, warmup };
         const label = source + ' · ' + sym + ' · ' + intv;
         loadCandles(res.candles, label, meta);
+        // Focus the view near the chosen date (extra lookback stays off-screen).
+        chart.setVisibleLogicalRange(warmup - VIEW_BEFORE, res.candles.length + 2);
         hideLoadMsg();
 
         const bits = [source + ' ' + res.candles.length + ' candles'];
@@ -673,6 +706,25 @@
       el.addEventListener('pointerup', end);
       el.addEventListener('pointercancel', end);
     })($('pnl-big'));
+
+    // Indicators: toggle panel + apply settings live.
+    $('btn-ind').addEventListener('click', () => {
+      const p = $('ind-panel');
+      p.style.display = (p.style.display === 'none' || !p.style.display) ? 'flex' : 'none';
+    });
+    const readInd = () => {
+      ind.bb.on = $('bb-on').checked;
+      ind.bb.period = Math.max(2, parseInt($('bb-period').value, 10) || 20);
+      ind.bb.mult = Math.max(0.1, parseFloat($('bb-mult').value) || 2);
+      ind.ichi.on = $('ichi-on').checked;
+      ind.ichi.tenkan = Math.max(1, parseInt($('ichi-t').value, 10) || 9);
+      ind.ichi.kijun = Math.max(1, parseInt($('ichi-k').value, 10) || 26);
+      ind.ichi.senkouB = Math.max(1, parseInt($('ichi-b').value, 10) || 52);
+      ind.ichi.disp = Math.max(0, parseInt($('ichi-d').value, 10) || 26);
+      recomputeIndicators();
+    };
+    ['bb-on', 'bb-period', 'bb-mult', 'ichi-on', 'ichi-t', 'ichi-k', 'ichi-b', 'ichi-d']
+      .forEach((id) => $(id).addEventListener('change', readInd));
 
     // Clean / recording mode: chart-only, optionally real fullscreen.
     $('btn-clean').addEventListener('click', () => setClean(true));

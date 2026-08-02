@@ -74,6 +74,21 @@ body {
   border-top: 1px solid var(--border);
 }
 
+/* Indicator settings panel */
+.ind-panel {
+  position: absolute; z-index: 6; top: 10px; right: 10px;
+  background: rgba(20, 22, 28, .95); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; font-size: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.ind-panel .ind-row { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.ind-panel label { display: flex; align-items: center; gap: 6px; font-weight: 600; min-width: 92px; cursor: pointer; }
+.ind-panel span { color: var(--muted); display: flex; align-items: center; gap: 4px; }
+.ind-panel input[type=number] {
+  width: 52px; background: var(--field); border: 1px solid var(--border); color: var(--text);
+  padding: 4px 6px; border-radius: 4px; font: inherit;
+}
+.ind-panel input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+
 /* Enlarged unrealized-P&L overlay for video (draggable) */
 .pnl-big {
   position: absolute; z-index: 6; top: 64px; left: 50%; transform: translateX(-50%);
