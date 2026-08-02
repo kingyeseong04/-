@@ -66,14 +66,14 @@
     constructor(container) {
       this.chart = LightweightCharts.createChart(container, {
         layout: {
-          background: { color: '#16171c' }, // Bybit chart background
+          background: { color: '#101014' }, // Bybit chart background (sampled)
           textColor: '#8a8e99',
-          fontFamily: "'Trebuchet MS', Roboto, Ubuntu, sans-serif",
+          fontFamily: "'IBM Plex Sans', -apple-system, 'Trebuchet MS', Roboto, sans-serif",
           fontSize: 12,
         },
         grid: {
-          vertLines: { color: '#20222a' },
-          horzLines: { color: '#20222a' },
+          vertLines: { color: '#202124' },
+          horzLines: { color: '#202124' },
         },
         rightPriceScale: {
           borderColor: '#2a2d35',
@@ -128,12 +128,12 @@
       this.priceRangeProvider = null;
 
       this.series = this.chart.addCandlestickSeries({
-        upColor: '#2ebd85',       // Bybit green
-        downColor: '#f6465d',     // Bybit red
-        borderUpColor: '#2ebd85',
-        borderDownColor: '#f6465d',
-        wickUpColor: '#2ebd85',
-        wickDownColor: '#f6465d',
+        upColor: '#20b26c',       // Bybit green (sampled from real chart)
+        downColor: '#ef454a',     // Bybit red (sampled)
+        borderUpColor: '#20b26c',
+        borderDownColor: '#ef454a',
+        wickUpColor: '#20b26c',
+        wickDownColor: '#ef454a',
         // Bybit-style dotted current-price line + colored axis label.
         priceLineVisible: true,
         priceLineWidth: 1,
@@ -177,7 +177,7 @@
         (size != null ? ' ' + (Math.abs(size) >= 1 ? size.toFixed(2) : size.toFixed(3)) : '');
       this.entryLine = this.series.createPriceLine({
         price,
-        color: isLong ? '#2ebd85' : '#f6465d',
+        color: isLong ? '#20b26c' : '#ef454a',
         lineWidth: 1,
         lineStyle: LightweightCharts.LineStyle.Solid,
         axisLabelVisible: true,

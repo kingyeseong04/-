@@ -7,8 +7,8 @@
   --hover: #23262e;
   --text: #eaecef;
   --muted: #7a7e87;
-  --buy: #2ebd85;    /* Bybit green (long/buy) */
-  --sell: #f6465d;   /* Bybit red (short/sell) */
+  --buy: #20b26c;    /* Bybit green (sampled from real chart) */
+  --sell: #ef454a;   /* Bybit red (sampled) */
   --accent: #f7a600; /* Bybit yellow */
   --field: #232630;
 }
@@ -18,7 +18,7 @@ html, body { height: 100%; margin: 0; }
 body {
   background: var(--bg);
   color: var(--text);
-  font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'IBM Plex Sans', 'Segoe UI', Roboto, sans-serif;
+  font: 13px/1.4 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   display: flex; flex-direction: column;
   -webkit-font-smoothing: antialiased;
 }
@@ -51,7 +51,7 @@ body {
 /* ---- Main layout ---- */
 .main { display: flex; flex: 1; min-height: 0; }
 .col-chart { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-#chart-wrap { position: relative; flex: 1; min-height: 0; background: var(--bg); }
+#chart-wrap { position: relative; flex: 1; min-height: 0; background: #101014; }
 #chart { position: absolute; inset: 0; }
 
 .col-book { width: 232px; flex: none; border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
@@ -60,7 +60,7 @@ body {
 /* ---- Chart overlays ---- */
 .tv-legend {
   position: absolute; top: 8px; left: 12px; z-index: 3;
-  font: 13px/1.5 'Trebuchet MS', Roboto, sans-serif; pointer-events: none; white-space: nowrap;
+  font: 13px/1.5 'IBM Plex Sans', -apple-system, Roboto, sans-serif; pointer-events: none; white-space: nowrap;
 }
 .tv-legend .sym { font-weight: 600; color: var(--text); font-size: 14px; }
 .tv-legend .meta { color: var(--muted); font-size: 13px; font-weight: 400; }
