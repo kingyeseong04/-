@@ -210,10 +210,10 @@
     renderBollinger(data) {
       if (!this.bb) {
         this.bb = {
-          upper: this._mkLine('#5a9cf8', 1),
-          lower: this._mkLine('#5a9cf8', 1),
-          mid: this._mkLine('#e3b341', 1),
-          fill: new FillPrimitive('rgba(90,156,248,0.06)', 'rgba(90,156,248,0.06)'),
+          upper: this._mkLine('#ef454a', 1), // Bybit/TV upper = red
+          lower: this._mkLine('#22ab94', 1), // lower = green
+          mid: this._mkLine('#2962ff', 1),   // basis = blue
+          fill: new FillPrimitive('rgba(120,130,150,0.05)', 'rgba(120,130,150,0.05)'),
         };
         this.series.attachPrimitive(this.bb.fill);
       }
@@ -234,12 +234,12 @@
     renderIchimoku(data) {
       if (!this.ichi) {
         this.ichi = {
-          tenkan: this._mkLine('#2962ff', 1),   // conversion
-          kijun: this._mkLine('#d13d47', 1),    // base
-          spanA: this._mkLine('#43a047', 1),    // leading A
-          spanB: this._mkLine('#ef5350', 1),    // leading B
-          chikou: this._mkLine('#8e6fd8', 1),   // lagging
-          cloud: new FillPrimitive('rgba(76,175,80,0.13)', 'rgba(239,83,80,0.13)'),
+          tenkan: this._mkLine('#2962ff', 1),   // conversion (blue)
+          kijun: this._mkLine('#b71c1c', 1),    // base (dark red)
+          spanA: this._mkLine('#a5d6a7', 1),    // leading A (light green)
+          spanB: this._mkLine('#ef9a9a', 1),    // leading B (light pink)
+          chikou: this._mkLine('#43a047', 1),   // lagging (green)
+          cloud: new FillPrimitive('rgba(67,160,71,0.12)', 'rgba(244,67,54,0.12)'),
         };
         this.series.attachPrimitive(this.ichi.cloud);
       }
