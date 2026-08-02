@@ -724,7 +724,8 @@
     // the chosen date and only the AFTER candles are replayed.
     const BEFORE = 130, AFTER = 30, VIEW_BEFORE = 34;
     $('btn-binance').addEventListener('click', async () => {
-      const sym = ($('inp-symbol').value.trim() || 'BTCUSDT').toUpperCase();
+      // Accept TradingView ".P" notation (e.g. TSLAUSDT.P) — strip it for the API.
+      const sym = ($('inp-symbol').value.trim() || 'BTCUSDT').toUpperCase().replace(/\.P$/, '');
       const intv = $('inp-interval').value;
       const exch = 'Bybit'; // Bybit only (Binance kept as silent fallback)
       const startVal = $('inp-start').value; // datetime-local, local time

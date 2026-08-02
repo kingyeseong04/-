@@ -189,7 +189,7 @@
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
-      <span class="step"><b>①</b><input type="text" id="inp-symbol" value="BTCUSDT" title="심볼" /></span>
+      <span class="step"><b>①</b><input type="text" id="inp-symbol" value="BTCUSDT.P" list="symbol-list" title="심볼 (Bybit 무기한, .P)" /></span>
       <span class="step"><b>②</b><select id="inp-interval" title="시간봉">
         <option value="5m">5m</option>
         <option value="15m">15m</option>
@@ -199,6 +199,17 @@
       </select></span>
       <span class="step"><b>③</b><input type="datetime-local" id="inp-start" title="시작 날짜·시각" /></span>
       <button class="btn-ghost step-btn" id="btn-binance">④ Load</button>
+      <datalist id="symbol-list">
+        <option value="BTCUSDT.P"></option>
+        <option value="ETHUSDT.P"></option>
+        <option value="DRAMUSDT.P"></option>
+        <option value="SOXLUSDT.P"></option>
+        <option value="XAUUSDT.P"></option>
+        <option value="SAMSUNGUSDT.P"></option>
+        <option value="TSLAUSDT.P"></option>
+        <option value="ALABUSDT.P"></option>
+        <option value="COHRUSDT.P"></option>
+      </datalist>
     </div>
   </div>
 
