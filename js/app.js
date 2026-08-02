@@ -774,8 +774,17 @@
       const startVal = $('inp-start').value; // datetime-local, local time
       if (!startVal) { setStatus('날짜·시각을 먼저 선택하세요.', 'err'); return; }
       try {
-        const center = new Date(startVal).getTime();
+        // If the SAME symbol+date is reloaded (i.e. only the timeframe changed),
+        // continue from the current playhead time and carry the open position —
+        // instead of rewinding to the date.
+        const sameSymbol = state.candles.length > 0 && sym === state.symbol;
+        const continueRun = sameSymbol && startVal === state._loadDateStr;
+        let center = new Date(startVal).getTime();
         if (isNaN(center)) { setStatus('Invalid date.', 'err'); return; }
+        if (continueRun) {
+          const cur = state.candles[Math.min(state.idx, state.candles.length - 1)];
+          if (cur) center = cur.time * 1000;
+        }
         const ms = DataSource.intervalToMs(intv);
         showLoadMsg('불러오는 중… ' + sym + ' ' + intv);
         setStatus('Fetching ' + sym + ' ' + intv + ' around ' + startVal.replace('T', ' ') + '…');
@@ -790,16 +799,21 @@
         setStatus('Loading real intra-candle data…');
         const subMap = await fetchSubMap(sym, intv, res.candles, warmup, source);
 
-        // Same symbol already loaded → keep the wallet (balance/leverage/trades).
-        // Settle any open position at the current price first (money isn't lost).
-        const keepAccount = state.candles.length > 0 && sym === state.symbol;
-        if (keepAccount && account.qty !== 0) {
+        // Same symbol → keep the wallet (balance/leverage/trades). In a
+        // timeframe switch (continueRun) also KEEP the open position and pick
+        // up at the current time. When only the DATE changed, settle the open
+        // position first (money isn't lost) since the replay jumps elsewhere.
+        const keepAccount = sameSymbol;
+        if (keepAccount && !continueRun && account.qty !== 0) {
           account.closeAll(state.lastPrice, state.running.time || 0);
         }
 
         const meta = { symbol: sym, interval: intv, exchange: source, subMap, warmup, keepAccount };
         const label = source + ' · ' + sym + ' · ' + intv;
         loadCandles(res.candles, label, meta);
+        state._loadDateStr = startVal;
+        // Re-draw the carried-over position's lines (loadCandles cleared them).
+        if (continueRun && account.qty !== 0) onPositionChanged();
         // Focus the view near the chosen date (extra lookback stays off-screen).
         if (state.lockView) anchorView();
         else chart.setVisibleLogicalRange(warmup - VIEW_BEFORE, res.candles.length + 2);
@@ -808,7 +822,8 @@
         const bits = [source + ' ' + res.candles.length + ' candles'];
         if (res.fallback) bits.push('(⚠ → ' + source + ')');
         bits.push(subMap ? 'real ticks ✓' : 'synthetic ticks');
-        if (keepAccount) bits.push('잔고 유지 ' + fmt(account.balance) + ' USDT');
+        if (continueRun) bits.push((account.qty !== 0 ? '포지션·잔고' : '잔고') + ' 유지 (이어서)');
+        else if (keepAccount) bits.push('잔고 유지 ' + fmt(account.balance) + ' USDT');
         setStatus(bits.join(' · ') + '. Press Play ▶', res.fallback ? 'err' : 'ok');
       } catch (err) {
         showLoadMsg('불러오기 실패\n' + err.message +
