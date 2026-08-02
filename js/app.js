@@ -22,8 +22,6 @@
     playing: false,
     speedX: 60,           // playback speed multiplier vs real time (1x = real)
     ticksPerCandle: 60,
-    focus: false,         // motion-tracking zoom on the forming candle
-    zoomBars: 7,          // how many bars stay visible when focused
     lastPrice: 0,
     symbolLabel: 'DEMO',
     symbol: 'DEMO',
@@ -38,6 +36,7 @@
 
   const chart = new ChartWrap($('chart'));
   const account = new Trading.Account(10000);
+  let refreshSpeedLabel = null; // set in bind(); refreshes the 배속 label
 
   // ----- Status / toast --------------------------------------------------
   function setStatus(msg, kind) {
@@ -73,8 +72,7 @@
 
     // Show the warmup history; replay continues from there.
     chart.setHistory(candles.slice(0, state.warmup));
-    cam.init = false; // re-aim the focus camera for the new dataset
-    if (state.focus) stepCamera(true); else chart.fitContent();
+    chart.fitContent();
     chart.setEntryLine(null);
     chart.setLiqLine(null);
 
@@ -95,6 +93,7 @@
     renderOverlays();
     updateStats();
     renderMarket(0, true);
+    if (refreshSpeedLabel) refreshSpeedLabel(); // label uses the loaded interval
     setStatus('Loaded ' + candles.length + ' candles. Press Play ▶', 'ok');
   }
 
@@ -155,55 +154,6 @@
     return map.size ? map : null;
   }
 
-  // ----- Camera (smooth focus / motion-tracking) -------------------------
-  // The camera eases toward a target window every frame instead of snapping,
-  // so panning (when a candle finalizes) and the price-axis zoom glide.
-  const cam = { from: 0, to: 0, pmin: 0, pmax: 0, init: false };
-  const lerp = (a, b, t) => a + (b - a) * t;
-
-  // The chart's logical bar index equals the candle array index, because we
-  // seed history with candles[0..warmup-1] then update() candles[warmup..].
-  // So the forming candle sits at logical index === state.idx.
-  function focusTarget() {
-    const i = state.idx;
-    const from = i - (state.zoomBars - 1);
-    const to = i + 1.2; // a little breathing room on the right
-    let lo = Infinity, hi = -Infinity;
-    const start = Math.max(0, Math.floor(from));
-    const end = Math.min(i, state.candles.length - 1);
-    for (let j = start; j <= end; j++) {
-      const formingHere = j === state.idx &&
-        state.candles[j] && state.running.time === state.candles[j].time;
-      const c = formingHere ? state.running : state.candles[j];
-      if (!c) continue;
-      if (c.low < lo) lo = c.low;
-      if (c.high > hi) hi = c.high;
-    }
-    if (!isFinite(lo)) { lo = hi = state.lastPrice || 0; }
-    const pad = (hi - lo) * 0.12 || (hi * 0.001) || 1;
-    return { from, to, pmin: lo - pad, pmax: hi + pad };
-  }
-
-  // Provider consulted by lightweight-charts during autoscale (each redraw):
-  // when focused we return the eased price range so the vertical zoom is smooth.
-  chart.setPriceRangeProvider(() =>
-    (state.focus && cam.init) ? { min: cam.pmin, max: cam.pmax } : null);
-
-  function stepCamera(immediate) {
-    const t = focusTarget();
-    if (immediate || !cam.init) {
-      cam.from = t.from; cam.to = t.to; cam.pmin = t.pmin; cam.pmax = t.pmax;
-      cam.init = true;
-    } else {
-      const k = 0.22; // easing factor
-      cam.from = lerp(cam.from, t.from, k);
-      cam.to = lerp(cam.to, t.to, k);
-      cam.pmin = lerp(cam.pmin, t.pmin, k);
-      cam.pmax = lerp(cam.pmax, t.pmax, k);
-    }
-    chart.setVisibleLogicalRange(cam.from, cam.to);
-  }
-
   // ----- Tick advance (data only; no view work) --------------------------
   function stepTick() {
     if (state.idx >= state.candles.length) { finishReplay(); return; }
@@ -237,14 +187,13 @@
       state.idx++;
       state.ticks = [];
       state.tickIdx = 0;
-      if (!state.focus) chart.scrollToRealTime();
+      chart.scrollToRealTime();
     }
   }
 
   // ----- Per-frame render (once per rAF, regardless of ticks done) --------
   let lastRenderedPrice = 0;
   function renderFrame(ts) {
-    if (state.focus) stepCamera(false);
     // Only draw the forming candle once it's been prepared for the current
     // index (its time matches), else lightweight-charts rejects the stale time.
     const cur = state.candles[state.idx];
@@ -575,40 +524,30 @@
 
     // Speed = real-time multiplier (배속). Slider 0..100 maps exponentially to
     // 1x .. 3600x so both real-time and heavy fast-forward are reachable.
+    // The label shows how long ONE candle of the current interval takes.
     const MAXX = 3600;
     const sliderToX = (v) => Math.max(1, Math.round(Math.exp(Math.log(MAXX) * (v / 100))));
     const fmtDurLabel = (s) => s >= 60 ? (s / 60).toFixed(1) + '분'
       : s >= 1 ? s.toFixed(1) + '초' : (s * 1000).toFixed(0) + 'ms';
+    const currentIntervalSec = () => {
+      const intv = state.interval || $('inp-interval').value || '1m';
+      return DataSource.intervalToMs(intv) / 1000;
+    };
     const updateSpeedLabel = () => {
-      $('speed-label').textContent = state.speedX + '× · 1분≈' + fmtDurLabel(60 / state.speedX);
+      const perCandle = currentIntervalSec() / state.speedX;
+      $('speed-label').textContent = state.speedX + '× · 1봉≈' + fmtDurLabel(perCandle);
     };
     $('speed').addEventListener('input', (e) => {
       state.speedX = sliderToX(Number(e.target.value));
       updateSpeedLabel();
     });
+    $('inp-interval').addEventListener('change', updateSpeedLabel);
     updateSpeedLabel();
+    // Keep the reference so the label can refresh after data loads.
+    refreshSpeedLabel = updateSpeedLabel;
     $('tpc').addEventListener('input', (e) => {
       state.ticksPerCandle = Number(e.target.value);
       $('tpc-label').textContent = state.ticksPerCandle + ' ticks/candle';
-    });
-
-    // Focus / motion-tracking zoom on the forming candle.
-    $('btn-focus').addEventListener('click', () => {
-      state.focus = !state.focus;
-      const btn = $('btn-focus');
-      btn.textContent = state.focus ? '🎯 Focus: On' : '🎯 Focus: Off';
-      btn.classList.toggle('active', state.focus);
-      if (state.focus) {
-        stepCamera(true); // snap to the candle, then ease from there
-      } else {
-        cam.init = false;
-        chart.setVisibleLogicalRange(state.idx - 80, state.idx + 2);
-      }
-    });
-    $('zoom').addEventListener('input', (e) => {
-      state.zoomBars = Number(e.target.value);
-      $('zoom-label').textContent = state.zoomBars + ' bars';
-      if (state.focus) stepCamera(!state.playing); // snap when paused, ease when live
     });
 
     $('btn-long').addEventListener('click', () => placeOrder('long'));
@@ -628,7 +567,7 @@
       const sym = ($('inp-symbol').value.trim() || 'BTCUSDT').toUpperCase();
       const intv = $('inp-interval').value;
       const lim = parseInt($('inp-limit').value, 10) || 500;
-      const exch = $('inp-exchange').value || 'Bybit';
+      const exch = 'Bybit'; // Bybit only (Binance kept as silent fallback)
       const startVal = $('inp-start').value; // datetime-local, local time
       try {
         let res, warmup;
