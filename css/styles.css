@@ -68,8 +68,9 @@ body {
 .tv-legend .ohlc .lbl { color: var(--muted); margin-right: 1px; }
 .tv-legend .ohlc b { font-weight: 600; margin-right: 8px; }
 .tv-countdown {
-  position: absolute; z-index: 3; right: 0; text-align: center;
-  font: 600 11px/1.4 'Trebuchet MS', monospace; color: #fff; padding: 1px 0; pointer-events: none;
+  position: absolute; z-index: 4; right: 0; text-align: center;
+  font: 600 10px/15px 'Trebuchet MS', monospace; pointer-events: none;
+  background: #17181e; /* opaque so it hides the axis tick behind it */
 }
 .load-msg {
   position: absolute; z-index: 4; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -127,6 +128,7 @@ body {
 .field input:focus { outline: none; border-color: var(--accent); }
 .lev-readout { float: right; color: var(--accent); font-weight: 700; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
+input:disabled, .controls input:disabled { opacity: .45; cursor: not-allowed; }
 
 .buy-sell { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .bs { border: none; border-radius: 4px; padding: 10px 8px; cursor: pointer; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 2px; }

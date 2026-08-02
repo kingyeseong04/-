@@ -20,7 +20,7 @@
     tickIdx: 0,
     running: { time: 0, open: 0, high: 0, low: 0, close: 0 }, // forming candle
     playing: false,
-    speedX: 10,           // playback speed multiplier vs real time (1x = real)
+    speedX: 60,           // playback speed multiplier vs real time (1x = real)
     ticksPerCandle: 60,
     lastPrice: 0,
     symbolLabel: 'DEMO',
@@ -246,13 +246,22 @@
     rafId = state.playing ? requestAnimationFrame(frame) : null;
   }
 
+  // These inputs change how the replay behaves, so they're locked while it's
+  // playing and only editable when paused (changes then apply on resume).
+  function setInputsLocked(locked) {
+    ['inp-capital', 'speed', 'tpc'].forEach((id) => {
+      const el = $(id); if (el) el.disabled = locked;
+    });
+  }
+
   function play() {
     if (state.playing || state.candles.length === 0) return;
     if (state.idx >= state.candles.length) return;
     state.playing = true;
     lastTs = 0; acc = 0;
     $('btn-play').textContent = '⏸ Pause';
-    setStatus('Replaying…', 'ok');
+    setInputsLocked(true);
+    setStatus('Replaying… (설정 변경은 일시정지 후)', 'ok');
     rafId = requestAnimationFrame(frame);
   }
 
@@ -260,6 +269,7 @@
     state.playing = false;
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     $('btn-play').textContent = '▶ Play';
+    setInputsLocked(false);
   }
 
   function togglePlay() { state.playing ? pause() : play(); }
@@ -333,9 +343,9 @@
     const frac = state.ticks.length ? (state.tickIdx / state.ticks.length) : 0;
     el.textContent = fmtDur(dur * (1 - frac));
     const c = currentCandle();
-    el.style.background = (c && c.close >= c.open) ? 'var(--up)' : 'var(--down)';
-    el.style.width = chart.priceScaleWidth() + 'px';
-    el.style.top = (y + 9) + 'px';
+    el.style.color = (c && c.close >= c.open) ? 'var(--buy)' : 'var(--sell)';
+    el.style.width = Math.max(56, chart.priceScaleWidth() || 0) + 'px';
+    el.style.top = (y + 10) + 'px'; // just below the mark-price label
     el.style.display = 'block';
   }
 
@@ -461,7 +471,7 @@
       chart.setEntryLine(null);
       chart.setLiqLine(null);
     } else {
-      chart.setEntryLine(account.avgEntry, account.qty > 0 ? 'long' : 'short');
+      chart.setEntryLine(account.avgEntry, account.qty > 0 ? 'long' : 'short', Math.abs(account.qty));
       chart.setLiqLine(account.liquidationPrice);
     }
     renderAccount();
@@ -532,8 +542,11 @@
     $('tab-positions').addEventListener('click', () => switchTab('positions'));
     $('tab-history').addEventListener('click', () => switchTab('history'));
 
-    // Speed = real-time multiplier (배속), 1×..50× (linear). The label shows
-    // how long ONE candle of the current interval takes at the chosen speed.
+    // Speed = real-time multiplier (배속). Slider 0..100 maps exponentially to
+    // 1×..3600×. The label shows how long ONE candle of the current interval
+    // takes at the chosen speed.
+    const MAXX = 3600;
+    const sliderToX = (v) => Math.max(1, Math.round(Math.exp(Math.log(MAXX) * (v / 100))));
     const fmtDurLabel = (s) => s >= 60 ? (s / 60).toFixed(1) + '분'
       : s >= 1 ? s.toFixed(1) + '초' : (s * 1000).toFixed(0) + 'ms';
     const currentIntervalSec = () => {
@@ -545,7 +558,7 @@
       $('speed-label').textContent = state.speedX + '× · 1봉≈' + fmtDurLabel(perCandle);
     };
     $('speed').addEventListener('input', (e) => {
-      state.speedX = Math.max(1, Math.min(50, Math.round(Number(e.target.value))));
+      state.speedX = sliderToX(Number(e.target.value));
       updateSpeedLabel();
     });
     $('inp-interval').addEventListener('change', updateSpeedLabel);

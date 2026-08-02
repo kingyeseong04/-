@@ -111,16 +111,22 @@
       });
     }
 
-    setEntryLine(price, side) {
+    // Bybit-style position line: solid line in the side colour (green long /
+    // red short), with a left tag showing side + size and the entry price on
+    // the axis.
+    setEntryLine(price, side, size) {
       if (this.entryLine) { this.series.removePriceLine(this.entryLine); this.entryLine = null; }
       if (price == null) return;
+      const isLong = side === 'long';
+      const label = (isLong ? 'Long' : 'Short') +
+        (size != null ? ' ' + (Math.abs(size) >= 1 ? size.toFixed(2) : size.toFixed(3)) : '');
       this.entryLine = this.series.createPriceLine({
         price,
-        color: '#2962ff',
+        color: isLong ? '#20b26c' : '#ef454a',
         lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.Dashed,
+        lineStyle: LightweightCharts.LineStyle.Solid,
         axisLabelVisible: true,
-        title: (side || '') + ' entry',
+        title: label,
       });
     }
 
@@ -129,11 +135,11 @@
       if (price == null) return;
       this.liqLine = this.series.createPriceLine({
         price,
-        color: '#ff4d4f',
+        color: '#f7a600', // Bybit amber for liquidation
         lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.Dotted,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
         axisLabelVisible: true,
-        title: 'liq',
+        title: 'Liq',
       });
     }
 
