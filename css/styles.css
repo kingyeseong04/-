@@ -21,6 +21,15 @@ body {
   font: 13px/1.4 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   display: flex; flex-direction: column;
   -webkit-font-smoothing: antialiased;
+  /* Stop taps from selecting UI text on touch devices (iPad), which put the
+     page into a text-selection state and blocked further button taps. */
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+/* Inputs still need text selection/editing. */
+input, select, textarea { -webkit-user-select: text; user-select: text; }
+/* Snappier taps: no double-tap-zoom delay on interactive elements. */
+button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns button {
+  touch-action: manipulation;
 }
 .up { color: var(--buy); }
 .down { color: var(--sell); }
