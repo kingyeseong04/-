@@ -784,24 +784,30 @@
       }
     });
 
-    // Draggable helper (works with touch via pointer events).
+    // Draggable helper. Uses document-level listeners added only while
+    // dragging (no setPointerCapture, which could get stuck on touch and
+    // then swallow every tap on the page).
     const makeDraggable = (el) => {
-      let dragging = false, ox = 0, oy = 0;
-      el.addEventListener('pointerdown', (e) => {
-        dragging = true; el.setPointerCapture(e.pointerId);
-        const r = el.getBoundingClientRect();
-        ox = e.clientX - r.left; oy = e.clientY - r.top;
-        el.style.transform = 'none';
-      });
-      el.addEventListener('pointermove', (e) => {
-        if (!dragging) return;
+      let ox = 0, oy = 0;
+      const onMove = (e) => {
         const p = el.parentElement.getBoundingClientRect();
         el.style.left = (e.clientX - p.left - ox) + 'px';
         el.style.top = (e.clientY - p.top - oy) + 'px';
+      };
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+      };
+      el.addEventListener('pointerdown', (e) => {
+        const r = el.getBoundingClientRect();
+        ox = e.clientX - r.left; oy = e.clientY - r.top;
+        el.style.transform = 'none';
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+        document.addEventListener('pointercancel', onUp);
+        e.preventDefault();
       });
-      const end = () => { dragging = false; };
-      el.addEventListener('pointerup', end);
-      el.addEventListener('pointercancel', end);
     };
     makeDraggable($('pnl-big'));
     makeDraggable($('wallet-big'));
