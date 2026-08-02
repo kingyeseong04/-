@@ -20,7 +20,7 @@
     tickIdx: 0,
     running: { time: 0, open: 0, high: 0, low: 0, close: 0 }, // forming candle
     playing: false,
-    speedX: 60,           // playback speed multiplier vs real time (1x = real)
+    speedX: 10,           // playback speed multiplier vs real time (1x = real)
     ticksPerCandle: 60,
     lastPrice: 0,
     symbolLabel: 'DEMO',
@@ -44,6 +44,16 @@
     el.textContent = msg;
     el.className = 'status ' + (kind || '');
   }
+
+  // Big centered message over the chart (loading / errors) so it's noticeable.
+  function showLoadMsg(msg, kind) {
+    const el = $('load-msg');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'load-msg ' + (kind || '');
+    el.style.display = 'block';
+  }
+  function hideLoadMsg() { const el = $('load-msg'); if (el) el.style.display = 'none'; }
 
   // ----- Load a candle dataset ------------------------------------------
   function loadCandles(candles, label, meta) {
@@ -522,11 +532,8 @@
     $('tab-positions').addEventListener('click', () => switchTab('positions'));
     $('tab-history').addEventListener('click', () => switchTab('history'));
 
-    // Speed = real-time multiplier (배속). Slider 0..100 maps exponentially to
-    // 1x .. 3600x so both real-time and heavy fast-forward are reachable.
-    // The label shows how long ONE candle of the current interval takes.
-    const MAXX = 3600;
-    const sliderToX = (v) => Math.max(1, Math.round(Math.exp(Math.log(MAXX) * (v / 100))));
+    // Speed = real-time multiplier (배속), 1×..50× (linear). The label shows
+    // how long ONE candle of the current interval takes at the chosen speed.
     const fmtDurLabel = (s) => s >= 60 ? (s / 60).toFixed(1) + '분'
       : s >= 1 ? s.toFixed(1) + '초' : (s * 1000).toFixed(0) + 'ms';
     const currentIntervalSec = () => {
@@ -538,13 +545,20 @@
       $('speed-label').textContent = state.speedX + '× · 1봉≈' + fmtDurLabel(perCandle);
     };
     $('speed').addEventListener('input', (e) => {
-      state.speedX = sliderToX(Number(e.target.value));
+      state.speedX = Math.max(1, Math.min(50, Math.round(Number(e.target.value))));
       updateSpeedLabel();
     });
     $('inp-interval').addEventListener('change', updateSpeedLabel);
     updateSpeedLabel();
     // Keep the reference so the label can refresh after data loads.
     refreshSpeedLabel = updateSpeedLabel;
+
+    // Starting capital (USDT). Applies immediately when flat, and on next load.
+    $('inp-capital').addEventListener('change', (e) => {
+      const v = Math.max(1, Number(e.target.value) || 10000);
+      account.startBalance = v;
+      if (account.qty === 0) { account.reset(); onPositionChanged(); renderTrades(); }
+    });
     $('tpc').addEventListener('input', (e) => {
       state.ticksPerCandle = Number(e.target.value);
       $('tpc-label').textContent = state.ticksPerCandle + ' ticks/candle';
@@ -572,6 +586,7 @@
         const center = new Date(startVal).getTime();
         if (isNaN(center)) { setStatus('Invalid date.', 'err'); return; }
         const ms = DataSource.intervalToMs(intv);
+        showLoadMsg('불러오는 중… ' + sym + ' ' + intv);
         setStatus('Fetching ' + sym + ' ' + intv + ' around ' + startVal.replace('T', ' ') + '…');
         const res = await DataSource.fetchCandles(
           sym, intv, SIDE * 2 + 5, center - SIDE * ms, center + SIDE * ms, exch);
@@ -587,13 +602,16 @@
         const meta = { symbol: sym, interval: intv, exchange: source, subMap, warmup };
         const label = source + ' · ' + sym + ' · ' + intv;
         loadCandles(res.candles, label, meta);
+        hideLoadMsg();
 
         const bits = [source + ' ' + res.candles.length + ' candles'];
-        if (res.fallback) bits.push('(⚠ ' + exch + ' unavailable → ' + source + ')');
+        if (res.fallback) bits.push('(⚠ → ' + source + ')');
         bits.push(subMap ? 'real ticks ✓' : 'synthetic ticks');
         setStatus(bits.join(' · ') + '. Press Play ▶', res.fallback ? 'err' : 'ok');
       } catch (err) {
-        setStatus('불러오기 실패 (' + err.message + '). 네트워크·심볼·날짜를 확인하세요.', 'err');
+        showLoadMsg('불러오기 실패\n' + err.message +
+          '\n\n브라우저에서 거래소 API가 막혔을 수 있어요 (지역 차단/네트워크).', 'err');
+        setStatus('불러오기 실패: ' + err.message, 'err');
       }
     });
 

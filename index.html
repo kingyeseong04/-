@@ -34,6 +34,7 @@
         <div id="chart"></div>
         <div id="legend" class="tv-legend"></div>
         <div id="countdown" class="tv-countdown" style="display:none;"></div>
+        <div id="load-msg" class="load-msg" style="display:none;"></div>
         <button id="btn-exit-clean" class="exit-clean" title="Exit clean mode (Esc)">✕</button>
       </div>
 
@@ -102,6 +103,11 @@
         <button class="ord-tab disabled">Conditional</button>
       </div>
 
+      <div class="field">
+        <label>시작 자본 (USDT)</label>
+        <input type="number" id="inp-capital" value="10000" min="1" step="100" />
+      </div>
+
       <div class="assets">
         <div class="a-row"><span>Available</span><b id="available">-</b></div>
         <div class="a-row"><span>Equity</span><b id="equity">-</b></div>
@@ -141,8 +147,8 @@
 
     <div class="group">
       <label>배속</label>
-      <input type="range" id="speed" min="0" max="100" value="50" title="실시간 대비 배속 (1×=실시간)" />
-      <label id="speed-label">60× · 1분≈1.0초</label>
+      <input type="range" id="speed" min="1" max="50" value="10" title="실시간 대비 배속 (1×=실시간, 최대 50×)" />
+      <label id="speed-label">10× · 1봉≈…</label>
     </div>
     <div class="group">
       <label>Ticks</label>

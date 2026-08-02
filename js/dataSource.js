@@ -30,19 +30,22 @@
   };
   function subInterval(interval) { return SUB_INTERVAL[interval] || null; }
 
-  async function klinesBatch(symbol, interval, n, startTime, endTime) {
+  // spot=false -> USDT-M perpetual futures (fapi, matches "BTCUSDT.P").
+  // spot=true  -> spot (api.binance.com/api/v3), which reliably allows browser
+  //               CORS and is used as a last-resort fallback.
+  async function klinesBatch(symbol, interval, n, startTime, endTime, spot) {
     const params = new URLSearchParams({
       symbol, interval, limit: String(Math.min(1000, n)),
     });
     if (startTime) params.set('startTime', String(startTime));
     if (endTime) params.set('endTime', String(endTime));
-    // Binance USDT-M *perpetual futures* (fapi), so it matches "BTCUSDT.P"
-    // — not spot (api.binance.com/api/v3), which prints slightly different bars.
-    const url = 'https://fapi.binance.com/fapi/v1/klines?' + params.toString();
+    const url = spot
+      ? 'https://api.binance.com/api/v3/klines?' + params.toString()
+      : 'https://fapi.binance.com/fapi/v1/klines?' + params.toString();
     const res = await fetch(url);
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
-      throw new Error('Binance API error ' + res.status + ': ' + txt.slice(0, 200));
+      throw new Error('Binance HTTP ' + res.status + ': ' + txt.slice(0, 120));
     }
     const raw = await res.json();
     if (!Array.isArray(raw)) throw new Error('Unexpected Binance response.');
@@ -56,17 +59,17 @@
     }));
   }
 
-  async function fromBinance(symbol, interval, limit, startTime, endTime) {
+  async function fromBinance(symbol, interval, limit, startTime, endTime, spot) {
     symbol = (symbol || 'BTCUSDT').toUpperCase().trim();
     interval = interval || '1h';
     limit = Math.min(MAX_CANDLES, Math.max(1, limit || 500));
 
     let out = [];
     if (startTime) {
-      // Forward pagination from the chosen start date.
+      // Forward pagination from the chosen start date (Binance is oldest-first).
       let cursor = startTime;
       while (out.length < limit) {
-        const batch = await klinesBatch(symbol, interval, limit - out.length, cursor, endTime);
+        const batch = await klinesBatch(symbol, interval, limit - out.length, cursor, endTime, spot);
         if (batch.length === 0) break;
         out = out.concat(batch);
         if (batch.length < 1000) break; // reached the present / no more data
@@ -77,7 +80,7 @@
       // Backward pagination to collect the most recent `limit` candles.
       let end = endTime;
       while (out.length < limit) {
-        const batch = await klinesBatch(symbol, interval, limit - out.length, undefined, end);
+        const batch = await klinesBatch(symbol, interval, limit - out.length, undefined, end, spot);
         if (batch.length === 0) break;
         out = batch.concat(out);
         if (batch.length < 1000) break; // no older data available
@@ -146,31 +149,18 @@
     interval = interval || '1h';
     limit = Math.min(MAX_CANDLES, Math.max(1, limit || 500));
 
+    // Bybit returns newest-first, so always page BACKWARD from endTime down to
+    // startTime (works for both a bounded window and a latest-N request).
     let out = [];
-    if (startTime) {
-      // Forward window from the chosen start (Bybit returns newest-first;
-      // we sort each batch to advance the cursor correctly).
-      let cursor = startTime;
-      while (out.length < limit) {
-        const batch = await bybitBatch(symbol, interval, limit - out.length, cursor, endTime);
-        if (batch.length === 0) break;
-        out = out.concat(batch);
-        if (batch.length < 1000) break;
-        batch.sort((a, b) => a.time - b.time);
-        cursor = batch[batch.length - 1].time * 1000 + 1;
-        if (endTime && cursor > endTime) break;
-      }
-    } else {
-      // Backward pagination for the most recent `limit` candles.
-      let end = endTime;
-      while (out.length < limit) {
-        const batch = await bybitBatch(symbol, interval, limit - out.length, undefined, end);
-        if (batch.length === 0) break;
-        out = out.concat(batch);
-        if (batch.length < 1000) break;
-        batch.sort((a, b) => a.time - b.time);
-        end = batch[0].time * 1000 - 1;
-      }
+    let end = endTime;
+    while (out.length < limit) {
+      const batch = await bybitBatch(symbol, interval, limit - out.length, startTime, end);
+      if (batch.length === 0) break;
+      out = out.concat(batch);
+      if (batch.length < 1000) break;
+      batch.sort((a, b) => a.time - b.time);
+      end = batch[0].time * 1000 - 1;
+      if (startTime && end < startTime) break;
     }
     if (out.length === 0) {
       throw new Error('No candles returned (check symbol / interval / date).');
@@ -178,22 +168,29 @@
     return dedupAsc(out);
   }
 
-  // Fetch from the preferred exchange. Bybit falls back to Binance on failure
-  // (CORS / geo block); Binance is fetched directly. `source` reports the
-  // exchange that actually served the data (honest labelling).
+  // Try several sources in order until one succeeds, so data loads even when
+  // Bybit or Binance-futures are blocked in the browser (CORS / geo). Binance
+  // SPOT reliably allows browser CORS, so it is the last-resort safety net.
+  // `source` reports which one actually served the data (honest labelling).
   async function fetchCandles(symbol, interval, limit, startTime, endTime, preferred) {
-    preferred = (preferred || 'Bybit');
-    if (preferred === 'Binance') {
-      const candles = await fromBinance(symbol, interval, limit, startTime, endTime);
-      return { candles, source: 'Binance' };
+    const attempts = [
+      { name: 'Bybit', fn: () => fromBybit(symbol, interval, limit, startTime, endTime) },
+      { name: 'Binance', fn: () => fromBinance(symbol, interval, limit, startTime, endTime, false) },
+      { name: 'Binance(spot)', fn: () => fromBinance(symbol, interval, limit, startTime, endTime, true) },
+    ];
+    // If Binance is explicitly preferred, try it (perp) first.
+    if (preferred === 'Binance') attempts.unshift(attempts.splice(1, 1)[0]);
+
+    const errs = [];
+    for (let i = 0; i < attempts.length; i++) {
+      try {
+        const candles = await attempts[i].fn();
+        return { candles, source: attempts[i].name, fallback: i > 0, note: errs.join(' | ') };
+      } catch (e) {
+        errs.push(attempts[i].name + ': ' + e.message);
+      }
     }
-    try {
-      const candles = await fromBybit(symbol, interval, limit, startTime, endTime);
-      return { candles, source: 'Bybit' };
-    } catch (e1) {
-      const candles = await fromBinance(symbol, interval, limit, startTime, endTime);
-      return { candles, source: 'Binance', fallback: true, note: e1.message };
-    }
+    throw new Error(errs.join(' | '));
   }
 
   global.DataSource = {
