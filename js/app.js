@@ -109,7 +109,9 @@
     state.idx = state.warmup;
     state.ticks = [];
     state.tickIdx = 0;
-    account.reset();
+    // Keep the wallet (balance / leverage / trade history) across a
+    // same-symbol reload (e.g. switching timeframe); otherwise start fresh.
+    if (!meta.keepAccount) account.reset();
 
     // Show the warmup history; replay continues from there.
     chart.setHistory(candles.slice(0, state.warmup));
@@ -118,6 +120,7 @@
     chart.setLiqLine(null);
 
     state.lastPrice = candles[state.warmup - 1].close;
+    if (meta.keepAccount) account.setMark(state.lastPrice);
     lastRenderedPrice = state.lastPrice;
     state.sessHigh = state.sessLow = state.lastPrice;
     state.turnover = state.lastPrice * 180000; // plausible 24h turnover base
@@ -787,7 +790,14 @@
         setStatus('Loading real intra-candle data…');
         const subMap = await fetchSubMap(sym, intv, res.candles, warmup, source);
 
-        const meta = { symbol: sym, interval: intv, exchange: source, subMap, warmup };
+        // Same symbol already loaded → keep the wallet (balance/leverage/trades).
+        // Settle any open position at the current price first (money isn't lost).
+        const keepAccount = state.candles.length > 0 && sym === state.symbol;
+        if (keepAccount && account.qty !== 0) {
+          account.closeAll(state.lastPrice, state.running.time || 0);
+        }
+
+        const meta = { symbol: sym, interval: intv, exchange: source, subMap, warmup, keepAccount };
         const label = source + ' · ' + sym + ' · ' + intv;
         loadCandles(res.candles, label, meta);
         // Focus the view near the chosen date (extra lookback stays off-screen).
@@ -798,6 +808,7 @@
         const bits = [source + ' ' + res.candles.length + ' candles'];
         if (res.fallback) bits.push('(⚠ → ' + source + ')');
         bits.push(subMap ? 'real ticks ✓' : 'synthetic ticks');
+        if (keepAccount) bits.push('잔고 유지 ' + fmt(account.balance) + ' USDT');
         setStatus(bits.join(' · ') + '. Press Play ▶', res.fallback ? 'err' : 'ok');
       } catch (err) {
         showLoadMsg('불러오기 실패\n' + err.message +
