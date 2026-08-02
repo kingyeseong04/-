@@ -107,7 +107,6 @@
     state.idx = state.warmup;
     state.ticks = [];
     state.tickIdx = 0;
-    mktMs = 0; mktCandleIdx = -1; // reset the countdown clock
     account.reset();
 
     // Show the warmup history; replay continues from there.
@@ -269,16 +268,11 @@
   }
 
   // ----- rAF playback loop (real-time paced) -----------------------------
-  // A continuous market-time clock for the forming candle, advanced by real
-  // elapsed time × speed each frame — independent of tick quantization, so the
-  // candle-close countdown always decreases smoothly (even with data gaps).
   let rafId = null, lastTs = 0, acc = 0;
-  let mktCandleIdx = -1, mktMs = 0;
   function frame(ts) {
     if (!state.playing) { rafId = null; return; }
     if (lastTs === 0) lastTs = ts;
-    const dt = Math.min(ts - lastTs, 250); // clamp gaps (e.g. backgrounded tab)
-    acc += dt;
+    acc += Math.min(ts - lastTs, 250); // clamp gaps (e.g. backgrounded tab)
     lastTs = ts;
     let steps = 0;
     while (steps < 2000) {
@@ -289,9 +283,6 @@
       steps++;
       if (!state.playing) break;
     }
-    // Advance the market clock for the (possibly new) current candle.
-    if (state.idx !== mktCandleIdx) { mktCandleIdx = state.idx; mktMs = 0; }
-    mktMs = Math.min(candleDur() * 1000, mktMs + dt * state.speedX);
     renderFrame(ts);
     rafId = state.playing ? requestAnimationFrame(frame) : null;
   }
@@ -384,26 +375,6 @@
     return h > 0 ? h + ':' + pad(m) + ':' + pad(sec) : pad(m) + ':' + pad(sec);
   }
 
-  // Candle-close countdown sitting on the price axis, just below the last
-  // price label — like the live countdown on TradingView.
-  function updateCountdown() {
-    const el = $('countdown');
-    if (state.idx >= state.candles.length || state.lastPrice <= 0) {
-      el.style.display = 'none'; return;
-    }
-    const y = chart.priceToY(state.lastPrice);
-    if (y == null) { el.style.display = 'none'; return; }
-    const dur = candleDur();
-    // Use the continuous real-time market clock so it counts down smoothly
-    // regardless of how many ticks the candle has.
-    el.textContent = fmtDur(Math.max(0, dur - mktMs / 1000));
-    const c = currentCandle();
-    el.style.color = (c && c.close >= c.open) ? 'var(--buy)' : 'var(--sell)';
-    el.style.width = Math.max(56, chart.priceScaleWidth() || 0) + 'px';
-    el.style.top = (y + 10) + 'px'; // just below the mark-price label
-    el.style.display = 'block';
-  }
-
   // Enlarged unrealized-P&L overlay (toggle + draggable) for video emphasis.
   function updatePnlBig() {
     const el = $('pnl-big');
@@ -436,7 +407,7 @@
     el.style.display = 'flex';
   }
 
-  function renderOverlays() { updateLegend(); updateCountdown(); updatePnlBig(); updateWalletBig(); }
+  function renderOverlays() { updateLegend(); updatePnlBig(); updateWalletBig(); }
 
   // Cost (initial margin) shown on the Buy/Sell buttons.
   function updateCost() {

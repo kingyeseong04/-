@@ -67,12 +67,6 @@ body {
 .tv-legend .ohlc { display: block; margin-top: 2px; font-size: 12px; }
 .tv-legend .ohlc .lbl { color: var(--muted); margin-right: 1px; }
 .tv-legend .ohlc b { font-weight: 600; margin-right: 8px; }
-.tv-countdown {
-  position: absolute; z-index: 4; right: 0; text-align: center;
-  font: 600 10px/16px 'Trebuchet MS', monospace; pointer-events: none;
-  background: #17181e; /* opaque so it hides the axis tick behind it */
-  border-top: 1px solid var(--border);
-}
 
 /* Indicator settings panel */
 .ind-panel {
