@@ -550,34 +550,51 @@
     $('ob-ratio-s').textContent = (100 - bpct) + '% S';
   }
 
+  // Rebuild the position-row STRUCTURE only when it changes (open/close/side/
+  // qty/entry); update the per-tick values (mark, value, P&L) with textContent.
+  // This avoids rebuilding DOM + re-attaching a listener every frame, which
+  // made frames heavy while a position was open (and dropped taps on iPad).
+  let _posSig = null;
   function renderAccount() {
     $('balance').textContent = fmt(account.balance);
     $('equity').textContent = fmt(account.equity);
     $('available').textContent = fmt(account.available);
 
     const tbody = $('pos-rows');
-    if (account.qty === 0) {
-      tbody.innerHTML = '<tr id="pos-empty"><td colspan="8" class="empty">No open position</td></tr>';
-      return;
-    }
     const isLong = account.qty > 0;
-    const d = dec(account.avgEntry);
-    const pnl = account.unrealizedPnl;
-    const cls = pnl >= 0 ? 'up' : 'down';
-    tbody.innerHTML = '<tr>' +
-      '<td>' + state.symbol + '</td>' +
-      '<td class="' + (isLong ? 'side-long' : 'side-short') + '">' +
-        (isLong ? 'Long' : 'Short') + ' ' + fmt(Math.abs(account.qty), 4) + '</td>' +
-      '<td>' + fmt(account.notional) + '</td>' +
-      '<td>' + fmt(account.avgEntry, d) + '</td>' +
-      '<td>' + fmt(account.markPrice, d) + '</td>' +
-      '<td>' + fmt(account.liquidationPrice, d) + '</td>' +
-      '<td class="' + cls + '">' + sign(pnl) + fmt(pnl) +
-        ' (' + sign(account.unrealizedPnlPct) + fmt(account.unrealizedPnlPct, 2) + '%)</td>' +
-      '<td><button class="row-close" id="row-close-btn">Close</button></td>' +
-      '</tr>';
-    const btn = $('row-close-btn');
-    if (btn) btn.addEventListener('click', () => closePartial(1));
+    const sig = account.qty === 0 ? 'flat'
+      : (isLong ? 'L' : 'S') + Math.abs(account.qty).toFixed(6) + '@' + account.avgEntry;
+    if (sig !== _posSig) {
+      _posSig = sig;
+      if (account.qty === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">No open position</td></tr>';
+      } else {
+        const d = dec(account.avgEntry);
+        tbody.innerHTML = '<tr>' +
+          '<td>' + state.symbol + '</td>' +
+          '<td class="' + (isLong ? 'side-long' : 'side-short') + '">' +
+            (isLong ? 'Long' : 'Short') + ' ' + fmt(Math.abs(account.qty), 4) + '</td>' +
+          '<td id="pos-value-cell"></td>' +
+          '<td>' + fmt(account.avgEntry, d) + '</td>' +
+          '<td id="pos-mark-cell"></td>' +
+          '<td>' + fmt(account.liquidationPrice, d) + '</td>' +
+          '<td id="pos-pnl-cell"></td>' +
+          '<td><button class="row-close" data-close="1">Close</button></td>' +
+          '</tr>';
+      }
+    }
+    if (account.qty !== 0) {
+      const d = dec(account.avgEntry);
+      const pnl = account.unrealizedPnl;
+      const vc = $('pos-value-cell'); if (vc) vc.textContent = fmt(account.notional);
+      const mc = $('pos-mark-cell'); if (mc) mc.textContent = fmt(account.markPrice, d);
+      const pc = $('pos-pnl-cell');
+      if (pc) {
+        pc.className = pnl >= 0 ? 'up' : 'down';
+        pc.textContent = sign(pnl) + fmt(pnl) +
+          ' (' + sign(account.unrealizedPnlPct) + fmt(account.unrealizedPnlPct, 2) + '%)';
+      }
+    }
   }
 
   function onPositionChanged() {
@@ -658,6 +675,11 @@
     };
     $('tab-positions').addEventListener('click', () => switchTab('positions'));
     $('tab-history').addEventListener('click', () => switchTab('history'));
+
+    // Delegated Close button (row is rebuilt on change, not every frame).
+    $('pos-rows').addEventListener('click', (e) => {
+      if (e.target.closest('[data-close]')) closePartial(1);
+    });
 
     // Speed = real-time multiplier (배속). Slider 0..100 maps exponentially to
     // 1×..3600×. The label shows how long ONE candle of the current interval
