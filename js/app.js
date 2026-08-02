@@ -31,6 +31,7 @@
     sessLow: 0,
     tape: [],             // recent-trades feed (synthetic)
     subMap: null,         // Map candleTime -> real sub-candles (for real ticks)
+    pnlBig: false,        // enlarged unrealized-P&L overlay (for video)
     _loadMeta: null,
   };
 
@@ -340,7 +341,12 @@
     let dur = 60;
     if (state.candles[i + 1]) dur = state.candles[i + 1].time - state.candles[i].time;
     else if (state.candles[i - 1]) dur = state.candles[i].time - state.candles[i - 1].time;
-    const frac = state.ticks.length ? (state.tickIdx / state.ticks.length) : 0;
+    // Interpolate between ticks with the leftover real time (acc) so the
+    // countdown ticks down SMOOTHLY per real second × speed, not in tick jumps.
+    const nt = state.ticks.length || state.ticksPerCandle;
+    const dly = tickDelayMs();
+    const extra = (state.playing && dly > 0) ? Math.min(1, Math.max(0, acc / dly)) : 0;
+    const frac = Math.min(1, (state.tickIdx + extra) / Math.max(1, nt));
     el.textContent = fmtDur(dur * (1 - frac));
     const c = currentCandle();
     el.style.color = (c && c.close >= c.open) ? 'var(--buy)' : 'var(--sell)';
@@ -349,7 +355,21 @@
     el.style.display = 'block';
   }
 
-  function renderOverlays() { updateLegend(); updateCountdown(); }
+  // Enlarged unrealized-P&L overlay (toggle + draggable) for video emphasis.
+  function updatePnlBig() {
+    const el = $('pnl-big');
+    if (!state.pnlBig) { el.style.display = 'none'; return; }
+    const pnl = account.unrealizedPnl;
+    const pct = account.unrealizedPnlPct;
+    el.className = 'pnl-big ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
+    el.innerHTML =
+      '<span class="pnl-big-label">Unrealized P&amp;L</span>' +
+      '<span class="pnl-big-val">' + sign(pnl) + fmt(pnl) + ' USDT</span>' +
+      '<span class="pnl-big-pct">' + sign(pct) + fmt(pct, 2) + '%</span>';
+    el.style.display = 'flex';
+  }
+
+  function renderOverlays() { updateLegend(); updateCountdown(); updatePnlBig(); }
 
   function updatePrice(price, delta) {
     const el = $('price');
@@ -475,6 +495,7 @@
       chart.setLiqLine(account.liquidationPrice);
     }
     renderAccount();
+    updatePnlBig();
   }
 
   function renderTrades() {
@@ -627,6 +648,31 @@
         setStatus('불러오기 실패: ' + err.message, 'err');
       }
     });
+
+    // Enlarged P&L overlay toggle + drag-to-move.
+    $('btn-pnl').addEventListener('click', () => {
+      state.pnlBig = !state.pnlBig;
+      $('btn-pnl').classList.toggle('active', state.pnlBig);
+      updatePnlBig();
+    });
+    (function makeDraggable(el) {
+      let dragging = false, ox = 0, oy = 0;
+      el.addEventListener('pointerdown', (e) => {
+        dragging = true; el.setPointerCapture(e.pointerId);
+        const r = el.getBoundingClientRect();
+        ox = e.clientX - r.left; oy = e.clientY - r.top;
+        el.style.transform = 'none';
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const p = el.parentElement.getBoundingClientRect();
+        el.style.left = (e.clientX - p.left - ox) + 'px';
+        el.style.top = (e.clientY - p.top - oy) + 'px';
+      });
+      const end = () => { dragging = false; };
+      el.addEventListener('pointerup', end);
+      el.addEventListener('pointercancel', end);
+    })($('pnl-big'));
 
     // Clean / recording mode: chart-only, optionally real fullscreen.
     $('btn-clean').addEventListener('click', () => setClean(true));
