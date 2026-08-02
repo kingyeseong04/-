@@ -96,21 +96,42 @@
       </div>
     </div>
 
-    <!-- Order book + recent trades -->
+    <!-- Order book + recent trades (toggle) / account panel -->
     <div class="col-book">
-      <div class="book-head">Order Book</div>
-      <div class="ob-cols"><span>Price(USDT)</span><span>Qty</span><span>Total</span></div>
-      <div class="ob-asks" id="ob-asks"></div>
-      <div class="ob-mid"><span id="ob-spread" class="ob-last">0.00</span></div>
-      <div class="ob-bids" id="ob-bids"></div>
-      <div class="ob-ratio">
-        <span class="ob-ratio-b" id="ob-ratio-b">B 50%</span>
-        <div class="ob-ratio-bar"><span id="ob-ratio-fill" style="width:50%"></span></div>
-        <span class="ob-ratio-s" id="ob-ratio-s">50% S</span>
+      <div id="book-section">
+        <div class="book-head">Order Book</div>
+        <div class="ob-cols"><span>Price(USDT)</span><span>Qty</span><span>Total</span></div>
+        <div class="ob-asks" id="ob-asks"></div>
+        <div class="ob-mid"><span id="ob-spread" class="ob-last">0.00</span></div>
+        <div class="ob-bids" id="ob-bids"></div>
+        <div class="ob-ratio">
+          <span class="ob-ratio-b" id="ob-ratio-b">B 50%</span>
+          <div class="ob-ratio-bar"><span id="ob-ratio-fill" style="width:50%"></span></div>
+          <span class="ob-ratio-s" id="ob-ratio-s">50% S</span>
+        </div>
+        <div class="book-head trades-head">Recent Trades</div>
+        <div class="ob-cols"><span>Price(USDT)</span><span>Qty</span><span>Time</span></div>
+        <div class="recent" id="recent-trades"></div>
       </div>
-      <div class="book-head trades-head">Recent Trades</div>
-      <div class="ob-cols"><span>Price(USDT)</span><span>Qty</span><span>Time</span></div>
-      <div class="recent" id="recent-trades"></div>
+
+      <!-- Shown when the order book is toggled off -->
+      <div id="account-panel" class="account-panel" style="display:none;">
+        <div class="ap-block">
+          <div class="ap-label">Unrealized P&amp;L</div>
+          <div class="ap-val" id="ap-pnl-usdt">0.00 USDT</div>
+          <div class="ap-pct" id="ap-pnl-pct">0.00%</div>
+          <div class="ap-krw" id="ap-pnl-krw">₩0</div>
+        </div>
+        <div class="ap-block">
+          <div class="ap-label">Wallet Balance</div>
+          <div class="ap-val" id="ap-wallet-usdt">10,000.00 USDT</div>
+          <div class="ap-krw" id="ap-wallet-krw">₩0</div>
+        </div>
+        <div class="ap-block ap-small">
+          <div class="ap-row"><span>Equity</span><b id="ap-equity">-</b></div>
+          <div class="ap-row"><span>Available</span><b id="ap-available">-</b></div>
+        </div>
+      </div>
     </div>
 
     <!-- Order entry (Bybit style) -->
@@ -178,6 +199,7 @@
     <button class="btn-ghost" id="btn-restart">⟲ Restart</button>
     <button class="btn-ghost" id="btn-clean" title="Chart-only fullscreen for recording (F)">⛶ Clean</button>
     <button class="btn-ghost active" id="btn-lock" title="현재 봉에 차트 고정 (마우스로 안 움직임)">🔒 고정</button>
+    <button class="btn-ghost active" id="btn-book" title="호가창 표시 (끄면 손익·잔고 패널)">📖 호가창</button>
     <button class="btn-ghost" id="btn-pnl" title="미실현 손익 크게 표시 (드래그로 위치 이동)">💰 손익</button>
     <button class="btn-ghost" id="btn-wallet" title="지갑 잔고 크게 표시 (드래그로 위치 이동)">💵 잔고</button>
     <button class="btn-ghost" id="btn-ind" title="지표 설정 (볼린저·일목)">📈 지표</button>

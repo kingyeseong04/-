@@ -137,6 +137,20 @@ body {
 .ob-ratio-bar { flex: 1; height: 6px; border-radius: 3px; overflow: hidden; background: var(--sell); }
 .ob-ratio-bar span { display: block; height: 100%; background: var(--buy); }
 
+/* ---- Account panel (shown when the order book is toggled off) ---- */
+.account-panel { padding: 18px 14px; display: flex; flex-direction: column; gap: 20px; }
+.account-panel .ap-block { text-align: center; }
+.account-panel .ap-label { font-size: 12px; color: var(--muted); letter-spacing: .5px; margin-bottom: 4px; }
+.account-panel .ap-val { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.account-panel .ap-pct { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.account-panel .ap-krw { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.account-panel .ap-block.up .ap-val, .account-panel .ap-block.up .ap-pct, .account-panel .ap-block.up .ap-krw { color: var(--buy); }
+.account-panel .ap-block.down .ap-val, .account-panel .ap-block.down .ap-pct, .account-panel .ap-block.down .ap-krw { color: var(--sell); }
+.account-panel .ap-small { border-top: 1px solid var(--border); padding-top: 12px; text-align: left; }
+.account-panel .ap-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+.account-panel .ap-row span { color: var(--muted); }
+.account-panel .ap-row b { font-variant-numeric: tabular-nums; }
+
 /* ---- Recent trades ---- */
 .recent { flex: 1; overflow-y: auto; min-height: 0; }
 .rt-row { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 1.5px 10px; font-size: 11.5px; font-variant-numeric: tabular-nums; }

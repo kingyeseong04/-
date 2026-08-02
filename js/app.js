@@ -35,6 +35,7 @@
     pnlBig: false,        // enlarged unrealized-P&L overlay (for video)
     walletBig: false,     // enlarged wallet-balance overlay (for video)
     fx: 1350,             // ₩ per USDT (for KRW conversion)
+    orderbook: true,      // show the order book (off → account panel)
     lockView: true,       // lock the chart to the forming candle (no mouse pan)
     _loadMeta: null,
   };
@@ -416,7 +417,21 @@
     el.style.display = 'flex';
   }
 
-  function renderOverlays() { updateLegend(); updatePnlBig(); updateWalletBig(); }
+  // Account panel shown in place of the order book (Unrealized P&L + Wallet).
+  function updateAccountPanel() {
+    if (state.orderbook) return; // panel is hidden
+    const pnl = account.unrealizedPnl, pct = account.unrealizedPnlPct;
+    $('ap-pnl-usdt').parentElement.className = 'ap-block ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
+    $('ap-pnl-usdt').textContent = (account.qty === 0 ? '0.00 USDT' : sign(pnl) + fmt(pnl) + ' USDT');
+    $('ap-pnl-pct').textContent = sign(pct) + fmt(pct, 2) + '%';
+    $('ap-pnl-krw').textContent = fmtKRW(pnl);
+    $('ap-wallet-usdt').textContent = fmt(account.balance) + ' USDT';
+    $('ap-wallet-krw').textContent = fmtKRW(account.balance);
+    $('ap-equity').textContent = fmt(account.equity) + ' USDT';
+    $('ap-available').textContent = fmt(account.available) + ' USDT';
+  }
+
+  function renderOverlays() { updateLegend(); updatePnlBig(); updateWalletBig(); updateAccountPanel(); }
 
   // Cost (initial margin) shown on the Buy/Sell buttons.
   function updateCost() {
@@ -570,6 +585,7 @@
     renderAccount();
     updatePnlBig();
     updateWalletBig();
+    updateAccountPanel();
   }
 
   function renderTrades() {
@@ -673,11 +689,21 @@
       account.startBalance = v;
       if (account.qty === 0) { account.reset(); onPositionChanged(); renderTrades(); }
     });
-    // Exchange rate (₩/USDT) for the KRW readouts on the overlays.
+    // Exchange rate (₩/USDT) for the KRW readouts.
     $('inp-fx').addEventListener('input', (e) => {
       state.fx = Math.max(0, Number(e.target.value) || 0);
       updatePnlBig();
       updateWalletBig();
+      updateAccountPanel();
+    });
+
+    // Order book on/off — when off, the column shows the P&L + Wallet panel.
+    $('btn-book').addEventListener('click', () => {
+      state.orderbook = !state.orderbook;
+      $('btn-book').classList.toggle('active', state.orderbook);
+      $('book-section').style.display = state.orderbook ? '' : 'none';
+      $('account-panel').style.display = state.orderbook ? 'none' : 'flex';
+      updateAccountPanel();
     });
     $('btn-long').addEventListener('click', () => placeOrder('long'));
     $('btn-short').addEventListener('click', () => placeOrder('short'));
