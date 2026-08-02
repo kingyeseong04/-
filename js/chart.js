@@ -210,9 +210,9 @@
     renderBollinger(data) {
       if (!this.bb) {
         this.bb = {
-          upper: this._mkLine('#ef454a', 1), // Bybit/TV upper = red
-          lower: this._mkLine('#22ab94', 1), // lower = green
-          mid: this._mkLine('#2962ff', 1),   // basis = blue
+          upper: this._mkLine('#ef454a', 2), // Bybit/TV upper = red
+          lower: this._mkLine('#22ab94', 2), // lower = green
+          mid: this._mkLine('#2962ff', 2),   // basis = blue
           fill: new FillPrimitive('rgba(120,130,150,0.05)', 'rgba(120,130,150,0.05)'),
         };
         this.series.attachPrimitive(this.bb.fill);
@@ -231,29 +231,24 @@
       this.bb = null;
     }
 
+    // Only the two leading spans (Senkou A/B) + the cloud between them.
     renderIchimoku(data) {
       if (!this.ichi) {
         this.ichi = {
-          tenkan: this._mkLine('#2962ff', 1),   // conversion (blue)
-          kijun: this._mkLine('#b71c1c', 1),    // base (dark red)
           spanA: this._mkLine('#a5d6a7', 1),    // leading A (light green)
           spanB: this._mkLine('#ef9a9a', 1),    // leading B (light pink)
-          chikou: this._mkLine('#43a047', 1),   // lagging (green)
           cloud: new FillPrimitive('rgba(67,160,71,0.12)', 'rgba(244,67,54,0.12)'),
         };
         this.series.attachPrimitive(this.ichi.cloud);
       }
-      this.ichi.tenkan.setData(data.tenkan);
-      this.ichi.kijun.setData(data.kijun);
       this.ichi.spanA.setData(data.spanA);
       this.ichi.spanB.setData(data.spanB);
-      this.ichi.chikou.setData(data.chikou);
       this.ichi.cloud.setData(data.cloud);
     }
     clearIchimoku() {
       if (!this.ichi) return;
       this.series.detachPrimitive(this.ichi.cloud);
-      ['tenkan', 'kijun', 'spanA', 'spanB', 'chikou'].forEach((k) => this.chart.removeSeries(this.ichi[k]));
+      ['spanA', 'spanB'].forEach((k) => this.chart.removeSeries(this.ichi[k]));
       this.ichi = null;
     }
 
