@@ -29,6 +29,7 @@
     exchange: '',
     sessHigh: 0,          // "24h" high/low over the replayed session
     sessLow: 0,
+    turnover: 0,          // synthetic 24h turnover (USDT)
     tape: [],             // recent-trades feed (synthetic)
     subMap: null,         // Map candleTime -> real sub-candles (for real ticks)
     pnlBig: false,        // enlarged unrealized-P&L overlay (for video)
@@ -104,6 +105,7 @@
     state.idx = state.warmup;
     state.ticks = [];
     state.tickIdx = 0;
+    mktMs = 0; mktCandleIdx = -1; // reset the countdown clock
     account.reset();
 
     // Show the warmup history; replay continues from there.
@@ -115,6 +117,7 @@
     state.lastPrice = candles[state.warmup - 1].close;
     lastRenderedPrice = state.lastPrice;
     state.sessHigh = state.sessLow = state.lastPrice;
+    state.turnover = state.lastPrice * 180000; // plausible 24h turnover base
     state.tape = [];
     state._tapePrev = state.lastPrice;
     state._loadMeta = {
@@ -130,6 +133,7 @@
     updateStats();
     renderMarket(0, true);
     recomputeIndicators();
+    setPlayEnabled(true); // data is ready — replay can start
     if (refreshSpeedLabel) refreshSpeedLabel(); // label uses the loaded interval
     setStatus('Loaded ' + candles.length + ' candles. Press Play ▶', 'ok');
   }
@@ -256,11 +260,16 @@
   }
 
   // ----- rAF playback loop (real-time paced) -----------------------------
+  // A continuous market-time clock for the forming candle, advanced by real
+  // elapsed time × speed each frame — independent of tick quantization, so the
+  // candle-close countdown always decreases smoothly (even with data gaps).
   let rafId = null, lastTs = 0, acc = 0;
+  let mktCandleIdx = -1, mktMs = 0;
   function frame(ts) {
     if (!state.playing) { rafId = null; return; }
     if (lastTs === 0) lastTs = ts;
-    acc += Math.min(ts - lastTs, 250); // clamp gaps (e.g. tab was backgrounded)
+    const dt = Math.min(ts - lastTs, 250); // clamp gaps (e.g. backgrounded tab)
+    acc += dt;
     lastTs = ts;
     let steps = 0;
     while (steps < 2000) {
@@ -271,6 +280,9 @@
       steps++;
       if (!state.playing) break;
     }
+    // Advance the market clock for the (possibly new) current candle.
+    if (state.idx !== mktCandleIdx) { mktCandleIdx = state.idx; mktMs = 0; }
+    mktMs = Math.min(candleDur() * 1000, mktMs + dt * state.speedX);
     renderFrame(ts);
     rafId = state.playing ? requestAnimationFrame(frame) : null;
   }
@@ -278,9 +290,16 @@
   // These inputs change how the replay behaves, so they're locked while it's
   // playing and only editable when paused (changes then apply on resume).
   function setInputsLocked(locked) {
-    ['inp-capital', 'speed', 'tpc'].forEach((id) => {
+    ['inp-capital', 'speed'].forEach((id) => {
       const el = $(id); if (el) el.disabled = locked;
     });
+  }
+
+  // Play / Restart only make sense once data is loaded (enforces the flow:
+  // set date → Load → Play).
+  function setPlayEnabled(enabled) {
+    $('btn-play').disabled = !enabled;
+    $('btn-restart').disabled = !enabled;
   }
 
   function play() {
@@ -365,17 +384,10 @@
     }
     const y = chart.priceToY(state.lastPrice);
     if (y == null) { el.style.display = 'none'; return; }
-    const i = state.idx;
-    let dur = 60;
-    if (state.candles[i + 1]) dur = state.candles[i + 1].time - state.candles[i].time;
-    else if (state.candles[i - 1]) dur = state.candles[i].time - state.candles[i - 1].time;
-    // Interpolate between ticks with the leftover real time (acc) so the
-    // countdown ticks down SMOOTHLY per real second × speed, not in tick jumps.
-    const nt = state.ticks.length || state.ticksPerCandle;
-    const dly = tickDelayMs();
-    const extra = (state.playing && dly > 0) ? Math.min(1, Math.max(0, acc / dly)) : 0;
-    const frac = Math.min(1, (state.tickIdx + extra) / Math.max(1, nt));
-    el.textContent = fmtDur(dur * (1 - frac));
+    const dur = candleDur();
+    // Use the continuous real-time market clock so it counts down smoothly
+    // regardless of how many ticks the candle has.
+    el.textContent = fmtDur(Math.max(0, dur - mktMs / 1000));
     const c = currentCandle();
     el.style.color = (c && c.close >= c.open) ? 'var(--buy)' : 'var(--sell)';
     el.style.width = Math.max(56, chart.priceScaleWidth() || 0) + 'px';
@@ -387,6 +399,14 @@
   function updatePnlBig() {
     const el = $('pnl-big');
     if (!state.pnlBig) { el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+    if (account.qty === 0) {
+      el.className = 'pnl-big';
+      el.innerHTML =
+        '<span class="pnl-big-label">Unrealized P&amp;L</span>' +
+        '<span class="pnl-big-val" style="color:var(--muted)">포지션 없음</span>';
+      return;
+    }
     const pnl = account.unrealizedPnl;
     const pct = account.unrealizedPnlPct;
     el.className = 'pnl-big ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
@@ -394,10 +414,17 @@
       '<span class="pnl-big-label">Unrealized P&amp;L</span>' +
       '<span class="pnl-big-val">' + sign(pnl) + fmt(pnl) + ' USDT</span>' +
       '<span class="pnl-big-pct">' + sign(pct) + fmt(pct, 2) + '%</span>';
-    el.style.display = 'flex';
   }
 
   function renderOverlays() { updateLegend(); updateCountdown(); updatePnlBig(); }
+
+  // Cost (initial margin) shown on the Buy/Sell buttons.
+  function updateCost() {
+    const margin = parseFloat($('order-margin').value) || 0;
+    const txt = 'Cost ' + fmt(margin);
+    $('cost-long').textContent = txt;
+    $('cost-short').textContent = txt;
+  }
 
   function updatePrice(price, delta) {
     const el = $('price');
@@ -427,12 +454,21 @@
     return p(dt.getHours()) + ':' + p(dt.getMinutes()) + ':' + p(dt.getSeconds());
   }
 
-  // Top market-stats bar (mark / 24h high-low / funding countdown).
+  function fmtBig(n) {
+    n = Math.abs(n || 0);
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(2) + 'K';
+    return n.toFixed(0);
+  }
+
+  // Top market-stats bar (mark / 24h high-low / turnover / funding countdown).
   function updateStats() {
     const d = dec(state.lastPrice);
     $('stat-mark').textContent = fmt(state.lastPrice, d);
     $('stat-high').textContent = fmt(state.sessHigh, d);
     $('stat-low').textContent = fmt(state.sessLow, d);
+    $('stat-turnover').textContent = fmtBig(state.turnover);
     // Funding countdown to the next 8h boundary (cosmetic, uses the wall clock).
     const now = Date.now() / 1000;
     const period = 8 * 3600;
@@ -478,10 +514,19 @@
     const size = +(base * (0.05 + Math.random() * 0.6)).toFixed(3);
     state.tape.unshift({ p: state.lastPrice, size, side, tsec });
     if (state.tape.length > 28) state.tape.pop();
+    state.turnover += size * state.lastPrice; // accumulate 24h turnover
     $('recent-trades').innerHTML = state.tape.map((t) =>
       '<div class="rt-row ' + t.side + '"><span class="p">' + fmt(t.p, d) + '</span>' +
       '<span class="q">' + fmt(t.size, 3) + '</span>' +
       '<span class="tm">' + hhmmss(t.tsec) + '</span></div>').join('');
+
+    // Buy/sell ratio bar from cumulative book depth.
+    const bidVol = book.bids[book.bids.length - 1].total;
+    const askVol = book.asks[book.asks.length - 1].total;
+    const bpct = Math.round((bidVol / (bidVol + askVol)) * 100);
+    $('ob-ratio-fill').style.width = bpct + '%';
+    $('ob-ratio-b').textContent = 'B ' + bpct + '%';
+    $('ob-ratio-s').textContent = (100 - bpct) + '% S';
   }
 
   function renderAccount() {
@@ -621,11 +666,6 @@
       account.startBalance = v;
       if (account.qty === 0) { account.reset(); onPositionChanged(); renderTrades(); }
     });
-    $('tpc').addEventListener('input', (e) => {
-      state.ticksPerCandle = Number(e.target.value);
-      $('tpc-label').textContent = state.ticksPerCandle + ' ticks/candle';
-    });
-
     $('btn-long').addEventListener('click', () => placeOrder('long'));
     $('btn-short').addEventListener('click', () => placeOrder('short'));
     $('btn-close').addEventListener('click', () => closePartial(1));
@@ -634,7 +674,22 @@
     $('order-lev').addEventListener('input', (e) => {
       $('lev-label').textContent = e.target.value + 'x';
       $('lev-chip').textContent = e.target.value + 'x';
+      updateCost();
     });
+
+    // Order size % of available (Bybit-style quick sizing) + cost estimate.
+    const setPct = (pct) => {
+      const avail = Math.max(0, account.available);
+      $('order-margin').value = Math.max(1, Math.round(avail * pct / 100));
+      $('order-pct').value = pct;
+      updateCost();
+    };
+    $('order-pct').addEventListener('input', (e) => setPct(Number(e.target.value)));
+    document.querySelectorAll('.qty-pct-btns button').forEach((b) => {
+      b.addEventListener('click', () => setPct(Number(b.dataset.pct)));
+    });
+    $('order-margin').addEventListener('input', updateCost);
+    updateCost();
 
     // Data: Bybit perpetual around a chosen date (+ real intra-candle ticks).
     // Extra history is pulled BEFORE the date so indicators (Ichimoku needs
@@ -759,5 +814,6 @@
 
   // ----- Boot ------------------------------------------------------------
   bind();
-  setStatus('심볼·시간봉·날짜를 정하고 Load ▶ 를 누르세요.');
+  setPlayEnabled(false); // nothing to play until data is loaded
+  setStatus('① 심볼·시간봉·날짜 선택 → ② Load → ③ Play');
 })();

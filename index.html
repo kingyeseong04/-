@@ -23,6 +23,7 @@
       <div class="stat"><label>Mark</label><span id="stat-mark">-</span></div>
       <div class="stat"><label>24H High</label><span id="stat-high">-</span></div>
       <div class="stat"><label>24H Low</label><span id="stat-low">-</span></div>
+      <div class="stat"><label>24H Turnover(USDT)</label><span id="stat-turnover">-</span></div>
       <div class="stat"><label>Funding / Countdown</label><span><b id="stat-funding" class="fund">0.0100%</b> <span id="stat-countdown">08:00:00</span></span></div>
     </div>
   </header>
@@ -102,6 +103,11 @@
       <div class="ob-asks" id="ob-asks"></div>
       <div class="ob-mid"><span id="ob-spread" class="ob-last">0.00</span></div>
       <div class="ob-bids" id="ob-bids"></div>
+      <div class="ob-ratio">
+        <span class="ob-ratio-b" id="ob-ratio-b">B 50%</span>
+        <div class="ob-ratio-bar"><span id="ob-ratio-fill" style="width:50%"></span></div>
+        <span class="ob-ratio-s" id="ob-ratio-s">50% S</span>
+      </div>
       <div class="book-head trades-head">Recent Trades</div>
       <div class="ob-cols"><span>Price(USDT)</span><span>Qty</span><span>Time</span></div>
       <div class="recent" id="recent-trades"></div>
@@ -134,6 +140,13 @@
         <label>Order by Value (USDT)</label>
         <input type="number" id="order-margin" value="500" min="1" step="10" />
       </div>
+      <div class="qty-pct">
+        <input type="range" id="order-pct" min="0" max="100" value="0" />
+        <div class="qty-pct-btns">
+          <button data-pct="25">25%</button><button data-pct="50">50%</button>
+          <button data-pct="75">75%</button><button data-pct="100">100%</button>
+        </div>
+      </div>
       <div class="field">
         <label>Leverage <span class="lev-readout" id="lev-label">10x</span></label>
         <input type="range" id="order-lev" min="1" max="125" value="10" />
@@ -141,10 +154,10 @@
 
       <div class="buy-sell">
         <button class="bs buy" id="btn-long">
-          <span class="bs-t">Buy / Long</span><span class="bs-s">L</span>
+          <span class="bs-t">Buy / Long</span><span class="bs-s" id="cost-long">Cost -</span>
         </button>
         <button class="bs sell" id="btn-short">
-          <span class="bs-t">Sell / Short</span><span class="bs-s">S</span>
+          <span class="bs-t">Sell / Short</span><span class="bs-s" id="cost-short">Cost -</span>
         </button>
       </div>
       <div class="close-row">
@@ -167,11 +180,6 @@
       <label>배속</label>
       <input type="range" id="speed" min="0" max="100" value="50" title="실시간 대비 배속 (1×=실시간)" />
       <label id="speed-label">60× · 1봉≈…</label>
-    </div>
-    <div class="group">
-      <label>Ticks</label>
-      <input type="range" id="tpc" min="6" max="200" value="60" />
-      <label id="tpc-label">60 ticks/candle</label>
     </div>
     <div id="status" class="status"></div>
 

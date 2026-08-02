@@ -134,6 +134,13 @@ body {
 .ob-last.up { color: var(--buy); }
 .ob-last.down { color: var(--sell); }
 
+/* ---- Order book buy/sell ratio bar ---- */
+.ob-ratio { display: flex; align-items: center; gap: 6px; padding: 5px 10px; font-size: 11px; font-weight: 600; }
+.ob-ratio-b { color: var(--buy); white-space: nowrap; }
+.ob-ratio-s { color: var(--sell); white-space: nowrap; }
+.ob-ratio-bar { flex: 1; height: 6px; border-radius: 3px; overflow: hidden; background: var(--sell); }
+.ob-ratio-bar span { display: block; height: 100%; background: var(--buy); }
+
 /* ---- Recent trades ---- */
 .recent { flex: 1; overflow-y: auto; min-height: 0; }
 .rt-row { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 1.5px 10px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
@@ -160,6 +167,12 @@ body {
 .lev-readout { float: right; color: var(--accent); font-weight: 700; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
 input:disabled, .controls input:disabled { opacity: .45; cursor: not-allowed; }
+button:disabled { opacity: .4; cursor: not-allowed; filter: none !important; }
+
+.qty-pct { margin-bottom: 12px; }
+.qty-pct-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 6px; }
+.qty-pct-btns button { background: var(--field); border: 1px solid var(--border); color: var(--muted); border-radius: 4px; padding: 5px 0; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.qty-pct-btns button:hover { background: var(--hover); color: var(--text); }
 
 .buy-sell { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .bs { border: none; border-radius: 4px; padding: 10px 8px; cursor: pointer; color: #fff; display: flex; flex-direction: column; align-items: center; gap: 2px; }
