@@ -247,6 +247,7 @@ button:hover { filter: brightness(1.08); }
 #btn-play { background: var(--accent); color: #111; min-width: 88px; }
 #btn-play:hover { filter: brightness(1.05); }
 .exchange-badge { background: var(--accent); color: #111; font-weight: 700; font-size: 12px; padding: 5px 9px; border-radius: 4px; }
+.ver { color: var(--muted); font-size: 11px; opacity: .6; }
 .controls .step { display: inline-flex; align-items: center; gap: 5px; }
 .controls .step b { color: var(--accent); font-size: 13px; }
 .step-btn { border-color: var(--accent) !important; color: var(--accent) !important; font-weight: 700; }
