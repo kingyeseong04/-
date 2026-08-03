@@ -174,9 +174,11 @@
       if (price == null) return;
       const isLong = side === 'long';
       // No left title — the HTML position label (P&L/size/×) sits on the line.
+      // Bybit's position line uses a DARKER shade than the current-price line
+      // (green #00944f / red #cc3939, sampled), distinct from candle/price color.
       this.entryLine = this.series.createPriceLine({
         price,
-        color: isLong ? '#20b26c' : '#ef454a',
+        color: isLong ? '#00944f' : '#cc3939',
         lineWidth: 1,
         lineStyle: LightweightCharts.LineStyle.Solid,
         axisLabelVisible: true,

@@ -7,8 +7,10 @@
   --hover: #23262e;
   --text: #eaecef;
   --muted: #7a7e87;
-  --buy: #20b26c;    /* Bybit green (sampled from real chart) */
-  --sell: #ef454a;   /* Bybit red (sampled) */
+  --buy: #20b26c;    /* Bybit green — current price, candles (sampled) */
+  --sell: #ef454a;   /* Bybit red — current price, candles (sampled) */
+  --buy-pos: #00944f;  /* Bybit position line/label — darker green (sampled) */
+  --sell-pos: #cc3939; /* Bybit position line/label — darker red (sampled) */
   --accent: #f7a600; /* Bybit yellow */
   --field: #232630;
 }
@@ -85,8 +87,8 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 }
 .pos-label > span { display: flex; align-items: center; padding: 3px 8px; }
 .pos-label .pl-pnl { color: #fff; }
-.pos-label.long .pl-pnl { background: var(--buy); }
-.pos-label.short .pl-pnl { background: var(--sell); }
+.pos-label.long .pl-pnl { background: var(--buy-pos); }
+.pos-label.short .pl-pnl { background: var(--sell-pos); }
 .pos-label .pl-size { background: #2b2f3a; color: var(--text); }
 .pos-label .pl-close { background: #2b2f3a; color: var(--muted); cursor: pointer; border-left: 1px solid #1a1c22; pointer-events: auto; }
 .pos-label .pl-close:hover { color: var(--text); }
