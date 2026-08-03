@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=15" />
+  <link rel="stylesheet" href="css/styles.css?v=16" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -40,6 +40,8 @@
         <div id="load-msg" class="load-msg" style="display:none;"></div>
         <div id="pnl-big" class="pnl-big" style="display:none;"></div>
         <div id="wallet-big" class="pnl-big" style="display:none;"></div>
+        <!-- Bybit-style position label sitting on the entry line -->
+        <div id="pos-label" class="pos-label" style="display:none;"></div>
         <!-- Indicator settings -->
         <div id="ind-panel" class="ind-panel" style="display:none;">
           <div class="ind-row">
@@ -126,13 +128,14 @@
           <div class="ap-krw" id="ap-pnl-krw">₩0</div>
         </div>
         <div class="ap-block">
-          <div class="ap-label">Wallet Balance</div>
-          <div class="ap-val" id="ap-wallet-usdt">10,000.00 USDT</div>
-          <div class="ap-krw" id="ap-wallet-krw">₩0</div>
+          <div class="ap-label">Equity</div>
+          <div class="ap-val" id="ap-equity">10,000.00 USDT</div>
+          <div class="ap-krw" id="ap-equity-krw">₩0</div>
         </div>
-        <div class="ap-block ap-small">
-          <div class="ap-row"><span>Equity</span><b id="ap-equity">-</b></div>
-          <div class="ap-row"><span>Available</span><b id="ap-available">-</b></div>
+        <div class="ap-block">
+          <div class="ap-label">Available</div>
+          <div class="ap-val" id="ap-available">10,000.00 USDT</div>
+          <div class="ap-krw" id="ap-available-krw">₩0</div>
         </div>
       </div>
     </div>
@@ -204,7 +207,7 @@
     <button class="btn-ghost active" id="btn-lock" title="현재 봉에 차트 고정 (마우스로 안 움직임)">🔒 고정</button>
     <button class="btn-ghost active" id="btn-book" title="호가창 표시 (끄면 손익·잔고 패널)">📖 호가창</button>
     <button class="btn-ghost" id="btn-pnl" title="미실현 손익 크게 표시 (드래그로 위치 이동)">💰 손익</button>
-    <button class="btn-ghost" id="btn-wallet" title="지갑 잔고 크게 표시 (드래그로 위치 이동)">💵 잔고</button>
+    <button class="btn-ghost" id="btn-wallet" title="Equity·Available 크게 표시 (드래그로 위치 이동)">💵 자산</button>
     <button class="btn-ghost" id="btn-ind" title="지표 설정 (볼린저·일목)">📈 지표</button>
 
     <div class="group">
@@ -214,7 +217,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v15</span>
+    <span class="ver" title="버전 (최신 확인용)">v16</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
@@ -241,12 +244,12 @@
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=15"></script>
-  <script src="js/dataSource.js?v=15"></script>
-  <script src="js/orderbook.js?v=15"></script>
-  <script src="js/indicators.js?v=15"></script>
-  <script src="js/trading.js?v=15"></script>
-  <script src="js/chart.js?v=15"></script>
-  <script src="js/app.js?v=15"></script>
+  <script src="js/tickEngine.js?v=16"></script>
+  <script src="js/dataSource.js?v=16"></script>
+  <script src="js/orderbook.js?v=16"></script>
+  <script src="js/indicators.js?v=16"></script>
+  <script src="js/trading.js?v=16"></script>
+  <script src="js/chart.js?v=16"></script>
+  <script src="js/app.js?v=16"></script>
 </body>
 </html>

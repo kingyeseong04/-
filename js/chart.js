@@ -173,15 +173,14 @@
       if (this.entryLine) { this.series.removePriceLine(this.entryLine); this.entryLine = null; }
       if (price == null) return;
       const isLong = side === 'long';
-      const label = (isLong ? 'Long' : 'Short') +
-        (size != null ? ' ' + (Math.abs(size) >= 1 ? size.toFixed(2) : size.toFixed(3)) : '');
+      // No left title — the HTML position label (P&L/size/×) sits on the line.
       this.entryLine = this.series.createPriceLine({
         price,
         color: isLong ? '#20b26c' : '#ef454a',
         lineWidth: 1,
         lineStyle: LightweightCharts.LineStyle.Solid,
         axisLabelVisible: true,
-        title: label,
+        title: '',
       });
     }
 

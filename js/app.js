@@ -44,6 +44,53 @@
   const account = new Trading.Account(10000);
   let refreshSpeedLabel = null; // set in bind(); refreshes the 배속 label
 
+  // Sticky price range so the scale (and therefore the position line) stays
+  // put while price oscillates within a candle — recomputed only on candle
+  // close / load, expanded (never shrunk) if the forming candle breaks out.
+  let priceRange = null;
+  chart.setPriceRangeProvider(() => priceRange);
+  function recomputePriceRange() {
+    const from = Math.max(0, state.idx - 48), to = state.idx;
+    let lo = Infinity, hi = -Infinity;
+    for (let j = from; j <= to; j++) {
+      const cc = state.candles[j];
+      let c;
+      if (j === state.idx) {
+        c = (cc && state.running.time === cc.time) ? state.running : null; // skip un-revealed
+      } else {
+        c = cc;
+      }
+      if (!c) continue;
+      if (c.low < lo) lo = c.low;
+      if (c.high > hi) hi = c.high;
+    }
+    if (!isFinite(lo)) { priceRange = null; return; }
+    const pad = (hi - lo) * 0.08 || hi * 0.001 || 1;
+    priceRange = { min: lo - pad, max: hi + pad, pad };
+  }
+  function expandPriceRangeToForming() {
+    if (!priceRange) { recomputePriceRange(); return; }
+    const c = state.running;
+    if (!c || !c.time) return;
+    const pad = priceRange.pad;
+    if (c.low - pad < priceRange.min) priceRange.min = c.low - pad;
+    if (c.high + pad > priceRange.max) priceRange.max = c.high + pad;
+  }
+  // On candle close, only recenter the scale if the visible candles no longer
+  // fit the current range — so the entry line holds still across candles.
+  function maybeRecenterRange() {
+    if (!priceRange) { recomputePriceRange(); return; }
+    const from = Math.max(0, state.idx - 48);
+    let lo = Infinity, hi = -Infinity;
+    for (let j = from; j < state.idx; j++) {
+      const c = state.candles[j]; if (!c) continue;
+      if (c.low < lo) lo = c.low; if (c.high > hi) hi = c.high;
+    }
+    if (!isFinite(lo)) return;
+    if (lo >= priceRange.min && hi <= priceRange.max) return; // still fits — hold
+    recomputePriceRange();
+  }
+
   // Indicator settings (both use OHLC only — no volume needed).
   const ind = {
     bb: { on: false, period: 20, mult: 2 },
@@ -135,6 +182,7 @@
     updatePrice(state.lastPrice, 0);
     renderAccount();
     renderTrades();
+    recomputePriceRange();
     renderOverlays();
     updateStats();
     renderMarket(0, true);
@@ -235,6 +283,7 @@
       state.ticks = [];
       state.tickIdx = 0;
       indicatorsDirty = true; // a candle closed -> indicators need updating
+      maybeRecenterRange();   // hold the scale unless candles exceed it
       if (!state.lockView) chart.scrollToRealTime();
     }
   }
@@ -251,7 +300,10 @@
     // Only draw the forming candle once it's been prepared for the current
     // index (its time matches), else lightweight-charts rejects the stale time.
     const cur = state.candles[state.idx];
-    if (cur && state.running.time === cur.time) chart.updateCandle(state.running);
+    if (cur && state.running.time === cur.time) {
+      expandPriceRangeToForming();
+      chart.updateCandle(state.running);
+    }
     if (state.lockView) anchorView();
     updatePrice(state.lastPrice, state.lastPrice - lastRenderedPrice);
     lastRenderedPrice = state.lastPrice;
@@ -414,15 +466,18 @@
       '<span class="pnl-big-krw">' + fmtKRW(pnl) + '</span>';
   }
 
-  // Enlarged wallet-balance overlay (toggle + draggable) for video emphasis.
+  // Enlarged Equity + Available overlay (toggle + draggable) for video.
   function updateWalletBig() {
     const el = $('wallet-big');
     if (!state.walletBig) { el.style.display = 'none'; return; }
     el.className = 'pnl-big';
     el.innerHTML =
-      '<span class="pnl-big-label">Wallet Balance</span>' +
-      '<span class="pnl-big-val" style="color:var(--text)">' + fmt(account.balance) + ' USDT</span>' +
-      '<span class="pnl-big-krw">' + fmtKRW(account.balance) + '</span>';
+      '<span class="pnl-big-label">Equity</span>' +
+      '<span class="pnl-big-val" style="color:var(--text)">' + fmt(account.equity) + ' USDT</span>' +
+      '<span class="pnl-big-krw">' + fmtKRW(account.equity) + '</span>' +
+      '<span class="pnl-big-label" style="margin-top:12px">Available</span>' +
+      '<span class="pnl-big-val" style="color:var(--text)">' + fmt(account.available) + ' USDT</span>' +
+      '<span class="pnl-big-krw">' + fmtKRW(account.available) + '</span>';
     el.style.display = 'flex';
   }
 
@@ -434,13 +489,33 @@
     $('ap-pnl-usdt').textContent = (account.qty === 0 ? '0.00 USDT' : sign(pnl) + fmt(pnl) + ' USDT');
     $('ap-pnl-pct').textContent = sign(pct) + fmt(pct, 2) + '%';
     $('ap-pnl-krw').textContent = fmtKRW(pnl);
-    $('ap-wallet-usdt').textContent = fmt(account.balance) + ' USDT';
-    $('ap-wallet-krw').textContent = fmtKRW(account.balance);
     $('ap-equity').textContent = fmt(account.equity) + ' USDT';
+    $('ap-equity-krw').textContent = fmtKRW(account.equity);
     $('ap-available').textContent = fmt(account.available) + ' USDT';
+    $('ap-available-krw').textContent = fmtKRW(account.available);
   }
 
-  function renderOverlays() { updateLegend(); updatePnlBig(); updateWalletBig(); updateAccountPanel(); }
+  // Bybit-style position label sitting on the entry line: side-coloured P&L
+  // box + size + close (×). Tracks the entry price's y so it rides the line.
+  function updatePosLabel() {
+    const el = $('pos-label');
+    if (account.qty === 0) { el.style.display = 'none'; return; }
+    const y = chart.priceToY(account.avgEntry);
+    if (y == null) { el.style.display = 'none'; return; }
+    const isLong = account.qty > 0;
+    const pnl = account.unrealizedPnl;
+    el.className = 'pos-label ' + (isLong ? 'long' : 'short');
+    el.innerHTML =
+      '<span class="pl-pnl">P&amp;L ' + sign(pnl) + fmt(pnl) + '</span>' +
+      '<span class="pl-size">' + fmt(Math.abs(account.qty), 3) + '</span>' +
+      '<span class="pl-close" data-poscloseall>✕</span>';
+    el.style.top = y + 'px';
+    el.style.display = 'flex';
+  }
+
+  function renderOverlays() {
+    updateLegend(); updatePnlBig(); updateWalletBig(); updateAccountPanel(); updatePosLabel();
+  }
 
   // Cost (initial margin) shown on the Buy/Sell buttons.
   function updateCost() {
@@ -612,6 +687,7 @@
     updatePnlBig();
     updateWalletBig();
     updateAccountPanel();
+    updatePosLabel();
   }
 
   function renderTrades() {
@@ -682,6 +758,10 @@
     // Delegated Close button (row is rebuilt on change, not every frame).
     $('pos-rows').addEventListener('click', (e) => {
       if (e.target.closest('[data-close]')) closePartial(1);
+    });
+    // Close (×) on the on-chart position label.
+    $('pos-label').addEventListener('click', (e) => {
+      if (e.target.closest('[data-poscloseall]')) closePartial(1);
     });
 
     // Speed = real-time multiplier (배속). Slider 0..100 maps exponentially to

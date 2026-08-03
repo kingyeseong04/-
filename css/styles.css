@@ -76,6 +76,21 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 .tv-legend .ohlc { display: block; margin-top: 3px; font-size: 12.5px; font-weight: 500; }
 .tv-legend .ohlc .lbl { opacity: .6; margin-right: 2px; }
 
+/* Bybit-style position label on the entry line */
+.pos-label {
+  position: absolute; z-index: 5; left: 38%; transform: translateY(-50%);
+  display: none; align-items: stretch; font-size: 12px; font-weight: 600;
+  border-radius: 3px; overflow: hidden; white-space: nowrap; pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4); font-variant-numeric: tabular-nums;
+}
+.pos-label > span { display: flex; align-items: center; padding: 3px 8px; }
+.pos-label .pl-pnl { color: #fff; }
+.pos-label.long .pl-pnl { background: var(--buy); }
+.pos-label.short .pl-pnl { background: var(--sell); }
+.pos-label .pl-size { background: #2b2f3a; color: var(--text); }
+.pos-label .pl-close { background: #2b2f3a; color: var(--muted); cursor: pointer; border-left: 1px solid #1a1c22; pointer-events: auto; }
+.pos-label .pl-close:hover { color: var(--text); }
+
 /* Indicator settings panel */
 .ind-panel {
   position: absolute; z-index: 6; top: 10px; right: 10px;
