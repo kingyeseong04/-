@@ -505,10 +505,13 @@
     const isLong = account.qty > 0;
     const pnl = account.unrealizedPnl;
     el.className = 'pos-label ' + (isLong ? 'long' : 'short');
+    // Bybit layout: [P&L ±val — dark box, white text] [size — side-colour fill]
+    // [⇅ reverse] [✕ close], all wrapped in a side-colour border.
     el.innerHTML =
       '<span class="pl-pnl">P&amp;L ' + sign(pnl) + fmt(pnl) + '</span>' +
       '<span class="pl-size">' + fmt(Math.abs(account.qty), 3) + '</span>' +
-      '<span class="pl-close" data-poscloseall>✕</span>';
+      '<span class="pl-rev" data-posreverse title="포지션 반전">⇅</span>' +
+      '<span class="pl-close" data-poscloseall title="청산">✕</span>';
     el.style.top = y + 'px';
     el.style.display = 'flex';
   }
@@ -678,11 +681,10 @@
   function onPositionChanged() {
     if (account.qty === 0) {
       chart.setEntryLine(null);
-      chart.setLiqLine(null);
     } else {
       chart.setEntryLine(account.avgEntry, account.qty > 0 ? 'long' : 'short', Math.abs(account.qty));
-      chart.setLiqLine(account.liquidationPrice);
     }
+    // Liquidation line intentionally not drawn on the chart (per request).
     renderAccount();
     updatePnlBig();
     updateWalletBig();
@@ -737,6 +739,22 @@
     setStatus('Closed ' + Math.round(frac * 100) + '% @ ' + fmt(state.lastPrice), 'ok');
   }
 
+  // Bybit-style "reverse" (⇅): flip to the opposite side keeping the same size.
+  function reversePosition() {
+    if (account.qty === 0) { setStatus('No open position.', 'err'); return; }
+    if (state.lastPrice <= 0) return;
+    const time = state.running.time || 0;
+    const newSide = account.qty > 0 ? 'short' : 'long';
+    const lev = account.leverage || parseFloat($('order-lev').value) || 1;
+    const margin = (Math.abs(account.qty) * state.lastPrice) / lev;
+    account.closeAll(state.lastPrice, time);
+    const res = account.order(newSide, margin, lev, state.lastPrice, time);
+    if (!res.ok) { onPositionChanged(); renderTrades(); setStatus(res.msg, 'err'); return; }
+    onPositionChanged();
+    renderTrades();
+    setStatus('Reversed → ' + newSide.toUpperCase() + ' @ ' + fmt(state.lastPrice), 'ok');
+  }
+
   // ----- Wiring ----------------------------------------------------------
   function bind() {
     $('btn-play').addEventListener('click', togglePlay);
@@ -762,6 +780,7 @@
     // Close (×) on the on-chart position label.
     $('pos-label').addEventListener('click', (e) => {
       if (e.target.closest('[data-poscloseall]')) closePartial(1);
+      else if (e.target.closest('[data-posreverse]')) reversePosition();
     });
 
     // Speed = real-time multiplier (배속). Slider 0..100 maps exponentially to

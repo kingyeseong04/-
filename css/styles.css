@@ -84,14 +84,25 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
   display: none; align-items: stretch; font-size: 12px; font-weight: 600;
   border-radius: 3px; overflow: hidden; white-space: nowrap; pointer-events: none;
   box-shadow: 0 1px 4px rgba(0,0,0,.4); font-variant-numeric: tabular-nums;
+  background: #101014; border: 1px solid transparent;
 }
+.pos-label.long  { border-color: var(--buy-pos); }
+.pos-label.short { border-color: var(--sell-pos); }
 .pos-label > span { display: flex; align-items: center; padding: 3px 8px; }
-.pos-label .pl-pnl { color: #fff; }
-.pos-label.long .pl-pnl { background: var(--buy-pos); }
-.pos-label.short .pl-pnl { background: var(--sell-pos); }
-.pos-label .pl-size { background: #2b2f3a; color: var(--text); }
-.pos-label .pl-close { background: #2b2f3a; color: var(--muted); cursor: pointer; border-left: 1px solid #1a1c22; pointer-events: auto; }
-.pos-label .pl-close:hover { color: var(--text); }
+/* P&L: dark box, white text (side sign shown by the coloured size box + border) */
+.pos-label .pl-pnl { background: #101014; color: #fff; }
+/* size: solid side-colour fill, white text */
+.pos-label .pl-size { color: #fff; }
+.pos-label.long  .pl-size { background: var(--buy-pos); }
+.pos-label.short .pl-size { background: var(--sell-pos); }
+/* reverse (⇅) + close (✕): dark box, grey glyph, clickable */
+.pos-label .pl-rev, .pos-label .pl-close {
+  background: #101014; color: #9598a1; cursor: pointer; pointer-events: auto;
+}
+.pos-label .pl-rev:hover, .pos-label .pl-close:hover { color: #fff; }
+/* side-colour dividers between every segment */
+.pos-label.long  > span + span { border-left: 1px solid var(--buy-pos); }
+.pos-label.short > span + span { border-left: 1px solid var(--sell-pos); }
 
 /* Indicator settings panel */
 .ind-panel {
