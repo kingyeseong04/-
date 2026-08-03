@@ -413,22 +413,35 @@
   function updateLegend() {
     const c = currentCandle();
     if (!c) return;
+    const el = $('legend');
+    // Build the fixed structure once; per frame only text/colour change.
+    if (!el._built) {
+      el._built = true;
+      el.innerHTML =
+        '<span class="sym"></span><span class="meta"></span>' +
+        '<span class="ohlc">' +
+        '<span class="lbl">O</span><span data-o></span> ' +
+        '<span class="lbl">H</span><span data-h></span> ' +
+        '<span class="lbl">L</span><span data-l></span> ' +
+        '<span class="lbl">C</span><span data-c></span>  ' +
+        '<span data-chg></span></span>';
+      el._sym = el.querySelector('.sym');
+      el._meta = el.querySelector('.meta');
+      el._ohlc = el.querySelector('.ohlc');
+      el._o = el.querySelector('[data-o]'); el._h = el.querySelector('[data-h]');
+      el._l = el.querySelector('[data-l]'); el._c = el.querySelector('[data-c]');
+      el._chg = el.querySelector('[data-chg]');
+    }
     const d = dec(c.close);
     const up = c.close >= c.open;
-    const col = up ? 'var(--up)' : 'var(--down)';
     const chg = c.close - c.open;
     const chgPct = c.open ? (chg / c.open) * 100 : 0;
-    const meta = 'Perpetual · ' + tvRes(state.interval) + ' · ' + (state.exchange || 'Bybit');
-    $('legend').innerHTML =
-      '<span class="sym">' + state.symbol + '</span>' +
-      '<span class="meta"> ' + meta + '</span>' +
-      '<span class="ohlc" style="color:' + col + '">' +
-      '<span class="lbl">O</span>' + fmt(c.open, d) + ' ' +
-      '<span class="lbl">H</span>' + fmt(c.high, d) + ' ' +
-      '<span class="lbl">L</span>' + fmt(c.low, d) + ' ' +
-      '<span class="lbl">C</span>' + fmt(c.close, d) + '  ' +
-      sign(chg) + fmt(chg, d) + ' (' + sign(chgPct) + fmt(chgPct, 2) + '%)' +
-      '</span>';
+    el._sym.textContent = state.symbol;
+    el._meta.textContent = ' Perpetual · ' + tvRes(state.interval) + ' · ' + (state.exchange || 'Bybit');
+    el._ohlc.style.color = up ? 'var(--buy)' : 'var(--sell)';
+    el._o.textContent = fmt(c.open, d); el._h.textContent = fmt(c.high, d);
+    el._l.textContent = fmt(c.low, d); el._c.textContent = fmt(c.close, d);
+    el._chg.textContent = sign(chg) + fmt(chg, d) + ' (' + sign(chgPct) + fmt(chgPct, 2) + '%)';
   }
 
   function fmtDur(s) {
@@ -449,35 +462,55 @@
     const el = $('pnl-big');
     if (!state.pnlBig) { el.style.display = 'none'; return; }
     el.style.display = 'flex';
-    if (account.qty === 0) {
-      el.className = 'pnl-big';
-      el.innerHTML =
-        '<span class="pnl-big-label">Unrealized P&amp;L</span>' +
-        '<span class="pnl-big-val" style="color:var(--muted)">포지션 없음</span>';
-      return;
+    const mode = account.qty === 0 ? 'flat' : 'pos';
+    // (Re)build structure only when switching between flat/position layouts.
+    if (el._mode !== mode) {
+      el._mode = mode;
+      if (mode === 'flat') {
+        el.className = 'pnl-big';
+        el.innerHTML =
+          '<span class="pnl-big-label">Unrealized P&amp;L</span>' +
+          '<span class="pnl-big-val" style="color:var(--muted)">포지션 없음</span>';
+      } else {
+        el.innerHTML =
+          '<span class="pnl-big-label">Unrealized P&amp;L</span>' +
+          '<span class="pnl-big-val"></span>' +
+          '<span class="pnl-big-pct"></span>' +
+          '<span class="pnl-big-krw"></span>';
+        el._val = el.querySelector('.pnl-big-val');
+        el._pct = el.querySelector('.pnl-big-pct');
+        el._krw = el.querySelector('.pnl-big-krw');
+      }
     }
-    const pnl = account.unrealizedPnl;
-    const pct = account.unrealizedPnlPct;
+    if (mode === 'flat') return;
+    const pnl = account.unrealizedPnl, pct = account.unrealizedPnlPct;
     el.className = 'pnl-big ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
-    el.innerHTML =
-      '<span class="pnl-big-label">Unrealized P&amp;L</span>' +
-      '<span class="pnl-big-val">' + sign(pnl) + fmt(pnl) + ' USDT</span>' +
-      '<span class="pnl-big-pct">' + sign(pct) + fmt(pct, 2) + '%</span>' +
-      '<span class="pnl-big-krw">' + fmtKRW(pnl) + '</span>';
+    el._val.textContent = sign(pnl) + fmt(pnl) + ' USDT';
+    el._pct.textContent = sign(pct) + fmt(pct, 2) + '%';
+    el._krw.textContent = fmtKRW(pnl);
   }
 
   // Enlarged Equity + Available overlay (toggle + draggable) for video.
   function updateWalletBig() {
     const el = $('wallet-big');
     if (!state.walletBig) { el.style.display = 'none'; return; }
-    el.className = 'pnl-big';
-    el.innerHTML =
-      '<span class="pnl-big-label">Equity</span>' +
-      '<span class="pnl-big-val" style="color:var(--text)">' + fmt(account.equity) + ' USDT</span>' +
-      '<span class="pnl-big-krw">' + fmtKRW(account.equity) + '</span>' +
-      '<span class="pnl-big-label" style="margin-top:12px">Available</span>' +
-      '<span class="pnl-big-val" style="color:var(--text)">' + fmt(account.available) + ' USDT</span>' +
-      '<span class="pnl-big-krw">' + fmtKRW(account.available) + '</span>';
+    if (!el._built) {
+      el._built = true;
+      el.className = 'pnl-big';
+      el.innerHTML =
+        '<span class="pnl-big-label">Equity</span>' +
+        '<span class="pnl-big-val" data-eq style="color:var(--text)"></span>' +
+        '<span class="pnl-big-krw" data-eqk></span>' +
+        '<span class="pnl-big-label" style="margin-top:12px">Available</span>' +
+        '<span class="pnl-big-val" data-av style="color:var(--text)"></span>' +
+        '<span class="pnl-big-krw" data-avk></span>';
+      el._eq = el.querySelector('[data-eq]'); el._eqk = el.querySelector('[data-eqk]');
+      el._av = el.querySelector('[data-av]'); el._avk = el.querySelector('[data-avk]');
+    }
+    el._eq.textContent = fmt(account.equity) + ' USDT';
+    el._eqk.textContent = fmtKRW(account.equity);
+    el._av.textContent = fmt(account.available) + ' USDT';
+    el._avk.textContent = fmtKRW(account.available);
     el.style.display = 'flex';
   }
 
@@ -504,14 +537,24 @@
     if (y == null) { el.style.display = 'none'; return; }
     const isLong = account.qty > 0;
     const pnl = account.unrealizedPnl;
-    el.className = 'pos-label ' + (isLong ? 'long' : 'short');
+    const side = isLong ? 'long' : 'short';
+    // Build the structure once (or when the side flips); afterwards update only
+    // the changing text nodes per frame — no per-frame innerHTML reparse/reflow.
     // Bybit layout: [P&L ±val — dark box, white text] [size — side-colour fill]
     // [⇅ reverse] [✕ close], all wrapped in a side-colour border.
-    el.innerHTML =
-      '<span class="pl-pnl">P&amp;L ' + sign(pnl) + fmt(pnl) + '</span>' +
-      '<span class="pl-size">' + fmt(Math.abs(account.qty), 3) + '</span>' +
-      '<span class="pl-rev" data-posreverse title="포지션 반전">⇅</span>' +
-      '<span class="pl-close" data-poscloseall title="청산">✕</span>';
+    if (el._side !== side) {
+      el._side = side;
+      el.className = 'pos-label ' + side;
+      el.innerHTML =
+        '<span class="pl-pnl"></span>' +
+        '<span class="pl-size"></span>' +
+        '<span class="pl-rev" data-posreverse title="포지션 반전">⇅</span>' +
+        '<span class="pl-close" data-poscloseall title="청산">✕</span>';
+      el._pnlEl = el.querySelector('.pl-pnl');
+      el._sizeEl = el.querySelector('.pl-size');
+    }
+    el._pnlEl.textContent = 'P&L ' + sign(pnl) + fmt(pnl);
+    el._sizeEl.textContent = fmt(Math.abs(account.qty), 3);
     el.style.top = y + 'px';
     el.style.display = 'flex';
   }
@@ -594,6 +637,23 @@
     _lastMktTs = (ts == null ? _lastMktTs : ts);
 
     const d = dec(state.lastPrice);
+
+    // Synthetic trade + 24h turnover accumulate even when the book is hidden,
+    // so the top-bar turnover keeps ticking. (Cheap: no DOM.)
+    const side = state.lastPrice >= (state._tapePrev || state.lastPrice) ? 'buy' : 'sell';
+    state._tapePrev = state.lastPrice;
+    const frac = state.ticks.length ? state.tickIdx / state.ticks.length : 0;
+    const tsec = (state.running.time || (state.candles[state.warmup - 1] || {}).time || 0) + frac * candleDur();
+    const base = state.lastPrice < 1 ? 5000 : state.lastPrice < 100 ? 200 : state.lastPrice < 5000 ? 3 : 0.6;
+    const size = +(base * (0.05 + Math.random() * 0.6)).toFixed(3);
+    state.tape.unshift({ p: state.lastPrice, size, side, tsec });
+    if (state.tape.length > 28) state.tape.pop();
+    state.turnover += size * state.lastPrice;
+
+    // The order book + trade tape are hidden when the account panel is shown —
+    // skip all of their DOM work in that mode.
+    if (!state.orderbook) return;
+
     _bookSeed++;
     const book = OrderBook.build(state.lastPrice, 11, _bookSeed);
     $('ob-asks').innerHTML = book.asks.slice().reverse()
@@ -607,16 +667,6 @@
     obEl.textContent = fmt(state.lastPrice, d);
     obEl.className = 'ob-last ' + (upDir ? 'up' : 'down');
 
-    // Append one synthetic trade to the tape.
-    const side = state.lastPrice >= (state._tapePrev || state.lastPrice) ? 'buy' : 'sell';
-    state._tapePrev = state.lastPrice;
-    const frac = state.ticks.length ? state.tickIdx / state.ticks.length : 0;
-    const tsec = (state.running.time || (state.candles[state.warmup - 1] || {}).time || 0) + frac * candleDur();
-    const base = state.lastPrice < 1 ? 5000 : state.lastPrice < 100 ? 200 : state.lastPrice < 5000 ? 3 : 0.6;
-    const size = +(base * (0.05 + Math.random() * 0.6)).toFixed(3);
-    state.tape.unshift({ p: state.lastPrice, size, side, tsec });
-    if (state.tape.length > 28) state.tape.pop();
-    state.turnover += size * state.lastPrice; // accumulate 24h turnover
     $('recent-trades').innerHTML = state.tape.map((t) =>
       '<div class="rt-row ' + t.side + '"><span class="p">' + fmt(t.p, d) + '</span>' +
       '<span class="q">' + fmt(t.size, 3) + '</span>' +
