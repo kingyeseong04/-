@@ -68,7 +68,7 @@
         layout: {
           background: { color: '#101014' }, // Bybit chart background (sampled)
           textColor: '#8a8e99',
-          fontFamily: "'IBM Plex Sans', -apple-system, 'Trebuchet MS', Roboto, sans-serif",
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
           fontSize: 12,
         },
         grid: {

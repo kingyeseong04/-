@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bybit-style Replay — 과거 캔들 실시간 매매 연출</title>
   <link rel="icon" href="data:," />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=18" />
+  <!-- Bybit's web UI renders in the platform system font (San Francisco on
+       iPad/Safari). Use the same system stack so the app matches Bybit exactly
+       on-device — and drop the external Google Fonts dependency. -->
+  <link rel="stylesheet" href="css/styles.css?v=19" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -217,7 +217,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v18</span>
+    <span class="ver" title="버전 (최신 확인용)">v19</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
@@ -244,12 +244,12 @@
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=18"></script>
-  <script src="js/dataSource.js?v=18"></script>
-  <script src="js/orderbook.js?v=18"></script>
-  <script src="js/indicators.js?v=18"></script>
-  <script src="js/trading.js?v=18"></script>
-  <script src="js/chart.js?v=18"></script>
-  <script src="js/app.js?v=18"></script>
+  <script src="js/tickEngine.js?v=19"></script>
+  <script src="js/dataSource.js?v=19"></script>
+  <script src="js/orderbook.js?v=19"></script>
+  <script src="js/indicators.js?v=19"></script>
+  <script src="js/trading.js?v=19"></script>
+  <script src="js/chart.js?v=19"></script>
+  <script src="js/app.js?v=19"></script>
 </body>
 </html>

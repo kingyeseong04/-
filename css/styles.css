@@ -20,7 +20,9 @@ html, body { height: 100%; margin: 0; }
 body {
   background: var(--bg);
   color: var(--text);
-  font: 13px/1.4 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Bybit's web UI uses the platform system font — on iPad/Safari that's
+     San Francisco (SF Pro). Match it exactly with a system-first stack. */
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   display: flex; flex-direction: column;
   -webkit-font-smoothing: antialiased;
   /* Stop taps from selecting UI text on touch devices (iPad), which put the
@@ -71,7 +73,7 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 /* ---- Chart overlays ---- */
 .tv-legend {
   position: absolute; top: 8px; left: 12px; z-index: 3;
-  font: 13px/1.5 'IBM Plex Sans', -apple-system, Roboto, sans-serif; pointer-events: none; white-space: nowrap;
+  font: 13px/1.5 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; pointer-events: none; white-space: nowrap;
 }
 .tv-legend .sym { font-weight: 600; color: var(--text); font-size: 14px; }
 .tv-legend .meta { color: var(--muted); font-size: 13px; font-weight: 400; }
@@ -80,7 +82,9 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 
 /* Bybit-style position label on the entry line */
 .pos-label {
-  position: absolute; z-index: 5; left: 38%; transform: translateY(-50%);
+  /* Anchor the RIGHT edge (near the ⇅/✕ icons) so the box grows LEFTWARD as
+     the P&L value gains digits — the icons stay put, like real Bybit. */
+  position: absolute; z-index: 5; right: 46%; transform: translateY(-50%);
   display: none; align-items: stretch; font-size: 12px; font-weight: 600;
   border-radius: 3px; overflow: hidden; white-space: nowrap; pointer-events: none;
   box-shadow: 0 1px 4px rgba(0,0,0,.4); font-variant-numeric: tabular-nums;
@@ -95,10 +99,15 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 .pos-label .pl-size { color: #fff; }
 .pos-label.long  .pl-size { background: var(--buy-pos); }
 .pos-label.short .pl-size { background: var(--sell-pos); }
-/* reverse (⇅) + close (✕): dark box, grey glyph, clickable */
+/* reverse (⇅) + close (✕): dark box, grey glyph, clickable. Bybit sizes these
+   icons larger than the text — ⇅ ≈ 1.35× and ✕ ≈ 1.1× the digit height
+   (measured from the real UI). line-height:1 keeps the row from growing. */
 .pos-label .pl-rev, .pos-label .pl-close {
   background: #101014; color: #9598a1; cursor: pointer; pointer-events: auto;
+  line-height: 1; font-weight: 400;
 }
+.pos-label .pl-rev { font-size: 16px; }
+.pos-label .pl-close { font-size: 14px; }
 .pos-label .pl-rev:hover, .pos-label .pl-close:hover { color: #fff; }
 /* side-colour dividers between every segment */
 .pos-label.long  > span + span { border-left: 1px solid var(--buy-pos); }
