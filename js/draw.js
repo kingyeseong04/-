@@ -176,9 +176,29 @@
     // in-progress trendline preview
     if (tool === 'draw' && drag) { ctx.strokeStyle = '#2962ff'; drawSeg(drag.a, drag.b); }
 
+    // Blue dashed crosshair at the moving point while dragging (like Bybit).
+    if (drag && tool) {
+      const pb = toPixel(drag.b);
+      if (pb) drawCrosshair(pb, drag.b.price);
+    }
+
     // ruler (committed or in-progress)
     const m = (tool === 'ruler' && drag) ? drag : measure;
     if (m) drawRuler(m.a, m.b);
+  }
+
+  // Full-width/height blue dashed crosshair + dot + blue price tag on the axis.
+  function drawCrosshair(p, price) {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    ctx.save();
+    ctx.strokeStyle = '#2962ff'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(0, p.y); ctx.lineTo(w, p.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p.x, 0); ctx.lineTo(p.x, h); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#2962ff';
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    drawPriceTag(price, p.y, '#2962ff');
   }
 
   function drawSeg(a, b) {
