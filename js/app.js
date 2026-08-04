@@ -51,6 +51,17 @@
   // Drawing layer (trendline / ruler / magnet) over the chart.
   if (window.Draw) Draw.init(chart, $('chart-wrap'), () => state.candles);
 
+  // Whenever the chart box resizes (clean-mode toggle, window/orientation
+  // change), the entry price's y moves — reposition the position label (and the
+  // drawing canvas) so they keep tracking the line even while paused.
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => requestAnimationFrame(() => {
+      if (typeof updatePosLabel === 'function') updatePosLabel();
+      if (window.Draw) { Draw.resize(); Draw.redraw(); }
+    }));
+    ro.observe($('chart-wrap'));
+  }
+
   // Sticky price range so the scale (and therefore the position line) stays
   // put while price oscillates within a candle — recomputed only on candle
   // close / load, expanded (never shrunk) if the forming candle breaks out.
