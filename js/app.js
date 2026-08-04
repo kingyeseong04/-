@@ -64,6 +64,18 @@
     ro.observe($('chart-wrap'));
   }
 
+  // Keep the on-chart labels glued to their price lines even while PAUSED with
+  // lock off — panning/zooming/scaling the chart moves the entry/TP/SL y, and
+  // renderFrame only runs during playback. A tiny always-on rAF handles it
+  // (does DOM work only when paused with an open position; no-op otherwise).
+  function labelTrackLoop() {
+    if (!state.playing && account.qty !== 0 && typeof updatePosLabel === 'function') {
+      updatePosLabel(); updateTpSlLabels();
+    }
+    requestAnimationFrame(labelTrackLoop);
+  }
+  requestAnimationFrame(labelTrackLoop);
+
   // Sticky price range so the scale (and therefore the position line) stays
   // put while price oscillates within a candle — recomputed only on candle
   // close / load, expanded (never shrunk) if the forming candle breaks out.
