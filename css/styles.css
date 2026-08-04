@@ -92,24 +92,24 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 }
 .pos-label.long  { border-color: var(--buy-pos); }
 .pos-label.short { border-color: var(--sell-pos); }
-.pos-label > span { display: flex; align-items: center; padding: 5px 10px; }
+/* Fixed row height so the icon cells can be exact squares (aspect-ratio on a
+   stretched flex item is unreliable on iOS Safari). */
+.pos-label > span { display: flex; align-items: center; height: 28px; }
+.pos-label .pl-pnl, .pos-label .pl-size { padding: 0 11px; }
 /* P&L: dark box, white text (side sign shown by the coloured size box + border) */
 .pos-label .pl-pnl { background: #101014; color: #fff; }
 /* size: solid side-colour fill, white text */
 .pos-label .pl-size { color: #fff; }
 .pos-label.long  .pl-size { background: var(--buy-pos); }
 .pos-label.short .pl-size { background: var(--sell-pos); }
-/* reverse (⇅) + close (✕): dark box, grey glyph, clickable. Bybit sizes these
-   icons larger than the text — ⇅ ≈ 1.35× and ✕ ≈ 1.1× the digit height
-   (measured from the real UI). line-height:1 keeps the row from growing. */
+/* reverse (⇅) + close (✕): SQUARE dark cells (width = row height), grey glyph. */
 .pos-label .pl-rev, .pos-label .pl-close {
   background: #101014; color: #9598a1; cursor: pointer; pointer-events: auto;
   line-height: 1; font-weight: 400;
-  /* Bybit: each icon sits in a SQUARE cell (width = the box's stretched height). */
-  padding: 0; aspect-ratio: 1; justify-content: center;
+  width: 28px; padding: 0; justify-content: center; flex: 0 0 28px;
 }
 .pos-label .pl-rev { font-size: 15px; }
-.pos-label .pl-close { font-size: 14px; }
+.pos-label .pl-close { font-size: 15px; }
 .pos-label .pl-rev:hover, .pos-label .pl-close:hover { color: #fff; }
 /* side-colour dividers between every segment */
 .pos-label.long  > span + span { border-left: 1px solid var(--buy-pos); }
