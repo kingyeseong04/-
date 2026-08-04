@@ -105,8 +105,10 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 .pos-label .pl-rev, .pos-label .pl-close {
   background: #101014; color: #9598a1; cursor: pointer; pointer-events: auto;
   line-height: 1; font-weight: 400;
+  /* Bybit: each icon sits in a SQUARE cell (width = the box's stretched height). */
+  padding: 0; aspect-ratio: 1; justify-content: center;
 }
-.pos-label .pl-rev { font-size: 16px; }
+.pos-label .pl-rev { font-size: 15px; }
 .pos-label .pl-close { font-size: 14px; }
 .pos-label .pl-rev:hover, .pos-label .pl-close:hover { color: #fff; }
 /* side-colour dividers between every segment */

@@ -214,7 +214,7 @@
 
     // centered vertical (price) + horizontal (time) arrows pointing to b
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-    ctx.strokeStyle = solid; ctx.fillStyle = solid; ctx.lineWidth = 2;
+    ctx.strokeStyle = solid; ctx.fillStyle = solid; ctx.lineWidth = 1.4;
     arrow(cx, pa.y, cx, pb.y);
     arrow(pa.x, cy, pb.x, cy);
 
@@ -230,17 +230,17 @@
     const l2 = bars + ' bars, ' + fmtDur(dMin);
     // label above the box for an up-move, below for a down-move (like TV)
     drawLabel(l1 + '\n' + l2, cx, up ? y0 - 6 : y1 + 6, solid, !up);
-    // small price tags at the two endpoints (like Bybit's axis labels)
-    drawPriceTag(a.price, x1, pa.y, solid);
-    drawPriceTag(b.price, x1, pb.y, solid);
+    // price tags on the RIGHT PRICE AXIS at the two endpoint levels (like Bybit).
+    drawPriceTag(a.price, pa.y, solid);
+    drawPriceTag(b.price, pb.y, solid);
   }
 
-  function drawPriceTag(price, x, y, col) {
+  // Docked to the right edge (over the price axis) at price level y.
+  function drawPriceTag(price, y, col) {
     ctx.font = "600 11px -apple-system, 'Segoe UI', Roboto, sans-serif";
     const t = fmt(price);
     const w = ctx.measureText(t).width + 12, h = 18;
-    let bx = x - w - 2; // sit just inside the box's right edge
-    bx = Math.max(2, Math.min(bx, canvas.clientWidth - w - 2));
+    const bx = canvas.clientWidth - w - 1;
     const by = Math.max(2, Math.min(y - h / 2, canvas.clientHeight - h - 2));
     ctx.fillStyle = col;
     roundRect(bx, by, w, h, 3); ctx.fill();
@@ -250,7 +250,7 @@
 
   function arrow(x0, y0, x1, y1) {
     ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-    const ang = Math.atan2(y1 - y0, x1 - x0), h = 7;
+    const ang = Math.atan2(y1 - y0, x1 - x0), h = 5;
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x1 - h * Math.cos(ang - Math.PI / 6), y1 - h * Math.sin(ang - Math.PI / 6));
