@@ -108,8 +108,11 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
   line-height: 1; font-weight: 400;
   width: 28px; padding: 0; justify-content: center; flex: 0 0 28px;
 }
-.pos-label .pl-rev { font-size: 15px; }
-.pos-label .pl-close { font-size: 15px; }
+/* ↑↓ as two arrows with a gap between them (like Bybit); pad-left offsets the
+   trailing letter-spacing so the pair stays centred. */
+.pos-label .pl-rev { font-size: 13px; letter-spacing: 3px; padding-left: 3px; }
+/* ✕ larger to match Bybit's close icon. */
+.pos-label .pl-close { font-size: 18px; }
 .pos-label .pl-rev:hover, .pos-label .pl-close:hover { color: #fff; }
 /* side-colour dividers between every segment */
 .pos-label.long  > span + span { border-left: 1px solid var(--buy-pos); }

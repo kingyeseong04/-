@@ -640,7 +640,7 @@
       el.innerHTML =
         '<span class="pl-pnl"></span>' +
         '<span class="pl-size"></span>' +
-        '<span class="pl-rev" data-posreverse title="포지션 반전">⇅</span>' +
+        '<span class="pl-rev" data-posreverse title="포지션 반전">↑↓</span>' +
         '<span class="pl-close" data-poscloseall title="청산">✕</span>';
       el._pnlEl = el.querySelector('.pl-pnl');
       el._sizeEl = el.querySelector('.pl-size');
