@@ -161,13 +161,13 @@
     const w = canvas.clientWidth, h = canvas.clientHeight;
     ctx.clearRect(0, 0, w, h);
 
-    // committed trendlines
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = '#e0b040';
+    // committed trendlines (TradingView blue)
+    ctx.lineWidth = 1.75;
+    ctx.strokeStyle = '#2962ff';
     for (const ln of lines) drawSeg(ln.a, ln.b);
 
     // in-progress trendline preview
-    if (tool === 'draw' && drag) { ctx.strokeStyle = '#e0b040'; drawSeg(drag.a, drag.b); }
+    if (tool === 'draw' && drag) { ctx.strokeStyle = '#2962ff'; drawSeg(drag.a, drag.b); }
 
     // ruler (committed or in-progress)
     const m = (tool === 'ruler' && drag) ? drag : measure;
@@ -186,16 +186,16 @@
     for (const p of [pa, pb]) { ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2); ctx.fill(); }
   }
 
-  // TradingView-style measure box: green when price rose, red when it fell,
-  // a shaded rectangle with a centered arrow, and a solid label showing
-  // Δprice (%) ticks / N bars, duration / Vol.
+  // Bybit/TradingView measure box: BLUE when price rose, RED when it fell,
+  // a shaded rectangle with centered direction arrows, and a solid label:
+  //   Δprice (%) ticks  /  N bars, duration     (colours sampled from Bybit)
   function drawRuler(a, b) {
     const pa = toPixel(a), pb = toPixel(b);
     if (!pa || !pb) return;
     const up = b.price >= a.price;
-    const solid = up ? '#26a69a' : '#ef5350';           // label fill
-    const fill = up ? 'rgba(38,166,154,0.18)' : 'rgba(239,83,80,0.18)';
-    const edge = up ? 'rgba(38,166,154,0.55)' : 'rgba(239,83,80,0.55)';
+    const solid = up ? '#3961f5' : '#f23645';           // label + arrows
+    const fill = up ? 'rgba(57,97,245,0.20)' : 'rgba(242,54,69,0.20)';
+    const edge = up ? 'rgba(57,97,245,0.55)' : 'rgba(242,54,69,0.55)';
     const x0 = Math.min(pa.x, pb.x), x1 = Math.max(pa.x, pb.x);
     const y0 = Math.min(pa.y, pb.y), y1 = Math.max(pa.y, pb.y);
 
@@ -205,29 +205,24 @@
     ctx.strokeStyle = edge; ctx.lineWidth = 1;
     ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
 
-    // centered vertical arrow (price direction) + horizontal arrow (time)
+    // centered vertical (price) + horizontal (time) arrows pointing to b
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     ctx.strokeStyle = solid; ctx.fillStyle = solid; ctx.lineWidth = 2;
-    // vertical: from a.price level to b.price level, arrow points to b
     arrow(cx, pa.y, cx, pb.y);
-    // horizontal: from a.time to b.time, arrow points to b
     arrow(pa.x, cy, pb.x, cy);
 
-    // metrics
+    // metrics (no volume, per request)
     const dPrice = b.price - a.price;
     const pct = a.price ? (dPrice / a.price) * 100 : 0;
     const tick = tickSize(a.price);
     const ticks = tick ? Math.round(dPrice / tick) : 0;
     const bars = barsBetween(a.time, b.time);
     const dMin = Math.round((b.time - a.time) / 60);
-    const vol = sumVolume(a.time, b.time);
     const sgn = (n) => (n >= 0 ? '+' : '');
     const l1 = sgn(dPrice) + fmt(dPrice) + '  (' + sgn(pct) + pct.toFixed(2) + '%)  ' + sgn(ticks) + ticks;
-    const l2 = bars + ' bars,  ' + fmtDur(dMin);
-    const label = vol > 0 ? (l1 + '\n' + l2 + '\nVol ' + fmtBig(vol)) : (l1 + '\n' + l2);
-    // label sits above the box for an up-move, below for a down-move (like TV)
-    const labelY = up ? y0 - 6 : y1 + 6;
-    drawLabel(label, cx, labelY, solid, !up);
+    const l2 = bars + ' bars, ' + fmtDur(dMin);
+    // label above the box for an up-move, below for a down-move (like TV)
+    drawLabel(l1 + '\n' + l2, cx, up ? y0 - 6 : y1 + 6, solid, !up);
   }
 
   function arrow(x0, y0, x1, y1) {

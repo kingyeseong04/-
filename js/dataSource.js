@@ -57,16 +57,20 @@
   //   quote:    'USD' | 'KRW'  (account/price currency for that instrument)
   //   kind:     short exchange/kind tag shown in the legend
   // BTC/ETH stay as Bybit perpetuals; everything else is real spot via Yahoo.
+  // All symbols are Bybit USDT-perpetuals so every one supports REAL intra-candle
+  // ticks (stocks via Yahoo can't provide real intraday for past dates). The
+  // ".P" (TradingView-style) key is stripped to the Bybit API symbol.
+  const perp = (t) => ({ label: t + 'USDT.P', provider: 'crypto', api: t + 'USDT', quote: 'USD', kind: 'Bybit Perp' });
   const SYMBOLS = {
-    'BTCUSDT.P': { label: 'BTCUSDT.P', provider: 'crypto', api: 'BTCUSDT', quote: 'USD', kind: 'Bybit Perp' },
-    'ETHUSDT.P': { label: 'ETHUSDT.P', provider: 'crypto', api: 'ETHUSDT', quote: 'USD', kind: 'Bybit Perp' },
-    'TSLA':      { label: 'TSLA',      provider: 'yahoo', yahoo: 'TSLA',      quote: 'USD', kind: 'NASDAQ' },
-    'COHR':      { label: 'COHR',      provider: 'yahoo', yahoo: 'COHR',      quote: 'USD', kind: 'NYSE' },
-    'ALAB':      { label: 'ALAB',      provider: 'yahoo', yahoo: 'ALAB',      quote: 'USD', kind: 'NASDAQ' },
-    'SOXL':      { label: 'SOXL',      provider: 'yahoo', yahoo: 'SOXL',      quote: 'USD', kind: 'NYSE Arca' },
-    'DRAM':      { label: 'DRAM',      provider: 'yahoo', yahoo: 'DRAM',      quote: 'USD', kind: 'CBOE' },
-    'XAUUSD':    { label: 'XAUUSD',    provider: 'yahoo', yahoo: 'XAUUSD=X',  quote: 'USD', kind: 'Gold' },
-    '005930.KS': { label: '삼성전자 005930', provider: 'yahoo', yahoo: '005930.KS', quote: 'KRW', kind: 'KRX' },
+    'BTCUSDT.P': perp('BTC'),
+    'ETHUSDT.P': perp('ETH'),
+    'SOXLUSDT.P': perp('SOXL'),
+    'TSLAUSDT.P': perp('TSLA'),
+    'COHRUSDT.P': perp('COHR'),
+    'ALABUSDT.P': perp('ALAB'),
+    'DRAMUSDT.P': perp('DRAM'),
+    'XAUUSDT.P': perp('XAU'),
+    'SAMSUNGUSDT.P': perp('SAMSUNG'),
   };
   function resolveSymbol(v) {
     if (!v) return null;
