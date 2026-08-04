@@ -253,17 +253,24 @@
     drawPriceTag(b.price, pb.y, solid);
   }
 
-  // Docked to the right edge (over the price axis) at price level y.
+  // Price tag docked INTO the price axis lane (same width/alignment as the
+  // axis labels), so it reads as part of the axis like Bybit.
   function drawPriceTag(price, y, col) {
-    ctx.font = "600 11px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    ctx.font = "600 12px -apple-system, 'Segoe UI', Roboto, sans-serif";
     const t = fmt(price);
-    const w = ctx.measureText(t).width + 12, h = 18;
-    const bx = canvas.clientWidth - w - 1;
-    const by = Math.max(2, Math.min(y - h / 2, canvas.clientHeight - h - 2));
+    const cw = canvas.clientWidth;
+    const axisW = (chart.priceScaleWidth && chart.priceScaleWidth()) || 62;
+    const textW = ctx.measureText(t).width;
+    const tagW = Math.max(axisW - 1, textW + 14);
+    const h = 20;
+    const bx = cw - tagW;                          // fill the axis lane, flush right
+    const by = Math.max(1, Math.min(y - h / 2, canvas.clientHeight - h - 1));
     ctx.fillStyle = col;
-    roundRect(bx, by, w, h, 3); ctx.fill();
+    roundRect(bx, by, tagW, h, 3); ctx.fill();
     ctx.fillStyle = '#fff';
-    ctx.fillText(t, bx + 6, by + h - 5);
+    ctx.textAlign = 'right';                        // right-aligned like the axis numbers
+    ctx.fillText(t, cw - 7, by + h - 6);
+    ctx.textAlign = 'left';
   }
 
   function arrow(x0, y0, x1, y1) {
