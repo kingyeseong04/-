@@ -233,7 +233,12 @@
     const subDurMs = DataSource.intervalToMs(subIntv);
     const subsPer = Math.max(1, Math.round(durMs / subDurMs));
     const replayCount = candles.length - warmupIdx;
-    const needed = replayCount * subsPer + subsPer; // always fetch real data
+    const needed = replayCount * subsPer + subsPer; // sub-candles to fetch
+    // Guard: with large replay counts (e.g. 1000 candles on 1h/1d) the real
+    // sub-candle download explodes into MBs / dozens of requests. Cap it and
+    // fall back to synthetic ticks beyond the limit (5m/15m stay real at 1000).
+    const SUB_CAP = 24000;
+    if (needed > SUB_CAP) return null;
     const startMs = candles[warmupIdx].time * 1000;
     const endMs = candles[candles.length - 1].time * 1000 + durMs;
     let subRes;

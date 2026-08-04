@@ -8,7 +8,7 @@
   <!-- Bybit's web UI renders in the platform system font (San Francisco on
        iPad/Safari). Use the same system stack so the app matches Bybit exactly
        on-device — and drop the external Google Fonts dependency. -->
-  <link rel="stylesheet" href="css/styles.css?v=20" />
+  <link rel="stylesheet" href="css/styles.css?v=21" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -234,7 +234,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v20</span>
+    <span class="ver" title="버전 (최신 확인용)">v21</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
@@ -264,20 +264,20 @@
       </select></span>
       <span class="step"><b>③</b><input type="datetime-local" id="inp-start" title="시작 날짜·시각" /></span>
       <span class="step cnt" title="지정일 기준 앞/뒤로 불러올 캔들 개수 (각 최대 1000)">
-        <b>±</b>앞<input type="number" id="inp-before" value="130" min="2" max="1000" />
-        뒤<input type="number" id="inp-after" value="30" min="2" max="1000" />
+        <b>±</b>앞<input type="number" id="inp-before" value="1000" min="2" max="1000" />
+        뒤<input type="number" id="inp-after" value="1000" min="2" max="1000" />
       </span>
       <button class="btn-ghost step-btn" id="btn-binance">④ Load</button>
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=20"></script>
-  <script src="js/dataSource.js?v=20"></script>
-  <script src="js/orderbook.js?v=20"></script>
-  <script src="js/indicators.js?v=20"></script>
-  <script src="js/trading.js?v=20"></script>
-  <script src="js/chart.js?v=20"></script>
-  <script src="js/draw.js?v=20"></script>
-  <script src="js/app.js?v=20"></script>
+  <script src="js/tickEngine.js?v=21"></script>
+  <script src="js/dataSource.js?v=21"></script>
+  <script src="js/orderbook.js?v=21"></script>
+  <script src="js/indicators.js?v=21"></script>
+  <script src="js/trading.js?v=21"></script>
+  <script src="js/chart.js?v=21"></script>
+  <script src="js/draw.js?v=21"></script>
+  <script src="js/app.js?v=21"></script>
 </body>
 </html>
