@@ -309,6 +309,17 @@ body.clean .bottom-tabs,
 body.clean .controls { display: none !important; }
 body.clean .main { height: 100vh; }
 
+/* Floating clean-mode toolbar (lock / indicators / P&L / wallet / draw tools) */
+.clean-tools { position: absolute; bottom: 14px; left: 14px; z-index: 7; display: none; gap: 6px; flex-wrap: wrap; max-width: 60vw; }
+body.clean .clean-tools { display: flex; }
+.clean-tools button { width: 40px; height: 40px; border-radius: 8px; padding: 0; background: rgba(30,32,39,.85); color: var(--text); border: 1px solid var(--border); font-size: 16px; opacity: .8; cursor: pointer; }
+.clean-tools button.active { border-color: var(--accent); color: var(--accent); opacity: 1; }
+/* The drawing tools work outside clean mode too — show a matching toolbar. */
+.draw-tools { position: absolute; top: 10px; left: 10px; z-index: 6; display: flex; gap: 6px; }
+.draw-tools button { width: 34px; height: 34px; border-radius: 7px; padding: 0; background: rgba(30,32,39,.7); color: var(--muted); border: 1px solid var(--border); font-size: 14px; cursor: pointer; }
+.draw-tools button.active { border-color: var(--accent); color: var(--accent); }
+body.clean .draw-tools { display: none; } /* clean mode uses .clean-tools instead */
+
 /* ---- Scrollbars ---- */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }

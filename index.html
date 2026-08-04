@@ -58,6 +58,16 @@
           </div>
         </div>
         <button id="btn-exit-clean" class="exit-clean" title="Exit clean mode (Esc)">✕</button>
+        <!-- Floating controls available in clean/recording mode (items 2,3) -->
+        <div id="clean-tools" class="clean-tools">
+          <button data-clean-act="lock" title="현재 봉에 고정">🔒</button>
+          <button data-clean-act="ind" title="지표 (볼린저·일목)">📈</button>
+          <button data-clean-act="pnl" title="손익 크게">💰</button>
+          <button data-clean-act="wallet" title="자산(Equity·Available) 크게">💵</button>
+          <button data-clean-act="draw" title="선 긋기">✏️</button>
+          <button data-clean-act="ruler" title="자(측정)">📏</button>
+          <button data-clean-act="magnet" title="스트롱 마그넷 (봉 값에 스냅)">🧲</button>
+        </div>
       </div>
 
       <div class="bottom-tabs">
@@ -213,6 +223,9 @@
     <button class="btn-ghost" id="btn-pnl" title="미실현 손익 크게 표시 (드래그로 위치 이동)">💰 손익</button>
     <button class="btn-ghost" id="btn-wallet" title="Equity·Available 크게 표시 (드래그로 위치 이동)">💵 자산</button>
     <button class="btn-ghost" id="btn-ind" title="지표 설정 (볼린저·일목)">📈 지표</button>
+    <button class="btn-ghost" id="btn-draw" title="선 긋기 (드래그로 추세선, 더블클릭 전체삭제)">✏️ 선</button>
+    <button class="btn-ghost" id="btn-ruler" title="자 (드래그로 가격·%·봉수 측정)">📏 자</button>
+    <button class="btn-ghost" id="btn-magnet" title="스트롱 마그넷 (봉 O/H/L/C 값에 스냅)">🧲 마그넷</button>
 
     <div class="group">
       <label>배속</label>
@@ -264,6 +277,7 @@
   <script src="js/indicators.js?v=20"></script>
   <script src="js/trading.js?v=20"></script>
   <script src="js/chart.js?v=20"></script>
+  <script src="js/draw.js?v=20"></script>
   <script src="js/app.js?v=20"></script>
 </body>
 </html>

@@ -46,6 +46,9 @@
   const account = new Trading.Account(10000);
   let refreshSpeedLabel = null; // set in bind(); refreshes the 배속 label
 
+  // Drawing layer (trendline / ruler / magnet) over the chart.
+  if (window.Draw) Draw.init(chart, $('chart-wrap'), () => state.candles);
+
   // Sticky price range so the scale (and therefore the position line) stays
   // put while price oscillates within a candle — recomputed only on candle
   // close / load, expanded (never shrunk) if the forming candle breaks out.
@@ -317,6 +320,7 @@
     updateStats();
     renderMarket(ts);
     if (indicatorsDirty && (ind.bb.on || ind.ichi.on)) recomputeIndicators();
+    if (window.Draw) Draw.redraw(); // keep drawings anchored as the chart moves
   }
 
   // Real milliseconds each tick should take, so playback tracks real time:
@@ -1125,6 +1129,19 @@
       const p = $('ind-panel');
       p.style.display = (p.style.display === 'none' || !p.style.display) ? 'flex' : 'none';
     });
+
+    // Drawing tools: trendline / ruler / magnet (item 5).
+    const drawBtn = (id, act) => $(id) && $(id).addEventListener('click', () => {
+      if (!window.Draw) return;
+      Draw.toggle(act);
+      $('btn-draw').classList.toggle('active', Draw.active() === 'draw');
+      $('btn-ruler').classList.toggle('active', Draw.active() === 'ruler');
+      $('btn-magnet').classList.toggle('active', Draw.magnet());
+      syncCleanTools();
+    });
+    drawBtn('btn-draw', 'draw');
+    drawBtn('btn-ruler', 'ruler');
+    drawBtn('btn-magnet', 'magnet');
     const readInd = () => {
       ind.bb.on = $('bb-on').checked;
       ind.bb.period = Math.max(2, parseInt($('bb-period').value, 10) || 20);
@@ -1142,6 +1159,21 @@
     // Clean / recording mode: chart-only, optionally real fullscreen.
     $('btn-clean').addEventListener('click', () => setClean(true));
     $('btn-exit-clean').addEventListener('click', () => setClean(false));
+
+    // Floating clean-mode toolbar → reuse the existing control handlers so
+    // there's a single source of truth for each toggle (items 2,3 + draw tools).
+    $('clean-tools').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-clean-act]'); if (!b) return;
+      const act = b.dataset.cleanAct;
+      if (act === 'lock') $('btn-lock').click();
+      else if (act === 'ind') $('btn-ind').click();
+      else if (act === 'pnl') $('btn-pnl').click();
+      else if (act === 'wallet') $('btn-wallet').click();
+      else if (act === 'draw' || act === 'ruler' || act === 'magnet') {
+        if (window.Draw) Draw.toggle(act);
+      }
+      syncCleanTools();
+    });
     document.addEventListener('fullscreenchange', () => {
       if (!document.fullscreenElement) document.body.classList.remove('clean');
     });
@@ -1158,9 +1190,37 @@
     });
   }
 
+  // Mirror toggle states onto the floating clean-mode toolbar.
+  function syncCleanTools() {
+    const set = (act, onv) => {
+      const b = document.querySelector('#clean-tools [data-clean-act="' + act + '"]');
+      if (b) b.classList.toggle('active', !!onv);
+    };
+    set('lock', state.lockView);
+    set('pnl', state.pnlBig);
+    set('wallet', state.walletBig);
+    const ip = $('ind-panel');
+    set('ind', ip && ip.style.display && ip.style.display !== 'none');
+    if (window.Draw) {
+      set('draw', Draw.active() === 'draw');
+      set('ruler', Draw.active() === 'ruler');
+      set('magnet', Draw.magnet());
+    }
+  }
+
   // Toggle chart-only recording mode (and real fullscreen when available).
   function setClean(on) {
     document.body.classList.toggle('clean', on);
+    // Item 2: entering clean mode, surface P&L + Equity/Available so they're
+    // visible for recording (only auto-enable if the user hasn't already).
+    if (on && !state.pnlBig && !state.walletBig) {
+      state.pnlBig = true; state.walletBig = true;
+      $('btn-pnl').classList.add('active'); $('btn-wallet').classList.add('active');
+      updatePnlBig(); updateWalletBig();
+    }
+    if (on) syncCleanTools();
+    // Chart-wrap changes size in clean mode → resize the drawing canvas to match.
+    if (window.Draw) setTimeout(() => { Draw.resize(); Draw.redraw(); }, 60);
     try {
       if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(() => {});

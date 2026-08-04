@@ -277,8 +277,14 @@
       // Bybit's chart shows no watermark — intentionally a no-op.
     }
 
-    // Pixel helpers for HTML overlays (legend / candle-close countdown).
+    // Pixel helpers for HTML overlays (legend / countdown) and the draw layer.
     priceToY(price) { return this.series.priceToCoordinate(price); }
+    yToPrice(y) { return this.series.coordinateToPrice(y); }
+    timeToX(time) { return this.chart.timeScale().timeToCoordinate(time); }
+    xToTime(x) { return this.chart.timeScale().coordinateToTime(x); }
+    xToLogical(x) { return this.chart.timeScale().coordinateToLogical(x); }
+    subscribeRange(fn) { this.chart.timeScale().subscribeVisibleLogicalRangeChange(fn); }
+    subscribeCrosshair(fn) { this.chart.subscribeCrosshairMove(fn); }
     priceScaleWidth() { return this.chart.priceScale('right').width(); }
     resize() { /* autoSize handles it; kept for explicit calls */ }
   }
