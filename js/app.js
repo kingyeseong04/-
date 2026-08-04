@@ -683,7 +683,7 @@
     if (el._sig !== sig) {
       el._sig = sig;
       el.innerHTML =
-        '<span class="tpsl-grip">⋮</span>' +
+        '<span class="tpsl-grip"></span>' +
         '<span class="tpsl-name">' + kind + ' ' + fmt(price, dec(price)) + '</span>' +
         '<span class="tpsl-qty">' + qtyTxt + '</span>' +
         '<span class="tpsl-close" data-tpslclose="' + kind + '" title="' + kind + ' 취소">✕</span>';
