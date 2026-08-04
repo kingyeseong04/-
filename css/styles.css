@@ -303,11 +303,16 @@ button:hover { filter: brightness(1.08); }
 /* Always visible (not hover-only) in clean mode, so touch devices can exit. */
 body.clean .exit-clean { display: flex; opacity: 1; }
 body.clean .stats-bar,
-body.clean .col-book,
 body.clean .col-order,
 body.clean .bottom-tabs,
 body.clean .controls { display: none !important; }
 body.clean .main { height: 100vh; }
+
+/* Clean mode reserves a fixed right strip for the P&L / Equity / Available
+   panel (a dedicated slot, not floating over the candles). */
+body.clean .col-book { display: flex !important; flex: 0 0 320px; width: 320px; border-left: 1px solid var(--border); background: var(--bg); }
+body.clean #book-section { display: none !important; }
+body.clean #account-panel { display: flex !important; justify-content: center; }
 
 /* Floating clean-mode toolbar (lock / indicators / P&L / wallet / draw tools) */
 .clean-tools { position: absolute; bottom: 14px; left: 14px; z-index: 7; display: none; gap: 6px; flex-wrap: wrap; max-width: 60vw; }

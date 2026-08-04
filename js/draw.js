@@ -79,41 +79,42 @@
     const r = canvas.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
-  // Pixel → data point, with optional strong-magnet snap to nearest candle OHLC.
+  // Pixel → data point in {logical, price}. Using the LOGICAL index (not time)
+  // lets lines/ruler extend into empty space beyond the candles ("허공"), since
+  // logicalToCoordinate extrapolates past the data range. When the magnet is on
+  // and the point is over a real candle, snap to that candle's nearest O/H/L/C.
   function toDataPoint(x, y) {
-    let time = chart.xToTime(x);
-    let price = chart.yToPrice(y);
-    if (time == null || price == null) return null;
-    // The trendline tool always snaps (그릴 때 딱딱); the ruler snaps only when
-    // the magnet toggle is on.
-    const snap = magnetOn || tool === 'draw';
-    if (snap && getCandles) {
-      const candles = getCandles();
-      if (candles && candles.length) {
-        // nearest candle by time
-        let best = null, bestDT = Infinity;
-        for (let i = 0; i < candles.length; i++) {
-          const dt = Math.abs(candles[i].time - time);
-          if (dt < bestDT) { bestDT = dt; best = candles[i]; }
-        }
-        if (best) {
-          const cands = [best.open, best.high, best.low, best.close];
-          let snapPrice = best.close, bestDP = Infinity;
-          for (const p of cands) {
-            const dp = Math.abs(p - price);
-            if (dp < bestDP) { bestDP = dp; snapPrice = p; }
-          }
-          return { time: best.time, price: snapPrice };
-        }
+    const logical = chart.xToLogical(x);
+    const price = chart.yToPrice(y);
+    if (logical == null || price == null) return null;
+    if (magnetOn && getCandles) {
+      const c = getCandles();
+      const i = Math.round(logical);
+      if (c && i >= 0 && i < c.length) {
+        const cd = c[i];
+        const cands = [cd.open, cd.high, cd.low, cd.close];
+        let sp = cd.close, bd = Infinity;
+        for (const p of cands) { const d = Math.abs(p - price); if (d < bd) { bd = d; sp = p; } }
+        return { logical: i, price: sp };
       }
     }
-    return { time: time, price: price };
+    return { logical: logical, price: price };
   }
   function toPixel(pt) {
-    const x = chart.timeToX(pt.time);
+    const x = chart.logicalToX(pt.logical);
     const y = chart.priceToY(pt.price);
     if (x == null || y == null) return null;
     return { x, y };
+  }
+  // Approx timestamp for a logical index (real candle time in range, else
+  // extrapolated by the bar spacing) — used for the ruler's duration readout.
+  function logicalToTime(logical) {
+    const c = getCandles(); if (!c || !c.length) return 0;
+    const i = Math.round(logical);
+    if (i >= 0 && i < c.length) return c[i].time;
+    const step = c.length > 1 ? (c[c.length - 1].time - c[c.length - 2].time) : 3600;
+    if (i < 0) return c[0].time + i * step;
+    return c[c.length - 1].time + (i - (c.length - 1)) * step;
   }
 
   // ---- pointer handlers ----
@@ -216,8 +217,8 @@
     const pct = a.price ? (dPrice / a.price) * 100 : 0;
     const tick = tickSize(a.price);
     const ticks = tick ? Math.round(dPrice / tick) : 0;
-    const bars = barsBetween(a.time, b.time);
-    const dMin = Math.round((b.time - a.time) / 60);
+    const bars = Math.abs(Math.round(b.logical - a.logical));
+    const dMin = Math.round((logicalToTime(b.logical) - logicalToTime(a.logical)) / 60);
     const sgn = (n) => (n >= 0 ? '+' : '');
     const l1 = sgn(dPrice) + fmt(dPrice) + '  (' + sgn(pct) + pct.toFixed(2) + '%)  ' + sgn(ticks) + ticks;
     const l2 = bars + ' bars, ' + fmtDur(dMin);

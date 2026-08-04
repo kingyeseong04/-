@@ -573,7 +573,8 @@
 
   // Account panel shown in place of the order book (Unrealized P&L + Wallet).
   function updateAccountPanel() {
-    if (state.orderbook) return; // panel is hidden
+    // Shown when the order book is off, OR always in clean mode (fixed slot).
+    if (state.orderbook && !document.body.classList.contains('clean')) return;
     const pnl = account.unrealizedPnl, pct = account.unrealizedPnlPct;
     $('ap-pnl-usdt').parentElement.className = 'ap-block ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
     const u = ' ' + unitLabel();
@@ -990,9 +991,10 @@
       const intv = $('inp-interval').value;
       const startVal = $('inp-start').value; // datetime-local, local time
       if (!startVal) { setStatus('날짜·시각을 먼저 선택하세요.', 'err'); return; }
-      // Candle counts around the chosen date (item 7), capped at 1000 each side.
-      const beforeN = Math.max(2, Math.min(1000, parseInt($('inp-before').value, 10) || 130));
-      const afterN = Math.max(2, Math.min(1000, parseInt($('inp-after').value, 10) || 30));
+      // Fixed 100 candles before / 100 after the chosen date. If the timeframe
+      // can't supply that many, the count-based trim below just uses whatever is
+      // available (≤100). Kept a constant (no UI) to mirror Bybit's chart.
+      const beforeN = 100, afterN = 100;
       try {
         // Same symbol+date reload (timeframe switch) → continue from the current
         // playhead and carry the open position instead of rewinding.
@@ -1218,13 +1220,9 @@
   // Toggle chart-only recording mode (and real fullscreen when available).
   function setClean(on) {
     document.body.classList.toggle('clean', on);
-    // Item 2: entering clean mode, surface P&L + Equity/Available so they're
-    // visible for recording (only auto-enable if the user hasn't already).
-    if (on && !state.pnlBig && !state.walletBig) {
-      state.pnlBig = true; state.walletBig = true;
-      $('btn-pnl').classList.add('active'); $('btn-wallet').classList.add('active');
-      updatePnlBig(); updateWalletBig();
-    }
+    // Clean mode shows a FIXED P&L / Equity / Available panel in a reserved
+    // right slot (not floating overlays), so update it now.
+    updateAccountPanel();
     if (on) syncCleanTools();
     // Chart-wrap changes size in clean mode → resize the drawing canvas to match.
     if (window.Draw) setTimeout(() => { Draw.resize(); Draw.redraw(); }, 60);

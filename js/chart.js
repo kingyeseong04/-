@@ -283,6 +283,7 @@
     timeToX(time) { return this.chart.timeScale().timeToCoordinate(time); }
     xToTime(x) { return this.chart.timeScale().coordinateToTime(x); }
     xToLogical(x) { return this.chart.timeScale().coordinateToLogical(x); }
+    logicalToX(l) { return this.chart.timeScale().logicalToCoordinate(l); }
     subscribeRange(fn) { this.chart.timeScale().subscribeVisibleLogicalRangeChange(fn); }
     subscribeCrosshair(fn) { this.chart.subscribeCrosshairMove(fn); }
     priceScaleWidth() { return this.chart.priceScale('right').width(); }
