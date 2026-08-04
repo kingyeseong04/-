@@ -56,7 +56,7 @@
   // drawing canvas) so they keep tracking the line even while paused.
   if (window.ResizeObserver) {
     const ro = new ResizeObserver(() => requestAnimationFrame(() => {
-      if (typeof updatePosLabel === 'function') updatePosLabel();
+      if (typeof updatePosLabel === 'function') { updatePosLabel(); updateTpSlLabels(); }
       if (window.Draw) { Draw.resize(); Draw.redraw(); }
     }));
     ro.observe($('chart-wrap'));
@@ -651,8 +651,32 @@
     el.style.display = 'flex';
   }
 
+  // Bybit-style TP / SL labels riding their lines (structure built once per
+  // price change, then only the y-position updates each frame).
+  function tpslLabel(id, price, kind) {
+    const el = $(id);
+    if (price == null || account.qty === 0) { el.style.display = 'none'; el._price = undefined; return; }
+    const y = chart.priceToY(price);
+    if (y == null) { el.style.display = 'none'; return; }
+    if (el._price !== price) {
+      el._price = price;
+      el.innerHTML =
+        '<span class="tpsl-grip">⋮</span>' +
+        '<span class="tpsl-name">' + kind + ' ' + fmt(price, dec(price)) + '</span>' +
+        '<span class="tpsl-qty">All</span>' +
+        '<span class="tpsl-close" data-tpslclose="' + kind + '" title="' + kind + ' 취소">✕</span>';
+    }
+    el.style.top = y + 'px';
+    el.style.display = 'flex';
+  }
+  function updateTpSlLabels() {
+    tpslLabel('tp-label', state.tp, 'TP');
+    tpslLabel('sl-label', state.sl, 'SL');
+  }
+
   function renderOverlays() {
-    updateLegend(); updatePnlBig(); updateWalletBig(); updateAccountPanel(); updatePosLabel();
+    updateLegend(); updatePnlBig(); updateWalletBig(); updateAccountPanel();
+    updatePosLabel(); updateTpSlLabels();
   }
 
   // Cost (initial margin) shown on the Buy/Sell buttons.
@@ -787,6 +811,7 @@
     updateWalletBig();
     updateAccountPanel();
     updatePosLabel();
+    updateTpSlLabels();
   }
 
   function renderTrades() {
@@ -897,6 +922,17 @@
       if (e.target.closest('[data-poscloseall]')) closePartial(1);
       else if (e.target.closest('[data-posreverse]')) reversePosition();
     });
+    // ✕ on a TP/SL label cancels that target.
+    const cancelTpSl = (e) => {
+      const b = e.target.closest('[data-tpslclose]'); if (!b) return;
+      if (b.dataset.tpslclose === 'TP') { state.tp = null; $('order-tp').value = ''; chart.setTpLine(null); }
+      else { state.sl = null; $('order-sl').value = ''; chart.setSlLine(null); }
+      if (!state.tp && !state.sl) $('tpsl-on').checked = false;
+      updateTpSlLabels();
+      setStatus(b.dataset.tpslclose + ' 취소됨', 'ok');
+    };
+    $('tp-label').addEventListener('click', cancelTpSl);
+    $('sl-label').addEventListener('click', cancelTpSl);
 
     // Speed = real-time multiplier (배속). Slider 0..100 maps exponentially to
     // 1×..3600×. The label shows how long ONE candle of the current interval

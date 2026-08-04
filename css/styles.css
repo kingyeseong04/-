@@ -118,6 +118,21 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 .pos-label.long  > span + span { border-left: 1px solid var(--buy-pos); }
 .pos-label.short > span + span { border-left: 1px solid var(--sell-pos); }
 
+/* Bybit-style TP / SL labels on their lines (both red, like Bybit) */
+.tpsl-label {
+  position: absolute; z-index: 5; left: 12px; transform: translateY(-50%);
+  display: none; align-items: stretch; font-size: 13px; font-weight: 700;
+  border-radius: 3px; overflow: hidden; white-space: nowrap; pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4); font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px; background: #101014; border: 1px solid var(--sell);
+}
+.tpsl-label > span { display: flex; align-items: center; height: 28px; }
+.tpsl-label .tpsl-grip { width: 16px; justify-content: center; color: #5d6068; font-size: 14px; }
+.tpsl-label .tpsl-name { padding: 0 11px; color: #fff; }
+.tpsl-label .tpsl-qty { padding: 0 11px; color: #fff; background: var(--sell); border-left: 1px solid var(--sell); }
+.tpsl-label .tpsl-close { width: 28px; justify-content: center; font-size: 18px; color: #9598a1; border-left: 1px solid var(--sell); cursor: pointer; pointer-events: auto; }
+.tpsl-label .tpsl-close:hover { color: #fff; }
+
 /* Indicator settings panel */
 .ind-panel {
   position: absolute; z-index: 6; top: 10px; right: 10px;

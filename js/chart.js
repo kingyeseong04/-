@@ -186,13 +186,14 @@
       });
     }
 
-    // Take-profit (green) / stop-loss (red) lines with axis labels.
+    // TP/SL lines — Bybit draws both as red dotted lines with a red price tag
+    // on the axis (the fancy label box is a separate HTML overlay).
     setTpLine(price) {
       if (this.tpLine) { this.series.removePriceLine(this.tpLine); this.tpLine = null; }
       if (price == null) return;
       this.tpLine = this.series.createPriceLine({
-        price, color: '#20b26c', lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'TP',
+        price, color: '#ef454a', lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dotted, axisLabelVisible: true, title: '',
       });
     }
     setSlLine(price) {
@@ -200,7 +201,7 @@
       if (price == null) return;
       this.slLine = this.series.createPriceLine({
         price, color: '#ef454a', lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'SL',
+        lineStyle: LightweightCharts.LineStyle.Dotted, axisLabelVisible: true, title: '',
       });
     }
 
