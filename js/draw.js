@@ -208,9 +208,7 @@
     ctx.moveTo(pa.x, pa.y);
     ctx.lineTo(pb.x, pb.y);
     ctx.stroke();
-    // small endpoint dots
-    ctx.fillStyle = ctx.strokeStyle;
-    for (const p of [pa, pb]) { ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2); ctx.fill(); }
+    // (no endpoint dots — just a plain line)
   }
 
   // Bybit/TradingView measure box: BLUE when price rose, RED when it fell,
