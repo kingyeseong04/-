@@ -253,23 +253,24 @@
     drawPriceTag(b.price, pb.y, solid);
   }
 
-  // Price tag docked INTO the price axis lane (same width/alignment as the
-  // axis labels), so it reads as part of the axis like Bybit.
+  // Price tag styled IDENTICALLY to the chart's own axis labels (plain filled
+  // rectangle filling the axis lane, centered white text) — only the colour
+  // differs. Matches Bybit's other axis tags.
   function drawPriceTag(price, y, col) {
-    ctx.font = "600 12px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    ctx.font = "700 13px -apple-system, 'Segoe UI', Roboto, sans-serif";
     const t = fmt(price);
     const cw = canvas.clientWidth;
     const axisW = (chart.priceScaleWidth && chart.priceScaleWidth()) || 62;
     const textW = ctx.measureText(t).width;
-    const tagW = Math.max(axisW - 1, textW + 14);
-    const h = 20;
-    const bx = cw - tagW;                          // fill the axis lane, flush right
-    const by = Math.max(1, Math.min(y - h / 2, canvas.clientHeight - h - 1));
+    const tagW = Math.max(axisW, textW + 20);
+    const h = 22;
+    const bx = cw - tagW;                           // fill the axis lane, flush right
+    const by = Math.max(0, Math.min(y - h / 2, canvas.clientHeight - h));
     ctx.fillStyle = col;
-    roundRect(bx, by, tagW, h, 3); ctx.fill();
+    ctx.fillRect(bx, by, tagW, h);                  // plain rectangle (no rounding)
     ctx.fillStyle = '#fff';
-    ctx.textAlign = 'right';                        // right-aligned like the axis numbers
-    ctx.fillText(t, cw - 7, by + h - 6);
+    ctx.textAlign = 'center';
+    ctx.fillText(t, bx + tagW / 2, by + h - 6);
     ctx.textAlign = 'left';
   }
 
