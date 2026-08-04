@@ -8,7 +8,7 @@
   <!-- Bybit's web UI renders in the platform system font (San Francisco on
        iPad/Safari). Use the same system stack so the app matches Bybit exactly
        on-device — and drop the external Google Fonts dependency. -->
-  <link rel="stylesheet" href="css/styles.css?v=24" />
+  <link rel="stylesheet" href="css/styles.css?v=25" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -112,26 +112,9 @@
       </div>
     </div>
 
-    <!-- Order book + recent trades (toggle) / account panel -->
+    <!-- Account panel: Unrealized P&L / Equity / Available (order book removed) -->
     <div class="col-book">
-      <div id="book-section">
-        <div class="book-head">Order Book</div>
-        <div class="ob-cols"><span>Price(USDT)</span><span>Qty</span><span>Total</span></div>
-        <div class="ob-asks" id="ob-asks"></div>
-        <div class="ob-mid"><span id="ob-spread" class="ob-last">0.00</span></div>
-        <div class="ob-bids" id="ob-bids"></div>
-        <div class="ob-ratio">
-          <span class="ob-ratio-b" id="ob-ratio-b">B 50%</span>
-          <div class="ob-ratio-bar"><span id="ob-ratio-fill" style="width:50%"></span></div>
-          <span class="ob-ratio-s" id="ob-ratio-s">50% S</span>
-        </div>
-        <div class="book-head trades-head">Recent Trades</div>
-        <div class="ob-cols"><span>Price(USDT)</span><span>Qty</span><span>Time</span></div>
-        <div class="recent" id="recent-trades"></div>
-      </div>
-
-      <!-- Shown when the order book is toggled off -->
-      <div id="account-panel" class="account-panel" style="display:none;">
+      <div id="account-panel" class="account-panel">
         <div class="ap-block">
           <div class="ap-label">Unrealized P&amp;L</div>
           <div class="ap-val" id="ap-pnl-usdt">0.00 USDT</div>
@@ -153,16 +136,6 @@
 
     <!-- Order entry (Bybit style) -->
     <aside class="col-order">
-      <div class="order-top">
-        <span class="chip">Cross</span>
-        <span class="chip lev" id="lev-chip">10x</span>
-      </div>
-      <div class="ord-tabs">
-        <button class="ord-tab active">Market</button>
-        <button class="ord-tab disabled">Limit</button>
-        <button class="ord-tab disabled">Conditional</button>
-      </div>
-
       <div class="field">
         <label>시작 자본 (USDT)</label>
         <input type="number" id="inp-capital" value="10000" min="1" step="100" />
@@ -174,6 +147,13 @@
       <div class="field">
         <label>진입가 지정 (선택) <span class="fx-note">비우면 현재가</span></label>
         <input type="number" id="order-entry" placeholder="예: 100 → 그 가격에 진입" min="0" step="any" />
+      </div>
+      <div class="field tpsl-field">
+        <label><input type="checkbox" id="tpsl-on" /> TP / SL <span class="fx-note">가격 도달 시 자동 청산</span></label>
+        <div class="tpsl-row">
+          <input type="number" id="order-tp" placeholder="TP 익절가" min="0" step="any" />
+          <input type="number" id="order-sl" placeholder="SL 손절가" min="0" step="any" />
+        </div>
       </div>
 
       <div class="assets">
@@ -220,7 +200,6 @@
     <button class="btn-ghost" id="btn-restart">⟲ Restart</button>
     <button class="btn-ghost" id="btn-clean" title="Chart-only fullscreen for recording (F)">⛶ Clean</button>
     <button class="btn-ghost active" id="btn-lock" title="현재 봉에 차트 고정 (마우스로 안 움직임)">🔒 고정</button>
-    <button class="btn-ghost active" id="btn-book" title="호가창 표시 (끄면 손익·잔고 패널)">📖 호가창</button>
     <button class="btn-ghost" id="btn-pnl" title="미실현 손익 크게 표시 (드래그로 위치 이동)">💰 손익</button>
     <button class="btn-ghost" id="btn-wallet" title="Equity·Available 크게 표시 (드래그로 위치 이동)">💵 자산</button>
     <button class="btn-ghost" id="btn-ind" title="지표 설정 (볼린저·일목)">📈 지표</button>
@@ -236,7 +215,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v24</span>
+    <span class="ver" title="버전 (최신 확인용)">v25</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
@@ -262,13 +241,12 @@
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=24"></script>
-  <script src="js/dataSource.js?v=24"></script>
-  <script src="js/orderbook.js?v=24"></script>
-  <script src="js/indicators.js?v=24"></script>
-  <script src="js/trading.js?v=24"></script>
-  <script src="js/chart.js?v=24"></script>
-  <script src="js/draw.js?v=24"></script>
-  <script src="js/app.js?v=24"></script>
+  <script src="js/tickEngine.js?v=25"></script>
+  <script src="js/dataSource.js?v=25"></script>
+  <script src="js/indicators.js?v=25"></script>
+  <script src="js/trading.js?v=25"></script>
+  <script src="js/chart.js?v=25"></script>
+  <script src="js/draw.js?v=25"></script>
+  <script src="js/app.js?v=25"></script>
 </body>
 </html>

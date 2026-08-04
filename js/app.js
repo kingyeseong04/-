@@ -35,9 +35,11 @@
     pnlBig: false,        // enlarged unrealized-P&L overlay (for video)
     walletBig: false,     // enlarged wallet-balance overlay (for video)
     fx: 1350,             // ₩ per USDT (for KRW conversion)
+    tp: null,             // take-profit price (auto-close)
+    sl: null,             // stop-loss price (auto-close)
     quote: 'USD',         // instrument quote currency: 'USD' (USDT) or 'KRW'
     symbolDisp: '',       // pretty symbol name for the legend/overlays
-    orderbook: true,      // show the order book (off → account panel)
+    orderbook: false,     // order book removed — account panel always shown
     lockView: true,       // lock the chart to the forming candle (no mouse pan)
     _loadMeta: null,
   };
@@ -279,6 +281,26 @@
       renderTrades();
       setStatus(account.liquidated ? '💥 Account liquidated — balance wiped.'
         : '💥 Position liquidated.', 'err');
+    }
+
+    // TP/SL auto-close when the tick reaches the target/stop price.
+    if (account.qty !== 0 && (state.tp != null || state.sl != null)) {
+      const isLong = account.qty > 0;
+      let hit = null, kind = '';
+      if (isLong) {
+        if (state.tp != null && price >= state.tp) { hit = state.tp; kind = 'TP'; }
+        else if (state.sl != null && price <= state.sl) { hit = state.sl; kind = 'SL'; }
+      } else {
+        if (state.tp != null && price <= state.tp) { hit = state.tp; kind = 'TP'; }
+        else if (state.sl != null && price >= state.sl) { hit = state.sl; kind = 'SL'; }
+      }
+      if (hit != null) {
+        account.reduce(1, hit, r.time);
+        state.tp = state.sl = null;
+        onPositionChanged();
+        renderTrades();
+        setStatus(kind + ' 도달 → 자동 청산 @ ' + fmt(hit), kind === 'TP' ? 'ok' : 'err');
+      }
     }
 
     state.tickIdx++;
@@ -574,7 +596,7 @@
   // Account panel shown in place of the order book (Unrealized P&L + Wallet).
   function updateAccountPanel() {
     // Shown when the order book is off, OR always in clean mode (fixed slot).
-    if (state.orderbook && !document.body.classList.contains('clean')) return;
+    // Account panel is always shown now (order book removed).
     const pnl = account.unrealizedPnl, pct = account.unrealizedPnlPct;
     $('ap-pnl-usdt').parentElement.className = 'ap-block ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
     const u = ' ' + unitLabel();
@@ -680,64 +702,15 @@
   }
 
   // ----- Order book + trade tape (synthetic, Bybit look) -----------------
-  let _bookSeed = 1, _lastMktTs = -1e9;
-  function obRow(side, lvl, maxTotal, d) {
-    const w = Math.max(2, (lvl.total / maxTotal) * 100);
-    return '<div class="ob-row ' + side + '">' +
-      '<span class="p">' + fmt(lvl.price, d) + '</span>' +
-      '<span class="q">' + fmt(lvl.size, 3) + '</span>' +
-      '<span class="t">' + fmt(lvl.total, 2) + '</span>' +
-      '<span class="depth" style="width:' + w.toFixed(1) + '%"></span></div>';
-  }
-
+  let _lastMktTs = -1e9;
+  // Order book + trade tape were removed; this now only accumulates the
+  // cosmetic 24h turnover shown in the top bar.
   function renderMarket(ts, force) {
     if (state.lastPrice <= 0) return;
-    if (!force && ts != null && (ts - _lastMktTs) < 130) return;
+    if (!force && ts != null && (ts - _lastMktTs) < 250) return;
     _lastMktTs = (ts == null ? _lastMktTs : ts);
-
-    const d = dec(state.lastPrice);
-
-    // Synthetic trade + 24h turnover accumulate even when the book is hidden,
-    // so the top-bar turnover keeps ticking. (Cheap: no DOM.)
-    const side = state.lastPrice >= (state._tapePrev || state.lastPrice) ? 'buy' : 'sell';
-    state._tapePrev = state.lastPrice;
-    const frac = state.ticks.length ? state.tickIdx / state.ticks.length : 0;
-    const tsec = (state.running.time || (state.candles[state.warmup - 1] || {}).time || 0) + frac * candleDur();
     const base = state.lastPrice < 1 ? 5000 : state.lastPrice < 100 ? 200 : state.lastPrice < 5000 ? 3 : 0.6;
-    const size = +(base * (0.05 + Math.random() * 0.6)).toFixed(3);
-    state.tape.unshift({ p: state.lastPrice, size, side, tsec });
-    if (state.tape.length > 28) state.tape.pop();
-    state.turnover += size * state.lastPrice;
-
-    // The order book + trade tape are hidden when the account panel is shown —
-    // skip all of their DOM work in that mode.
-    if (!state.orderbook) return;
-
-    _bookSeed++;
-    const book = OrderBook.build(state.lastPrice, 11, _bookSeed);
-    $('ob-asks').innerHTML = book.asks.slice().reverse()
-      .map((l) => obRow('ask', l, book.maxTotal, d)).join('');
-    $('ob-bids').innerHTML = book.bids
-      .map((l) => obRow('bid', l, book.maxTotal, d)).join('');
-
-    const obEl = $('ob-spread');
-    const upDir = state.lastPrice >= (state._prevMkt || state.lastPrice);
-    state._prevMkt = state.lastPrice;
-    obEl.textContent = fmt(state.lastPrice, d);
-    obEl.className = 'ob-last ' + (upDir ? 'up' : 'down');
-
-    $('recent-trades').innerHTML = state.tape.map((t) =>
-      '<div class="rt-row ' + t.side + '"><span class="p">' + fmt(t.p, d) + '</span>' +
-      '<span class="q">' + fmt(t.size, 3) + '</span>' +
-      '<span class="tm">' + hhmmss(t.tsec) + '</span></div>').join('');
-
-    // Buy/sell ratio bar from cumulative book depth.
-    const bidVol = book.bids[book.bids.length - 1].total;
-    const askVol = book.asks[book.asks.length - 1].total;
-    const bpct = Math.round((bidVol / (bidVol + askVol)) * 100);
-    $('ob-ratio-fill').style.width = bpct + '%';
-    $('ob-ratio-b').textContent = 'B ' + bpct + '%';
-    $('ob-ratio-s').textContent = (100 - bpct) + '% S';
+    state.turnover += base * (0.05 + Math.random() * 0.6) * state.lastPrice;
   }
 
   // Rebuild the position-row STRUCTURE only when it changes (open/close/side/
@@ -790,8 +763,12 @@
   function onPositionChanged() {
     if (account.qty === 0) {
       chart.setEntryLine(null);
+      state.tp = state.sl = null; // clear TP/SL when flat
+      chart.setTpLine(null); chart.setSlLine(null);
     } else {
       chart.setEntryLine(account.avgEntry, account.qty > 0 ? 'long' : 'short', Math.abs(account.qty));
+      chart.setTpLine(state.tp);
+      chart.setSlLine(state.sl);
     }
     // Liquidation line intentionally not drawn on the chart (per request).
     renderAccount();
@@ -842,10 +819,19 @@
     if (!res.ok) { setStatus(res.msg, 'err'); return; }
     // Keep the mark at the live price so P&L reflects (mark − specified entry).
     account.setMark(state.lastPrice);
+    applyTpSl(); // capture any TP/SL set for this order
     onPositionChanged();
     renderTrades();
     setStatus(side.toUpperCase() + ' filled @ ' + fmt(fillPrice) +
       (useEntry ? ' (지정가, 현재가 ' + fmt(state.lastPrice) + ')' : ''), 'ok');
+  }
+
+  // Read the TP/SL inputs into state and (re)draw the lines on an open position.
+  function applyTpSl() {
+    const on = $('tpsl-on') && $('tpsl-on').checked;
+    state.tp = on ? (parseFloat($('order-tp').value) || null) : null;
+    state.sl = on ? (parseFloat($('order-sl').value) || null) : null;
+    if (account.qty !== 0) { chart.setTpLine(state.tp); chart.setSlLine(state.sl); }
   }
 
   function closePartial(frac) {
@@ -946,16 +932,13 @@
       updateAccountPanel();
     });
 
-    // Order book on/off — when off, the column shows the P&L + Wallet panel.
-    $('btn-book').addEventListener('click', () => {
-      state.orderbook = !state.orderbook;
-      $('btn-book').classList.toggle('active', state.orderbook);
-      $('book-section').style.display = state.orderbook ? '' : 'none';
-      $('account-panel').style.display = state.orderbook ? 'none' : 'flex';
-      updateAccountPanel();
-    });
     $('btn-long').addEventListener('click', () => placeOrder('long'));
     $('btn-short').addEventListener('click', () => placeOrder('short'));
+    // TP/SL: apply live so the lines update while a position is open.
+    ['tpsl-on', 'order-tp', 'order-sl'].forEach((id) => {
+      const el = $(id); if (el) el.addEventListener('input', applyTpSl);
+      if (el) el.addEventListener('change', applyTpSl);
+    });
     $('btn-close').addEventListener('click', () => closePartial(1));
     $('btn-close-half').addEventListener('click', () => closePartial(0.5));
 

@@ -18,7 +18,8 @@
   let tool = null;           // null | 'draw' | 'ruler'
   let magnetOn = true;       // strong magnet on by default (snaps to candle OHLC)
 
-  const lines = [];          // committed trendlines: [{a:{time,price}, b:{...}}]
+  const SNAP_PX = 16;        // magnet range: snap only when this close to a candle
+  const lines = [];          // committed trendlines: [{a:{logical,price}, b:{...}}]
   let measure = null;        // last ruler measurement (persists until cleared)
   let drag = null;           // in-progress drag: {a, b}
 
@@ -95,7 +96,12 @@
         const cands = [cd.open, cd.high, cd.low, cd.close];
         let sp = cd.close, bd = Infinity;
         for (const p of cands) { const d = Math.abs(p - price); if (d < bd) { bd = d; sp = p; } }
-        return { logical: i, price: sp };
+        // Proximity magnet (Bybit/TV feel): snap only when the finger is actually
+        // NEAR the candle's O/H/L/C point; otherwise move freely ("허공").
+        const cxp = chart.logicalToX(i), cyp = chart.priceToY(sp);
+        if (cxp != null && cyp != null && Math.hypot(cxp - x, cyp - y) <= SNAP_PX) {
+          return { logical: i, price: sp };
+        }
       }
     }
     return { logical: logical, price: price };
@@ -224,6 +230,22 @@
     const l2 = bars + ' bars, ' + fmtDur(dMin);
     // label above the box for an up-move, below for a down-move (like TV)
     drawLabel(l1 + '\n' + l2, cx, up ? y0 - 6 : y1 + 6, solid, !up);
+    // small price tags at the two endpoints (like Bybit's axis labels)
+    drawPriceTag(a.price, x1, pa.y, solid);
+    drawPriceTag(b.price, x1, pb.y, solid);
+  }
+
+  function drawPriceTag(price, x, y, col) {
+    ctx.font = "600 11px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    const t = fmt(price);
+    const w = ctx.measureText(t).width + 12, h = 18;
+    let bx = x - w - 2; // sit just inside the box's right edge
+    bx = Math.max(2, Math.min(bx, canvas.clientWidth - w - 2));
+    const by = Math.max(2, Math.min(y - h / 2, canvas.clientHeight - h - 2));
+    ctx.fillStyle = col;
+    roundRect(bx, by, w, h, 3); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText(t, bx + 6, by + h - 5);
   }
 
   function arrow(x0, y0, x1, y1) {
