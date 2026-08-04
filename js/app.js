@@ -35,6 +35,8 @@
     pnlBig: false,        // enlarged unrealized-P&L overlay (for video)
     walletBig: false,     // enlarged wallet-balance overlay (for video)
     fx: 1350,             // ₩ per USDT (for KRW conversion)
+    quote: 'USD',         // instrument quote currency: 'USD' (USDT) or 'KRW'
+    symbolDisp: '',       // pretty symbol name for the legend/overlays
     orderbook: true,      // show the order book (off → account panel)
     lockView: true,       // lock the chart to the forming candle (no mouse pan)
     _loadMeta: null,
@@ -144,6 +146,9 @@
     state.symbolLabel = label || '';
     meta = meta || {};
     state.symbol = meta.symbol || (label || 'DATA').split('·')[0].trim();
+    state.symbolDisp = meta.symbolDisp || state.symbol;
+    state.quote = meta.quote || 'USD';
+    state._kind = meta.kind || 'Perpetual';
     state.interval = meta.interval || '';
     state.exchange = meta.exchange || '';
     state.subMap = meta.subMap || null;
@@ -218,7 +223,7 @@
   // Fetch finer-timeframe candles for the replay region and group them per
   // parent candle, so playback can use REAL intra-candle motion. Returns a
   // Map(candleTimeSec -> sub-candles[]) or null if not feasible/available.
-  async function fetchSubMap(sym, intv, candles, warmupIdx, exch) {
+  async function fetchSubMap(spec, intv, candles, warmupIdx, exch) {
     const subIntv = DataSource.subInterval(intv);
     if (!subIntv) return null;
     const durMs = DataSource.intervalToMs(intv);
@@ -230,7 +235,7 @@
     const endMs = candles[candles.length - 1].time * 1000 + durMs;
     let subRes;
     try {
-      subRes = await DataSource.fetchCandles(sym, subIntv, needed, startMs, endMs, exch);
+      subRes = await DataSource.fetchCandles(spec, subIntv, needed, startMs, endMs, exch);
     } catch (e) { return null; }
     const subs = subRes.candles;
     if (!subs || !subs.length) return null;
@@ -436,8 +441,9 @@
     const up = c.close >= c.open;
     const chg = c.close - c.open;
     const chgPct = c.open ? (chg / c.open) * 100 : 0;
-    el._sym.textContent = state.symbol;
-    el._meta.textContent = ' Perpetual · ' + tvRes(state.interval) + ' · ' + (state.exchange || 'Bybit');
+    el._sym.textContent = state.symbolDisp || state.symbol;
+    const kind = state._kind || 'Perpetual';
+    el._meta.textContent = ' ' + kind + ' · ' + tvRes(state.interval) + ' · ' + (state.exchange || 'Bybit');
     el._ohlc.style.color = up ? 'var(--buy)' : 'var(--sell)';
     el._o.textContent = fmt(c.open, d); el._h.textContent = fmt(c.high, d);
     el._l.textContent = fmt(c.low, d); el._c.textContent = fmt(c.close, d);
@@ -451,10 +457,56 @@
     return h > 0 ? h + ':' + pad(m) + ':' + pad(sec) : pad(m) + ':' + pad(sec);
   }
 
-  // Convert a USDT amount to a "₩1,234,567" Korean-won string.
-  function fmtKRW(usdt) {
-    const won = Math.round((usdt || 0) * state.fx);
+  // Primary account-currency unit for the current instrument.
+  function unitLabel() { return state.quote === 'KRW' ? 'KRW' : 'USDT'; }
+
+  // Secondary conversion line. For USD-quoted instruments this is the KRW
+  // value (₩ = value × that-day's FX). For KRW-quoted ones (삼성전자) the value
+  // is already ₩, so we instead show the USD equivalent.
+  function fmtConv(v) {
+    v = v || 0;
+    if (state.quote === 'KRW') {
+      const usd = state.fx ? v / state.fx : 0;
+      return (usd < 0 ? '-$' : '$') + Math.abs(usd).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    }
+    const won = Math.round(v * state.fx);
     return (won < 0 ? '-₩' : '₩') + Math.abs(won).toLocaleString('en-US');
+  }
+  // Backwards-compatible alias (older call sites).
+  function fmtKRW(v) { return fmtConv(v); }
+
+  // Small reference note next to the FX field.
+  function setFxNote(rate, date, auto) {
+    const el = $('fx-note'); if (!el) return;
+    if (auto && date) {
+      el.textContent = '(' + date + ' 기준 ₩' + Math.round(rate).toLocaleString('en-US') + ')';
+      el.className = 'fx-note auto';
+    } else {
+      el.textContent = '(수동 입력)';
+      el.className = 'fx-note';
+    }
+  }
+  // Fetch that day's USD→KRW rate (ECB via frankfurter.app; CORS-friendly, no
+  // key) and auto-fill the FX field. Uses the date's close (or nearest prior
+  // business day). Falls back to the current manual value on any failure.
+  async function applyFxForDate(dateStr, spec) {
+    const day = (dateStr || '').slice(0, 10);
+    if (!day) { setFxNote(state.fx, null, false); return; }
+    try {
+      const r = await fetch('https://api.frankfurter.app/' + day + '?from=USD&to=KRW');
+      if (r.ok) {
+        const j = await r.json();
+        const rate = j && j.rates && j.rates.KRW;
+        if (rate) {
+          state.fx = rate;
+          $('inp-fx').value = Math.round(rate);
+          state._fxDate = j.date || day;
+          setFxNote(rate, j.date || day, true);
+          return;
+        }
+      }
+    } catch (e) { /* offline / blocked → keep manual value */ }
+    setFxNote(state.fx, null, false);
   }
 
   // Enlarged unrealized-P&L overlay (toggle + draggable) for video emphasis.
@@ -485,9 +537,9 @@
     if (mode === 'flat') return;
     const pnl = account.unrealizedPnl, pct = account.unrealizedPnlPct;
     el.className = 'pnl-big ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
-    el._val.textContent = sign(pnl) + fmt(pnl) + ' USDT';
+    el._val.textContent = sign(pnl) + fmt(pnl) + ' ' + unitLabel();
     el._pct.textContent = sign(pct) + fmt(pct, 2) + '%';
-    el._krw.textContent = fmtKRW(pnl);
+    el._krw.textContent = fmtConv(pnl);
   }
 
   // Enlarged Equity + Available overlay (toggle + draggable) for video.
@@ -507,10 +559,10 @@
       el._eq = el.querySelector('[data-eq]'); el._eqk = el.querySelector('[data-eqk]');
       el._av = el.querySelector('[data-av]'); el._avk = el.querySelector('[data-avk]');
     }
-    el._eq.textContent = fmt(account.equity) + ' USDT';
-    el._eqk.textContent = fmtKRW(account.equity);
-    el._av.textContent = fmt(account.available) + ' USDT';
-    el._avk.textContent = fmtKRW(account.available);
+    el._eq.textContent = fmt(account.equity) + ' ' + unitLabel();
+    el._eqk.textContent = fmtConv(account.equity);
+    el._av.textContent = fmt(account.available) + ' ' + unitLabel();
+    el._avk.textContent = fmtConv(account.available);
     el.style.display = 'flex';
   }
 
@@ -519,13 +571,14 @@
     if (state.orderbook) return; // panel is hidden
     const pnl = account.unrealizedPnl, pct = account.unrealizedPnlPct;
     $('ap-pnl-usdt').parentElement.className = 'ap-block ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
-    $('ap-pnl-usdt').textContent = (account.qty === 0 ? '0.00 USDT' : sign(pnl) + fmt(pnl) + ' USDT');
+    const u = ' ' + unitLabel();
+    $('ap-pnl-usdt').textContent = (account.qty === 0 ? '0.00' + u : sign(pnl) + fmt(pnl) + u);
     $('ap-pnl-pct').textContent = sign(pct) + fmt(pct, 2) + '%';
-    $('ap-pnl-krw').textContent = fmtKRW(pnl);
-    $('ap-equity').textContent = fmt(account.equity) + ' USDT';
-    $('ap-equity-krw').textContent = fmtKRW(account.equity);
-    $('ap-available').textContent = fmt(account.available) + ' USDT';
-    $('ap-available-krw').textContent = fmtKRW(account.available);
+    $('ap-pnl-krw').textContent = fmtConv(pnl);
+    $('ap-equity').textContent = fmt(account.equity) + u;
+    $('ap-equity-krw').textContent = fmtConv(account.equity);
+    $('ap-available').textContent = fmt(account.available) + u;
+    $('ap-available-krw').textContent = fmtConv(account.available);
   }
 
   // Bybit-style position label sitting on the entry line: side-coloured P&L
@@ -773,11 +826,20 @@
     const margin = parseFloat($('order-margin').value);
     const lev = parseFloat($('order-lev').value);
     const time = state.running.time || 0;
-    const res = account.order(side, margin, lev, state.lastPrice, time);
+    // Item 4: optional user-specified entry price. If set, the position fills
+    // at THAT price (avgEntry) while the mark stays at the current price — so a
+    // long entered below market shows instant profit. Empty → market fill.
+    const entryRaw = parseFloat($('order-entry').value);
+    const useEntry = isFinite(entryRaw) && entryRaw > 0;
+    const fillPrice = useEntry ? entryRaw : state.lastPrice;
+    const res = account.order(side, margin, lev, fillPrice, time);
     if (!res.ok) { setStatus(res.msg, 'err'); return; }
+    // Keep the mark at the live price so P&L reflects (mark − specified entry).
+    account.setMark(state.lastPrice);
     onPositionChanged();
     renderTrades();
-    setStatus(side.toUpperCase() + ' filled @ ' + fmt(state.lastPrice), 'ok');
+    setStatus(side.toUpperCase() + ' filled @ ' + fmt(fillPrice) +
+      (useEntry ? ' (지정가, 현재가 ' + fmt(state.lastPrice) + ')' : ''), 'ok');
   }
 
   function closePartial(frac) {
@@ -872,6 +934,7 @@
     // Exchange rate (₩/USDT) for the KRW readouts.
     $('inp-fx').addEventListener('input', (e) => {
       state.fx = Math.max(0, Number(e.target.value) || 0);
+      setFxNote(state.fx, null, false); // manual override
       updatePnlBig();
       updateWalletBig();
       updateAccountPanel();
@@ -916,16 +979,18 @@
     // the chosen date and only the AFTER candles are replayed.
     const BEFORE = 130, AFTER = 30, VIEW_BEFORE = 34;
     $('btn-binance').addEventListener('click', async () => {
-      // Accept TradingView ".P" notation (e.g. TSLAUSDT.P) — strip it for the API.
-      const sym = ($('inp-symbol').value.trim() || 'BTCUSDT').toUpperCase().replace(/\.P$/, '');
+      const rawVal = ($('inp-symbol').value || 'BTCUSDT.P').trim();
+      const spec = DataSource.resolveSymbol(rawVal); // crypto vs yahoo, quote ccy
+      const sym = rawVal; // dropdown value doubles as the state key
       const intv = $('inp-interval').value;
-      const exch = 'Bybit'; // Bybit only (Binance kept as silent fallback)
       const startVal = $('inp-start').value; // datetime-local, local time
       if (!startVal) { setStatus('날짜·시각을 먼저 선택하세요.', 'err'); return; }
+      // Candle counts around the chosen date (item 7), capped at 1000 each side.
+      const beforeN = Math.max(2, Math.min(1000, parseInt($('inp-before').value, 10) || 130));
+      const afterN = Math.max(2, Math.min(1000, parseInt($('inp-after').value, 10) || 30));
       try {
-        // If the SAME symbol+date is reloaded (i.e. only the timeframe changed),
-        // continue from the current playhead time and carry the open position —
-        // instead of rewinding to the date.
+        // Same symbol+date reload (timeframe switch) → continue from the current
+        // playhead and carry the open position instead of rewinding.
         const sameSymbol = state.candles.length > 0 && sym === state.symbol;
         const continueRun = sameSymbol && startVal === state._loadDateStr;
         let center = new Date(startVal).getTime();
@@ -935,48 +1000,70 @@
           if (cur) center = cur.time * 1000;
         }
         const ms = DataSource.intervalToMs(intv);
-        showLoadMsg('불러오는 중… ' + sym + ' ' + intv);
-        setStatus('Fetching ' + sym + ' ' + intv + ' around ' + startVal.replace('T', ' ') + '…');
+        showLoadMsg('불러오는 중… ' + (spec.label || sym) + ' ' + intv);
+        setStatus('Fetching ' + (spec.label || sym) + ' ' + intv + ' around ' + startVal.replace('T', ' ') + '…');
+
+        // Fetch a GENEROUS time window (stocks skip nights/weekends, so a tight
+        // window wouldn't yield enough bars), then trim to exact counts below.
+        const pad = spec.provider === 'yahoo' ? 4 : 1.4;
+        const startMs = center - Math.ceil(beforeN * pad) * ms;
+        const endMs = center + Math.ceil(afterN * pad) * ms;
         const res = await DataSource.fetchCandles(
-          sym, intv, BEFORE + AFTER + 5, center - BEFORE * ms, center + AFTER * ms, exch);
-        let warmup = 0;
+          spec, intv, beforeN + afterN + 60, startMs, endMs);
+
+        // Trim by COUNT around the candle at/just before the chosen date.
+        let split = 0;
         for (let i = 0; i < res.candles.length; i++) {
-          if (res.candles[i].time * 1000 <= center) warmup = i; else break;
+          if (res.candles[i].time * 1000 <= center) split = i + 1; else break;
+        }
+        if (split === 0) split = Math.min(res.candles.length, 1);
+        const startIdx = Math.max(0, split - beforeN);
+        const endIdx = Math.min(res.candles.length, split + afterN);
+        const candles = res.candles.slice(startIdx, endIdx);
+        const warmup = Math.max(1, split - startIdx);
+        if (candles.length < 5) {
+          throw new Error('그 날짜 주변 캔들이 너무 적습니다 (' + candles.length + '개). 날짜/개수를 조정해 보세요.');
         }
 
-        const source = res.source; // exchange that actually served the data
-        setStatus('Loading real intra-candle data…');
-        const subMap = await fetchSubMap(sym, intv, res.candles, warmup, source);
+        const source = res.source;
+        // Real intra-candle ticks only for crypto; stocks use synthetic ticks.
+        let subMap = null;
+        if (spec.provider === 'crypto') {
+          setStatus('Loading real intra-candle data…');
+          subMap = await fetchSubMap(spec, intv, candles, warmup, source);
+        }
 
-        // Same symbol → keep the wallet (balance/leverage/trades). In a
-        // timeframe switch (continueRun) also KEEP the open position and pick
-        // up at the current time. When only the DATE changed, settle the open
-        // position first (money isn't lost) since the replay jumps elsewhere.
+        // That day's ₩/USD rate (item 1) — auto-fills the FX field + note.
+        await applyFxForDate(startVal, spec);
+
         const keepAccount = sameSymbol;
         if (keepAccount && !continueRun && account.qty !== 0) {
           account.closeAll(state.lastPrice, state.running.time || 0);
         }
 
-        const meta = { symbol: sym, interval: intv, exchange: source, subMap, warmup, keepAccount };
-        const label = source + ' · ' + sym + ' · ' + intv;
-        loadCandles(res.candles, label, meta);
+        const meta = {
+          symbol: sym, symbolDisp: spec.label || sym, quote: spec.quote || 'USD',
+          kind: spec.kind || 'Perpetual', interval: intv, exchange: source,
+          subMap, warmup, keepAccount,
+        };
+        const label = source + ' · ' + (spec.label || sym) + ' · ' + intv;
+        loadCandles(candles, label, meta);
         state._loadDateStr = startVal;
-        // Re-draw the carried-over position's lines (loadCandles cleared them).
         if (continueRun && account.qty !== 0) onPositionChanged();
-        // Focus the view near the chosen date (extra lookback stays off-screen).
         if (state.lockView) anchorView();
-        else chart.setVisibleLogicalRange(warmup - VIEW_BEFORE, res.candles.length + 2);
+        else chart.setVisibleLogicalRange(warmup - VIEW_BEFORE, candles.length + 2);
         hideLoadMsg();
 
-        const bits = [source + ' ' + res.candles.length + ' candles'];
+        const bits = [source + ' ' + candles.length + ' candles (앞 ' + warmup + '/뒤 ' + (candles.length - warmup) + ')'];
         if (res.fallback) bits.push('(⚠ → ' + source + ')');
-        bits.push(subMap ? 'real ticks ✓' : 'synthetic ticks');
+        if (spec.provider === 'crypto') bits.push(subMap ? 'real ticks ✓' : 'synthetic ticks');
+        else bits.push('Yahoo 현물 · synthetic ticks');
         if (continueRun) bits.push((account.qty !== 0 ? '포지션·잔고' : '잔고') + ' 유지 (이어서)');
-        else if (keepAccount) bits.push('잔고 유지 ' + fmt(account.balance) + ' USDT');
+        else if (keepAccount) bits.push('잔고 유지 ' + fmt(account.balance) + ' ' + unitLabel());
         setStatus(bits.join(' · ') + '. Press Play ▶', res.fallback ? 'err' : 'ok');
       } catch (err) {
         showLoadMsg('불러오기 실패\n' + err.message +
-          '\n\n브라우저에서 거래소 API가 막혔을 수 있어요 (지역 차단/네트워크).', 'err');
+          '\n\n브라우저에서 데이터 API가 막혔을 수 있어요 (지역 차단/네트워크/CORS).', 'err');
         setStatus('불러오기 실패: ' + err.message, 'err');
       }
     });

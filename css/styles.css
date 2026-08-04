@@ -314,3 +314,10 @@ body.clean .main { height: 100vh; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #363a45; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #434651; }
+
+/* ---- New inputs: FX note, candle-count, entry price ---- */
+.fx-note { color: var(--muted); font-weight: 400; font-size: 10px; }
+.fx-note.auto { color: var(--accent); }
+.data-group .step.cnt { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); font-size: 11px; }
+.data-group .step.cnt input { width: 46px; }
+#order-entry::placeholder { color: #565a63; }

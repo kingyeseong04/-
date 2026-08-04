@@ -8,7 +8,7 @@
   <!-- Bybit's web UI renders in the platform system font (San Francisco on
        iPad/Safari). Use the same system stack so the app matches Bybit exactly
        on-device — and drop the external Google Fonts dependency. -->
-  <link rel="stylesheet" href="css/styles.css?v=19" />
+  <link rel="stylesheet" href="css/styles.css?v=20" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -157,8 +157,12 @@
         <input type="number" id="inp-capital" value="10000" min="1" step="100" />
       </div>
       <div class="field">
-        <label>환율 (₩ / USDT)</label>
+        <label>환율 (₩ / USDT) <span class="fx-note" id="fx-note"></span></label>
         <input type="number" id="inp-fx" value="1350" min="0" step="1" />
+      </div>
+      <div class="field">
+        <label>진입가 지정 (선택) <span class="fx-note">비우면 현재가</span></label>
+        <input type="number" id="order-entry" placeholder="예: 100 → 그 가격에 진입" min="0" step="any" />
       </div>
 
       <div class="assets">
@@ -217,20 +221,26 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v19</span>
+    <span class="ver" title="버전 (최신 확인용)">v20</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
-      <span class="step"><b>①</b><select id="inp-symbol" title="심볼 (Bybit 무기한)">
-        <option value="BTCUSDT.P" selected>BTCUSDT.P</option>
-        <option value="ETHUSDT.P">ETHUSDT.P</option>
-        <option value="DRAMUSDT.P">DRAMUSDT.P</option>
-        <option value="SOXLUSDT.P">SOXLUSDT.P</option>
-        <option value="XAUUSDT.P">XAUUSDT.P</option>
-        <option value="SAMSUNGUSDT.P">SAMSUNGUSDT.P</option>
-        <option value="TSLAUSDT.P">TSLAUSDT.P</option>
-        <option value="ALABUSDT.P">ALABUSDT.P</option>
-        <option value="COHRUSDT.P">COHRUSDT.P</option>
+      <span class="step"><b>①</b><select id="inp-symbol" title="심볼 (크립토=Bybit 선물, 주식/ETF/금=Yahoo 현물)">
+        <optgroup label="Crypto (Bybit 선물)">
+          <option value="BTCUSDT.P" selected>BTCUSDT.P</option>
+          <option value="ETHUSDT.P">ETHUSDT.P</option>
+        </optgroup>
+        <optgroup label="US 주식/ETF (현물 · USD)">
+          <option value="TSLA">TSLA · NASDAQ</option>
+          <option value="COHR">COHR · NYSE</option>
+          <option value="ALAB">ALAB · NASDAQ</option>
+          <option value="SOXL">SOXL · NYSE Arca</option>
+          <option value="DRAM">DRAM · CBOE</option>
+        </optgroup>
+        <optgroup label="기타 현물">
+          <option value="XAUUSD">XAUUSD · 금(USD)</option>
+          <option value="005930.KS">삼성전자 005930 · KRX(₩)</option>
+        </optgroup>
       </select></span>
       <span class="step"><b>②</b><select id="inp-interval" title="시간봉">
         <option value="5m">5m</option>
@@ -240,16 +250,20 @@
         <option value="1d">1d</option>
       </select></span>
       <span class="step"><b>③</b><input type="datetime-local" id="inp-start" title="시작 날짜·시각" /></span>
+      <span class="step cnt" title="지정일 기준 앞/뒤로 불러올 캔들 개수 (각 최대 1000)">
+        <b>±</b>앞<input type="number" id="inp-before" value="130" min="2" max="1000" />
+        뒤<input type="number" id="inp-after" value="30" min="2" max="1000" />
+      </span>
       <button class="btn-ghost step-btn" id="btn-binance">④ Load</button>
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=19"></script>
-  <script src="js/dataSource.js?v=19"></script>
-  <script src="js/orderbook.js?v=19"></script>
-  <script src="js/indicators.js?v=19"></script>
-  <script src="js/trading.js?v=19"></script>
-  <script src="js/chart.js?v=19"></script>
-  <script src="js/app.js?v=19"></script>
+  <script src="js/tickEngine.js?v=20"></script>
+  <script src="js/dataSource.js?v=20"></script>
+  <script src="js/orderbook.js?v=20"></script>
+  <script src="js/indicators.js?v=20"></script>
+  <script src="js/trading.js?v=20"></script>
+  <script src="js/chart.js?v=20"></script>
+  <script src="js/app.js?v=20"></script>
 </body>
 </html>
