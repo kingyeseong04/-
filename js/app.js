@@ -37,6 +37,8 @@
     fx: 1350,             // ₩ per USDT (for KRW conversion)
     tp: null,             // take-profit price (auto-close)
     sl: null,             // stop-loss price (auto-close)
+    tpQty: null,          // TP close quantity (null = All / full position)
+    slQty: null,          // SL close quantity (null = All)
     quote: 'USD',         // instrument quote currency: 'USD' (USDT) or 'KRW'
     symbolDisp: '',       // pretty symbol name for the legend/overlays
     orderbook: false,     // order book removed — account panel always shown
@@ -306,11 +308,17 @@
         else if (state.sl != null && price >= state.sl) { hit = state.sl; kind = 'SL'; }
       }
       if (hit != null) {
-        account.reduce(1, hit, r.time);
-        state.tp = state.sl = null;
+        // Partial close if a quantity was set (else the whole position).
+        const qtyTarget = kind === 'TP' ? state.tpQty : state.slQty;
+        const absQty = Math.abs(account.qty);
+        const frac = (qtyTarget && qtyTarget < absQty) ? (qtyTarget / absQty) : 1;
+        account.reduce(frac, hit, r.time);
+        // Clear the target that fired (the other one stays on the remainder).
+        if (kind === 'TP') { state.tp = null; state.tpQty = null; }
+        else { state.sl = null; state.slQty = null; }
         onPositionChanged();
         renderTrades();
-        setStatus(kind + ' 도달 → 자동 청산 @ ' + fmt(hit), kind === 'TP' ? 'ok' : 'err');
+        setStatus(kind + ' 도달 → ' + (frac < 1 ? '부분' : '전량') + ' 청산 @ ' + fmt(hit), kind === 'TP' ? 'ok' : 'err');
       }
     }
 
@@ -653,25 +661,28 @@
 
   // Bybit-style TP / SL labels riding their lines (structure built once per
   // price change, then only the y-position updates each frame).
-  function tpslLabel(id, price, kind) {
+  function tpslLabel(id, price, kind, qty) {
     const el = $(id);
-    if (price == null || account.qty === 0) { el.style.display = 'none'; el._price = undefined; return; }
+    if (price == null || account.qty === 0) { el.style.display = 'none'; el._sig = undefined; return; }
     const y = chart.priceToY(price);
     if (y == null) { el.style.display = 'none'; return; }
-    if (el._price !== price) {
-      el._price = price;
+    // Show the set quantity, or "All" for a full-position close.
+    const qtyTxt = (qty && qty < Math.abs(account.qty)) ? fmt(qty, 3) : 'All';
+    const sig = price + '/' + qtyTxt;
+    if (el._sig !== sig) {
+      el._sig = sig;
       el.innerHTML =
         '<span class="tpsl-grip">⋮</span>' +
         '<span class="tpsl-name">' + kind + ' ' + fmt(price, dec(price)) + '</span>' +
-        '<span class="tpsl-qty">All</span>' +
+        '<span class="tpsl-qty">' + qtyTxt + '</span>' +
         '<span class="tpsl-close" data-tpslclose="' + kind + '" title="' + kind + ' 취소">✕</span>';
     }
     el.style.top = y + 'px';
     el.style.display = 'flex';
   }
   function updateTpSlLabels() {
-    tpslLabel('tp-label', state.tp, 'TP');
-    tpslLabel('sl-label', state.sl, 'SL');
+    tpslLabel('tp-label', state.tp, 'TP', state.tpQty);
+    tpslLabel('sl-label', state.sl, 'SL', state.slQty);
   }
 
   function renderOverlays() {
@@ -798,7 +809,7 @@
   function onPositionChanged() {
     if (account.qty === 0) {
       chart.setEntryLine(null);
-      state.tp = state.sl = null; // clear TP/SL when flat
+      state.tp = state.sl = state.tpQty = state.slQty = null; // clear TP/SL when flat
       chart.setTpLine(null); chart.setSlLine(null);
     } else {
       chart.setEntryLine(account.avgEntry, account.qty > 0 ? 'long' : 'short', Math.abs(account.qty));
@@ -867,7 +878,10 @@
     const on = $('tpsl-on') && $('tpsl-on').checked;
     state.tp = on ? (parseFloat($('order-tp').value) || null) : null;
     state.sl = on ? (parseFloat($('order-sl').value) || null) : null;
+    state.tpQty = on ? (parseFloat($('order-tp-qty').value) || null) : null;
+    state.slQty = on ? (parseFloat($('order-sl-qty').value) || null) : null;
     if (account.qty !== 0) { chart.setTpLine(state.tp); chart.setSlLine(state.sl); }
+    updateTpSlLabels();
   }
 
   function closePartial(frac) {
@@ -925,8 +939,8 @@
     // ✕ on a TP/SL label cancels that target.
     const cancelTpSl = (e) => {
       const b = e.target.closest('[data-tpslclose]'); if (!b) return;
-      if (b.dataset.tpslclose === 'TP') { state.tp = null; $('order-tp').value = ''; chart.setTpLine(null); }
-      else { state.sl = null; $('order-sl').value = ''; chart.setSlLine(null); }
+      if (b.dataset.tpslclose === 'TP') { state.tp = state.tpQty = null; $('order-tp').value = ''; $('order-tp-qty').value = ''; chart.setTpLine(null); }
+      else { state.sl = state.slQty = null; $('order-sl').value = ''; $('order-sl-qty').value = ''; chart.setSlLine(null); }
       if (!state.tp && !state.sl) $('tpsl-on').checked = false;
       updateTpSlLabels();
       setStatus(b.dataset.tpslclose + ' 취소됨', 'ok');
@@ -982,7 +996,7 @@
     $('btn-long').addEventListener('click', () => placeOrder('long'));
     $('btn-short').addEventListener('click', () => placeOrder('short'));
     // TP/SL: apply live so the lines update while a position is open.
-    ['tpsl-on', 'order-tp', 'order-sl'].forEach((id) => {
+    ['tpsl-on', 'order-tp', 'order-sl', 'order-tp-qty', 'order-sl-qty'].forEach((id) => {
       const el = $(id); if (el) el.addEventListener('input', applyTpSl);
       if (el) el.addEventListener('change', applyTpSl);
     });

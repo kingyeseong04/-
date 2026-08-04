@@ -8,7 +8,7 @@
   <!-- Bybit's web UI renders in the platform system font (San Francisco on
        iPad/Safari). Use the same system stack so the app matches Bybit exactly
        on-device — and drop the external Google Fonts dependency. -->
-  <link rel="stylesheet" href="css/styles.css?v=30" />
+  <link rel="stylesheet" href="css/styles.css?v=31" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -152,10 +152,14 @@
         <input type="number" id="order-entry" placeholder="예: 100 → 그 가격에 진입" min="0" step="any" />
       </div>
       <div class="field tpsl-field">
-        <label><input type="checkbox" id="tpsl-on" /> TP / SL <span class="fx-note">가격 도달 시 자동 청산</span></label>
+        <label><input type="checkbox" id="tpsl-on" /> TP / SL <span class="fx-note">가격 도달 시 자동 청산 · 수량 비우면 All</span></label>
         <div class="tpsl-row">
           <input type="number" id="order-tp" placeholder="TP 익절가" min="0" step="any" />
+          <input type="number" id="order-tp-qty" placeholder="TP 수량" min="0" step="any" />
+        </div>
+        <div class="tpsl-row">
           <input type="number" id="order-sl" placeholder="SL 손절가" min="0" step="any" />
+          <input type="number" id="order-sl-qty" placeholder="SL 수량" min="0" step="any" />
         </div>
       </div>
 
@@ -218,7 +222,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v30</span>
+    <span class="ver" title="버전 (최신 확인용)">v31</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
@@ -244,12 +248,12 @@
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=30"></script>
-  <script src="js/dataSource.js?v=30"></script>
-  <script src="js/indicators.js?v=30"></script>
-  <script src="js/trading.js?v=30"></script>
-  <script src="js/chart.js?v=30"></script>
-  <script src="js/draw.js?v=30"></script>
-  <script src="js/app.js?v=30"></script>
+  <script src="js/tickEngine.js?v=31"></script>
+  <script src="js/dataSource.js?v=31"></script>
+  <script src="js/indicators.js?v=31"></script>
+  <script src="js/trading.js?v=31"></script>
+  <script src="js/chart.js?v=31"></script>
+  <script src="js/draw.js?v=31"></script>
+  <script src="js/app.js?v=31"></script>
 </body>
 </html>
