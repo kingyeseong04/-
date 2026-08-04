@@ -8,7 +8,7 @@
   <!-- Bybit's web UI renders in the platform system font (San Francisco on
        iPad/Safari). Use the same system stack so the app matches Bybit exactly
        on-device — and drop the external Google Fonts dependency. -->
-  <link rel="stylesheet" href="css/styles.css?v=21" />
+  <link rel="stylesheet" href="css/styles.css?v=22" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -67,6 +67,7 @@
           <button data-clean-act="draw" title="선 긋기">✏️</button>
           <button data-clean-act="ruler" title="자(측정)">📏</button>
           <button data-clean-act="magnet" title="스트롱 마그넷 (봉 값에 스냅)">🧲</button>
+          <button data-clean-act="clear" title="선·측정 전체 지우기">🗑️</button>
         </div>
       </div>
 
@@ -223,9 +224,10 @@
     <button class="btn-ghost" id="btn-pnl" title="미실현 손익 크게 표시 (드래그로 위치 이동)">💰 손익</button>
     <button class="btn-ghost" id="btn-wallet" title="Equity·Available 크게 표시 (드래그로 위치 이동)">💵 자산</button>
     <button class="btn-ghost" id="btn-ind" title="지표 설정 (볼린저·일목)">📈 지표</button>
-    <button class="btn-ghost" id="btn-draw" title="선 긋기 (드래그로 추세선, 더블클릭 전체삭제)">✏️ 선</button>
+    <button class="btn-ghost" id="btn-draw" title="선 긋기 (드래그로 추세선, 캔들에 자동 스냅)">✏️ 선</button>
     <button class="btn-ghost" id="btn-ruler" title="자 (드래그로 가격·%·봉수 측정)">📏 자</button>
     <button class="btn-ghost" id="btn-magnet" title="스트롱 마그넷 (봉 O/H/L/C 값에 스냅)">🧲 마그넷</button>
+    <button class="btn-ghost" id="btn-clear-draw" title="선·측정 전체 지우기">🗑️ 지우기</button>
 
     <div class="group">
       <label>배속</label>
@@ -234,7 +236,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v21</span>
+    <span class="ver" title="버전 (최신 확인용)">v22</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
@@ -256,7 +258,6 @@
         </optgroup>
       </select></span>
       <span class="step"><b>②</b><select id="inp-interval" title="시간봉">
-        <option value="5m">5m</option>
         <option value="15m">15m</option>
         <option value="1h" selected>1h</option>
         <option value="4h">4h</option>
@@ -271,13 +272,13 @@
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=21"></script>
-  <script src="js/dataSource.js?v=21"></script>
-  <script src="js/orderbook.js?v=21"></script>
-  <script src="js/indicators.js?v=21"></script>
-  <script src="js/trading.js?v=21"></script>
-  <script src="js/chart.js?v=21"></script>
-  <script src="js/draw.js?v=21"></script>
-  <script src="js/app.js?v=21"></script>
+  <script src="js/tickEngine.js?v=22"></script>
+  <script src="js/dataSource.js?v=22"></script>
+  <script src="js/orderbook.js?v=22"></script>
+  <script src="js/indicators.js?v=22"></script>
+  <script src="js/trading.js?v=22"></script>
+  <script src="js/chart.js?v=22"></script>
+  <script src="js/draw.js?v=22"></script>
+  <script src="js/app.js?v=22"></script>
 </body>
 </html>

@@ -227,18 +227,15 @@
   // parent candle, so playback can use REAL intra-candle motion. Returns a
   // Map(candleTimeSec -> sub-candles[]) or null if not feasible/available.
   async function fetchSubMap(spec, intv, candles, warmupIdx, exch) {
-    const subIntv = DataSource.subInterval(intv);
+    const replayCount = candles.length - warmupIdx;
+    // Always build ticks from REAL data: pick the finest sub-interval whose total
+    // stays bounded, coarsening (but never going synthetic) for large replays.
+    const subIntv = DataSource.pickSubInterval(intv, replayCount);
     if (!subIntv) return null;
     const durMs = DataSource.intervalToMs(intv);
     const subDurMs = DataSource.intervalToMs(subIntv);
     const subsPer = Math.max(1, Math.round(durMs / subDurMs));
-    const replayCount = candles.length - warmupIdx;
-    const needed = replayCount * subsPer + subsPer; // sub-candles to fetch
-    // Guard: with large replay counts (e.g. 1000 candles on 1h/1d) the real
-    // sub-candle download explodes into MBs / dozens of requests. Cap it and
-    // fall back to synthetic ticks beyond the limit (5m/15m stay real at 1000).
-    const SUB_CAP = 24000;
-    if (needed > SUB_CAP) return null;
+    const needed = replayCount * subsPer + subsPer;
     const startMs = candles[warmupIdx].time * 1000;
     const endMs = candles[candles.length - 1].time * 1000 + durMs;
     let subRes;
@@ -485,10 +482,12 @@
   function fmtKRW(v) { return fmtConv(v); }
 
   // Small reference note next to the FX field.
-  function setFxNote(rate, date, auto) {
+  function setFxNote(rate, date, auto, overrideText, src) {
     const el = $('fx-note'); if (!el) return;
+    if (overrideText) { el.textContent = '(' + overrideText + ')'; el.className = 'fx-note'; return; }
     if (auto && date) {
-      el.textContent = '(' + date + ' 기준 ₩' + Math.round(rate).toLocaleString('en-US') + ')';
+      el.textContent = '(' + date + ' 기준 ₩' + Math.round(rate).toLocaleString('en-US') +
+        (src ? ' · ' + src : '') + ')';
       el.className = 'fx-note auto';
     } else {
       el.textContent = '(수동 입력)';
@@ -501,21 +500,18 @@
   async function applyFxForDate(dateStr, spec) {
     const day = (dateStr || '').slice(0, 10);
     if (!day) { setFxNote(state.fx, null, false); return; }
-    try {
-      const r = await fetch('https://api.frankfurter.app/' + day + '?from=USD&to=KRW');
-      if (r.ok) {
-        const j = await r.json();
-        const rate = j && j.rates && j.rates.KRW;
-        if (rate) {
-          state.fx = rate;
-          $('inp-fx').value = Math.round(rate);
-          state._fxDate = j.date || day;
-          setFxNote(rate, j.date || day, true);
-          return;
-        }
-      }
-    } catch (e) { /* offline / blocked → keep manual value */ }
-    setFxNote(state.fx, null, false);
+    setFxNote(null, null, false, '조회 중…');
+    const res = await DataSource.fetchFxUSDKRW(day).catch(() => null);
+    if (res && res.rate) {
+      state.fx = res.rate;
+      $('inp-fx').value = Math.round(res.rate * 100) / 100;
+      state._fxDate = res.date;
+      setFxNote(res.rate, res.date, true, null, res.src);
+      updatePnlBig(); updateWalletBig(); updateAccountPanel();
+      return;
+    }
+    // Couldn't fetch (network/CORS/blocked) → keep the manual value, say so.
+    setFxNote(state.fx, null, false, '자동조회 실패(수동값 사용)');
   }
 
   // Enlarged unrealized-P&L overlay (toggle + draggable) for video emphasis.
@@ -1147,6 +1143,11 @@
     drawBtn('btn-draw', 'draw');
     drawBtn('btn-ruler', 'ruler');
     drawBtn('btn-magnet', 'magnet');
+    $('btn-clear-draw') && $('btn-clear-draw').addEventListener('click', () => {
+      if (window.Draw) Draw.clearAll();
+    });
+    // Magnet is on by default → reflect it on the button at boot.
+    if (window.Draw) $('btn-magnet').classList.toggle('active', Draw.magnet());
     const readInd = () => {
       ind.bb.on = $('bb-on').checked;
       ind.bb.period = Math.max(2, parseInt($('bb-period').value, 10) || 20);
@@ -1177,6 +1178,7 @@
       else if (act === 'draw' || act === 'ruler' || act === 'magnet') {
         if (window.Draw) Draw.toggle(act);
       }
+      else if (act === 'clear') { if (window.Draw) Draw.clearAll(); }
       syncCleanTools();
     });
     document.addEventListener('fullscreenchange', () => {

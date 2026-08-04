@@ -16,7 +16,7 @@
   let getCandles = null;     // () => candles[]
   let canvas = null, ctx = null;
   let tool = null;           // null | 'draw' | 'ruler'
-  let magnetOn = false;
+  let magnetOn = true;       // strong magnet on by default (snaps to candle OHLC)
 
   const lines = [];          // committed trendlines: [{a:{time,price}, b:{...}}]
   let measure = null;        // last ruler measurement (persists until cleared)
@@ -47,12 +47,15 @@
 
   function resize() {
     if (!canvas || !wrapEl) return;
+    // <canvas> doesn't stretch via inset:0, so size it explicitly to the current
+    // chart-wrap box (CSS size for layout + backing store for crisp rendering).
     const r = wrapEl.getBoundingClientRect();
+    if (!r.width || !r.height) return;
     const dpr = global.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.round(r.width * dpr));
-    canvas.height = Math.max(1, Math.round(r.height * dpr));
     canvas.style.width = r.width + 'px';
     canvas.style.height = r.height + 'px';
+    canvas.width = Math.max(1, Math.round(r.width * dpr));
+    canvas.height = Math.max(1, Math.round(r.height * dpr));
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
@@ -81,7 +84,10 @@
     let time = chart.xToTime(x);
     let price = chart.yToPrice(y);
     if (time == null || price == null) return null;
-    if (magnetOn && getCandles) {
+    // The trendline tool always snaps (그릴 때 딱딱); the ruler snaps only when
+    // the magnet toggle is on.
+    const snap = magnetOn || tool === 'draw';
+    if (snap && getCandles) {
       const candles = getCandles();
       if (candles && candles.length) {
         // nearest candle by time
@@ -132,11 +138,13 @@
     if (!tool || !drag) return;
     try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
     const a = toPixel(drag.a), b = toPixel(drag.b);
-    const moved = a && b && (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > 4);
+    const moved = a && b && (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > 6);
     if (tool === 'draw') {
       if (moved) lines.push({ a: drag.a, b: drag.b });
+      else deleteLineNear(b || a); // a tap (no drag) near a line removes it
     } else if (tool === 'ruler') {
       if (moved) measure = { a: drag.a, b: drag.b };
+      else measure = null; // tap clears the measurement
     }
     drag = null;
     redraw();
@@ -145,6 +153,11 @@
   // ---- rendering ----
   function redraw() {
     if (!ctx || !canvas) return;
+    // Auto-correct sizing if the chart-wrap box changed (initial layout, window
+    // resize, entering/exiting clean mode) — <canvas> won't reflow on its own.
+    const dpr = global.devicePixelRatio || 1;
+    const r = wrapEl.getBoundingClientRect();
+    if (r.width && Math.round(r.width * dpr) !== canvas.width) resize();
     const w = canvas.clientWidth, h = canvas.clientHeight;
     ctx.clearRect(0, 0, w, h);
 
@@ -173,26 +186,102 @@
     for (const p of [pa, pb]) { ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2); ctx.fill(); }
   }
 
+  // TradingView-style measure box: green when price rose, red when it fell,
+  // a shaded rectangle with a centered arrow, and a solid label showing
+  // Δprice (%) ticks / N bars, duration / Vol.
   function drawRuler(a, b) {
     const pa = toPixel(a), pb = toPixel(b);
     if (!pa || !pb) return;
     const up = b.price >= a.price;
-    const col = up ? 'rgba(32,178,108,0.9)' : 'rgba(239,69,74,0.9)';
-    const fill = up ? 'rgba(32,178,108,0.12)' : 'rgba(239,69,74,0.12)';
-    // shaded box
-    ctx.fillStyle = fill;
-    ctx.fillRect(Math.min(pa.x, pb.x), Math.min(pa.y, pb.y), Math.abs(pb.x - pa.x), Math.abs(pb.y - pa.y));
-    ctx.strokeStyle = col; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+    const solid = up ? '#26a69a' : '#ef5350';           // label fill
+    const fill = up ? 'rgba(38,166,154,0.18)' : 'rgba(239,83,80,0.18)';
+    const edge = up ? 'rgba(38,166,154,0.55)' : 'rgba(239,83,80,0.55)';
+    const x0 = Math.min(pa.x, pb.x), x1 = Math.max(pa.x, pb.x);
+    const y0 = Math.min(pa.y, pb.y), y1 = Math.max(pa.y, pb.y);
 
-    // measurement text
+    // shaded box + outline
+    ctx.fillStyle = fill;
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.strokeStyle = edge; ctx.lineWidth = 1;
+    ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+
+    // centered vertical arrow (price direction) + horizontal arrow (time)
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    ctx.strokeStyle = solid; ctx.fillStyle = solid; ctx.lineWidth = 2;
+    // vertical: from a.price level to b.price level, arrow points to b
+    arrow(cx, pa.y, cx, pb.y);
+    // horizontal: from a.time to b.time, arrow points to b
+    arrow(pa.x, cy, pb.x, cy);
+
+    // metrics
     const dPrice = b.price - a.price;
     const pct = a.price ? (dPrice / a.price) * 100 : 0;
+    const tick = tickSize(a.price);
+    const ticks = tick ? Math.round(dPrice / tick) : 0;
     const bars = barsBetween(a.time, b.time);
     const dMin = Math.round((b.time - a.time) / 60);
-    const label = (dPrice >= 0 ? '+' : '') + fmt(dPrice) + '  (' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%)\n' +
-      bars + ' bars · ' + fmtDur(dMin);
-    drawLabel(label, (pa.x + pb.x) / 2, Math.min(pa.y, pb.y) - 6, col);
+    const vol = sumVolume(a.time, b.time);
+    const sgn = (n) => (n >= 0 ? '+' : '');
+    const l1 = sgn(dPrice) + fmt(dPrice) + '  (' + sgn(pct) + pct.toFixed(2) + '%)  ' + sgn(ticks) + ticks;
+    const l2 = bars + ' bars,  ' + fmtDur(dMin);
+    const label = vol > 0 ? (l1 + '\n' + l2 + '\nVol ' + fmtBig(vol)) : (l1 + '\n' + l2);
+    // label sits above the box for an up-move, below for a down-move (like TV)
+    const labelY = up ? y0 - 6 : y1 + 6;
+    drawLabel(label, cx, labelY, solid, !up);
+  }
+
+  function arrow(x0, y0, x1, y1) {
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    const ang = Math.atan2(y1 - y0, x1 - x0), h = 7;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x1 - h * Math.cos(ang - Math.PI / 6), y1 - h * Math.sin(ang - Math.PI / 6));
+    ctx.lineTo(x1 - h * Math.cos(ang + Math.PI / 6), y1 - h * Math.sin(ang + Math.PI / 6));
+    ctx.closePath(); ctx.fill();
+  }
+
+  function tickSize(price) {
+    const a = Math.abs(price);
+    if (a >= 1000) return 0.1;
+    if (a >= 1) return 0.01;
+    if (a >= 0.1) return 0.0001;
+    return 0.000001;
+  }
+  function sumVolume(t0, t1) {
+    if (!getCandles) return 0;
+    const c = getCandles(); if (!c) return 0;
+    const lo = Math.min(t0, t1), hi = Math.max(t0, t1);
+    let s = 0;
+    for (const cc of c) { if (cc.time >= lo && cc.time <= hi) s += (cc.volume || 0); }
+    return s;
+  }
+  function fmtBig(n) {
+    n = Math.abs(n || 0);
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(2) + 'K';
+    return n.toFixed(0);
+  }
+
+  // Remove the trendline whose segment is closest to a tapped pixel point.
+  function deleteLineNear(pt) {
+    if (!pt) return;
+    let bestI = -1, bestD = 10; // px threshold
+    for (let i = 0; i < lines.length; i++) {
+      const a = toPixel(lines[i].a), b = toPixel(lines[i].b);
+      if (!a || !b) continue;
+      const d = segDist(pt.x, pt.y, a.x, a.y, b.x, b.y);
+      if (d < bestD) { bestD = d; bestI = i; }
+    }
+    if (bestI >= 0) lines.splice(bestI, 1);
+  }
+  function segDist(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const len2 = dx * dx + dy * dy || 1;
+    let t = ((px - x1) * dx + (py - y1) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const cx = x1 + t * dx, cy = y1 + t * dy;
+    return Math.hypot(px - cx, py - cy);
   }
 
   function barsBetween(t0, t1) {
@@ -216,21 +305,21 @@
     const a = Math.abs(n), d = a >= 1 ? 2 : a >= 0.1 ? 4 : 6;
     return Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
   }
-  function drawLabel(text, cx, cy, col) {
+  function drawLabel(text, cx, cy, col, below) {
     ctx.font = "600 12px -apple-system, 'Segoe UI', Roboto, sans-serif";
     const lines2 = text.split('\n');
     let maxW = 0;
     for (const l of lines2) maxW = Math.max(maxW, ctx.measureText(l).width);
-    const padX = 8, padY = 5, lh = 15;
+    const padX = 9, padY = 6, lh = 16;
     const boxW = maxW + padX * 2, boxH = lines2.length * lh + padY * 2;
-    let x = cx - boxW / 2, y = cy - boxH;
+    let x = cx - boxW / 2, y = below ? cy : cy - boxH;
     x = Math.max(2, Math.min(x, canvas.clientWidth - boxW - 2));
-    y = Math.max(2, y);
-    ctx.fillStyle = 'rgba(16,16,20,0.92)';
-    ctx.strokeStyle = col; ctx.lineWidth = 1;
-    roundRect(x, y, boxW, boxH, 4); ctx.fill(); ctx.stroke();
+    y = Math.max(2, Math.min(y, canvas.clientHeight - boxH - 2));
+    // Solid coloured label with white text (TradingView measure style).
+    ctx.fillStyle = col;
+    roundRect(x, y, boxW, boxH, 4); ctx.fill();
     ctx.fillStyle = '#fff';
-    for (let i = 0; i < lines2.length; i++) ctx.fillText(lines2[i], x + padX, y + padY + lh * (i + 1) - 3);
+    for (let i = 0; i < lines2.length; i++) ctx.fillText(lines2[i], x + padX, y + padY + lh * (i + 1) - 4);
   }
   function roundRect(x, y, w, h, r) {
     ctx.beginPath();

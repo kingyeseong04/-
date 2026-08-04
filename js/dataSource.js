@@ -30,6 +30,27 @@
   };
   function subInterval(interval) { return SUB_INTERVAL[interval] || null; }
 
+  // Choose the FINEST sub-interval whose total sub-candle count for `replayCount`
+  // parent candles stays under `cap`, so ticks are ALWAYS built from real data
+  // while keeping the download bounded (finer for small loads, coarser for big).
+  const SUB_PREFS = {
+    '5m': ['1m'], '15m': ['1m', '5m'], '30m': ['5m', '15m'],
+    '1h': ['1m', '5m', '15m'], '2h': ['5m', '15m'], '4h': ['5m', '15m', '1h'],
+    '6h': ['15m', '1h'], '12h': ['15m', '1h'], '1d': ['15m', '1h'], '1w': ['1h', '4h'],
+  };
+  function pickSubInterval(interval, replayCount, cap) {
+    const prefs = SUB_PREFS[interval];
+    if (!prefs) return null;
+    cap = cap || 30000;
+    const dur = intervalToMs(interval);
+    let coarsest = prefs[prefs.length - 1];
+    for (const s of prefs) {
+      const per = Math.max(1, Math.round(dur / intervalToMs(s)));
+      if (replayCount * per <= cap) return s;
+    }
+    return coarsest; // still real data, just larger — never synthetic
+  }
+
   // --- Symbol registry ----------------------------------------------------
   // Maps each dropdown value to its data provider + display metadata.
   //   provider: 'crypto' (Bybit/Binance) | 'yahoo' (stocks/ETF/gold/KRX)
@@ -115,6 +136,35 @@
     }
     if (!rows.length) throw new Error('Yahoo: no data for ' + symbol);
     return dedupAsc(rows);
+  }
+
+  // That day's USD→KRW rate. Tries the ECB (frankfurter.app, CORS-friendly, no
+  // key), then falls back to Yahoo's KRW=X daily close via the proxy chain.
+  // `day` is 'YYYY-MM-DD'. Returns { rate, date, src } or null.
+  async function fetchFxUSDKRW(day) {
+    if (!day) return null;
+    // 1) ECB via frankfurter (returns the date's rate or nearest prior biz day)
+    try {
+      const r = await fetch('https://api.frankfurter.app/' + day + '?from=USD&to=KRW');
+      if (r.ok) {
+        const j = await r.json();
+        if (j && j.rates && j.rates.KRW) return { rate: j.rates.KRW, date: j.date || day, src: 'ECB' };
+      }
+    } catch (e) { /* try next */ }
+    // 2) Yahoo KRW=X daily close around that date
+    try {
+      const t = Date.parse(day + 'T00:00:00Z') / 1000;
+      if (isFinite(t)) {
+        const rows = await yahooChart('KRW=X', '1d', t - 10 * 86400, t + 2 * 86400);
+        if (rows.length) {
+          let pick = rows[0];
+          for (const c of rows) { if (c.time <= t + 86400) pick = c; }
+          const d = new Date(pick.time * 1000).toISOString().slice(0, 10);
+          return { rate: pick.close, date: d, src: 'Yahoo' };
+        }
+      }
+    } catch (e) { /* give up */ }
+    return null;
   }
 
   // spot=false -> USDT-M perpetual futures (fapi, matches "BTCUSDT.P").
@@ -293,6 +343,6 @@
 
   global.DataSource = {
     fromBinance, fromBybit, fromYahoo, fetchCandles, intervalToMs, subInterval,
-    SYMBOLS, resolveSymbol,
+    pickSubInterval, fetchFxUSDKRW, SYMBOLS, resolveSymbol,
   };
 })(window);
