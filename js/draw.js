@@ -22,6 +22,8 @@
   const lines = [];          // committed trendlines: [{a:{logical,price}, b:{...}}]
   let measure = null;        // last ruler measurement (persists until cleared)
   let drag = null;           // in-progress drag: {a, b}
+  let cw = 0, ch = 0;        // cached CSS size (updated only on resize, not per frame)
+  let dirtyPrev = false;     // whether the last redraw painted anything
 
   function init(chartWrap, wrapElement, candlesGetter) {
     chart = chartWrap; wrapEl = wrapElement; getCandles = candlesGetter;
@@ -53,6 +55,7 @@
     const r = wrapEl.getBoundingClientRect();
     if (!r.width || !r.height) return;
     const dpr = global.devicePixelRatio || 1;
+    cw = r.width; ch = r.height;                    // cache CSS size for redraw()
     canvas.style.width = r.width + 'px';
     canvas.style.height = r.height + 'px';
     canvas.width = Math.max(1, Math.round(r.width * dpr));
@@ -160,13 +163,14 @@
   // ---- rendering ----
   function redraw() {
     if (!ctx || !canvas) return;
-    // Auto-correct sizing if the chart-wrap box changed (initial layout, window
-    // resize, entering/exiting clean mode) — <canvas> won't reflow on its own.
-    const dpr = global.devicePixelRatio || 1;
-    const r = wrapEl.getBoundingClientRect();
-    if (r.width && Math.round(r.width * dpr) !== canvas.width) resize();
-    const w = canvas.clientWidth, h = canvas.clientHeight;
-    ctx.clearRect(0, 0, w, h);
+    if (!cw) resize();                              // ensure sized once (no per-frame DOM read)
+    // Skip all work when there's nothing to draw AND nothing left on the canvas
+    // — avoids a clearRect + empty passes every animation frame while idle.
+    const hasContent = lines.length || measure || (drag && tool);
+    if (!hasContent && !dirtyPrev) return;
+    ctx.clearRect(0, 0, cw, ch);
+    dirtyPrev = !!hasContent;
+    if (!hasContent) return;
 
     // committed trendlines (TradingView blue)
     ctx.lineWidth = 1.75;
@@ -189,7 +193,7 @@
 
   // Full-width/height blue dashed crosshair + dot + blue price tag on the axis.
   function drawCrosshair(p, price) {
-    const w = canvas.clientWidth, h = canvas.clientHeight;
+    const w = cw, h = ch;
     ctx.save();
     ctx.strokeStyle = '#2962ff'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
     ctx.beginPath(); ctx.moveTo(0, p.y); ctx.lineTo(w, p.y); ctx.stroke();
@@ -259,13 +263,12 @@
   function drawPriceTag(price, y, col) {
     ctx.font = "700 13px -apple-system, 'Segoe UI', Roboto, sans-serif";
     const t = fmt(price);
-    const cw = canvas.clientWidth;
     const axisW = (chart.priceScaleWidth && chart.priceScaleWidth()) || 62;
     const textW = ctx.measureText(t).width;
     const tagW = Math.max(axisW, textW + 20);
     const h = 22;
     const bx = cw - tagW;                           // fill the axis lane, flush right
-    const by = Math.max(0, Math.min(y - h / 2, canvas.clientHeight - h));
+    const by = Math.max(0, Math.min(y - h / 2, ch - h));
     ctx.fillStyle = col;
     ctx.fillRect(bx, by, tagW, h);                  // plain rectangle (no rounding)
     ctx.fillStyle = '#fff';
@@ -291,22 +294,6 @@
     if (a >= 0.1) return 0.0001;
     return 0.000001;
   }
-  function sumVolume(t0, t1) {
-    if (!getCandles) return 0;
-    const c = getCandles(); if (!c) return 0;
-    const lo = Math.min(t0, t1), hi = Math.max(t0, t1);
-    let s = 0;
-    for (const cc of c) { if (cc.time >= lo && cc.time <= hi) s += (cc.volume || 0); }
-    return s;
-  }
-  function fmtBig(n) {
-    n = Math.abs(n || 0);
-    if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
-    if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
-    if (n >= 1e3) return (n / 1e3).toFixed(2) + 'K';
-    return n.toFixed(0);
-  }
-
   // Remove the trendline whose segment is closest to a tapped pixel point.
   function deleteLineNear(pt) {
     if (!pt) return;
@@ -328,17 +315,6 @@
     return Math.hypot(px - cx, py - cy);
   }
 
-  function barsBetween(t0, t1) {
-    if (!getCandles) return '?';
-    const c = getCandles(); if (!c || c.length < 2) return '?';
-    let i0 = nearestIdx(c, t0), i1 = nearestIdx(c, t1);
-    return Math.abs(i1 - i0);
-  }
-  function nearestIdx(c, t) {
-    let best = 0, bd = Infinity;
-    for (let i = 0; i < c.length; i++) { const d = Math.abs(c[i].time - t); if (d < bd) { bd = d; best = i; } }
-    return best;
-  }
   function fmtDur(min) {
     min = Math.abs(min | 0);
     if (min >= 1440) return (min / 1440).toFixed(1) + 'd';
@@ -357,8 +333,8 @@
     const padX = 9, padY = 6, lh = 16;
     const boxW = maxW + padX * 2, boxH = lines2.length * lh + padY * 2;
     let x = cx - boxW / 2, y = below ? cy : cy - boxH;
-    x = Math.max(2, Math.min(x, canvas.clientWidth - boxW - 2));
-    y = Math.max(2, Math.min(y, canvas.clientHeight - boxH - 2));
+    x = Math.max(2, Math.min(x, cw - boxW - 2));
+    y = Math.max(2, Math.min(y, ch - boxH - 2));
     // Solid coloured label with white text (TradingView measure style).
     ctx.fillStyle = col;
     roundRect(x, y, boxW, boxH, 4); ctx.fill();

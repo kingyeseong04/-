@@ -30,7 +30,6 @@
     sessHigh: 0,          // "24h" high/low over the replayed session
     sessLow: 0,
     turnover: 0,          // synthetic 24h turnover (USDT)
-    tape: [],             // recent-trades feed (synthetic)
     subMap: null,         // Map candleTime -> real sub-candles (for real ticks)
     pnlBig: false,        // enlarged unrealized-P&L overlay (for video)
     walletBig: false,     // enlarged wallet-balance overlay (for video)
@@ -206,8 +205,6 @@
     lastRenderedPrice = state.lastPrice;
     state.sessHigh = state.sessLow = state.lastPrice;
     state.turnover = state.lastPrice * 180000; // plausible 24h turnover base
-    state.tape = [];
-    state._tapePrev = state.lastPrice;
     state._loadMeta = {
       symbol: state.symbol, interval: state.interval,
       exchange: state.exchange, warmup: state.warmup, subMap: state.subMap,
@@ -735,12 +732,6 @@
     return 60;
   }
 
-  function hhmmss(sec) {
-    const dt = new Date(sec * 1000);
-    const p = (n) => String(n).padStart(2, '0');
-    return p(dt.getHours()) + ':' + p(dt.getMinutes()) + ':' + p(dt.getSeconds());
-  }
-
   function fmtBig(n) {
     n = Math.abs(n || 0);
     if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
@@ -1022,7 +1013,6 @@
 
     $('order-lev').addEventListener('input', (e) => {
       $('lev-label').textContent = e.target.value + 'x';
-      $('lev-chip').textContent = e.target.value + 'x';
       updateCost();
     });
 

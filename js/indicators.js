@@ -50,18 +50,14 @@
     const lastT = candles[n - 1].time;
     const futureTime = (j) => (j < n ? candles[j].time : lastT + (j - (n - 1)) * intervalSec);
 
-    const tenkan = [], kijun = [], spanA = [], spanB = [], chikou = [], cloud = [];
+    // The chart only draws the two leading spans + the cloud, so only Tenkan/
+    // Kijun midpoints (needed for Senkou A) are tracked — no Chikou/return lines.
+    const spanA = [], spanB = [], cloud = [];
     const tAt = new Array(n).fill(null), kAt = new Array(n).fill(null);
 
     for (let i = 0; i < n; i++) {
-      if (i >= tp - 1) {
-        const v = (highest(candles, i - tp + 1, i) + lowest(candles, i - tp + 1, i)) / 2;
-        tAt[i] = v; tenkan.push({ time: candles[i].time, value: v });
-      }
-      if (i >= kp - 1) {
-        const v = (highest(candles, i - kp + 1, i) + lowest(candles, i - kp + 1, i)) / 2;
-        kAt[i] = v; kijun.push({ time: candles[i].time, value: v });
-      }
+      if (i >= tp - 1) tAt[i] = (highest(candles, i - tp + 1, i) + lowest(candles, i - tp + 1, i)) / 2;
+      if (i >= kp - 1) kAt[i] = (highest(candles, i - kp + 1, i) + lowest(candles, i - kp + 1, i)) / 2;
     }
     for (let i = 0; i < n; i++) {
       if (tAt[i] != null && kAt[i] != null) {
@@ -71,9 +67,6 @@
         const v = (highest(candles, i - sbp + 1, i) + lowest(candles, i - sbp + 1, i)) / 2;
         spanB.push({ time: futureTime(i + disp), value: v });
       }
-      if (i - disp >= 0) {
-        chikou.push({ time: candles[i - disp].time, value: candles[i].close });
-      }
     }
     for (let i = sbp - 1; i < n; i++) {
       if (tAt[i] != null && kAt[i] != null) {
@@ -82,7 +75,7 @@
         cloud.push({ time: futureTime(i + disp), a, b });
       }
     }
-    return { tenkan, kijun, spanA, spanB, chikou, cloud };
+    return { spanA, spanB, cloud };
   }
 
   global.Indicators = { bollinger, ichimoku };
