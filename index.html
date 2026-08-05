@@ -8,7 +8,7 @@
   <!-- Bybit's web UI renders in the platform system font (San Francisco on
        iPad/Safari). Use the same system stack so the app matches Bybit exactly
        on-device — and drop the external Google Fonts dependency. -->
-  <link rel="stylesheet" href="css/styles.css?v=41" />
+  <link rel="stylesheet" href="css/styles.css?v=42" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -156,11 +156,11 @@
         <label><input type="checkbox" id="tpsl-on" /> TP / SL <span class="fx-note">가격 도달 시 자동 청산 · 수량은 % 슬라이더</span></label>
         <div class="tpsl-row">
           <input type="number" id="order-tp" placeholder="TP 익절가" min="0" step="any" />
-          <span class="qty-slider"><input type="range" id="order-tp-qty" min="0" max="100" value="100" /><b class="qpct" id="tp-qty-lbl">100%</b></span>
+          <span class="qty-slider"><input type="range" id="order-tp-qty" min="0" max="100" value="100" /><input type="number" class="qpct" id="tp-qty-num" min="0" max="100" step="1" value="100" /><span class="qpct-sign">%</span></span>
         </div>
         <div class="tpsl-row">
           <input type="number" id="order-sl" placeholder="SL 손절가" min="0" step="any" />
-          <span class="qty-slider"><input type="range" id="order-sl-qty" min="0" max="100" value="100" /><b class="qpct" id="sl-qty-lbl">100%</b></span>
+          <span class="qty-slider"><input type="range" id="order-sl-qty" min="0" max="100" value="100" /><input type="number" class="qpct" id="sl-qty-num" min="0" max="100" step="1" value="100" /><span class="qpct-sign">%</span></span>
         </div>
       </div>
 
@@ -223,7 +223,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v41</span>
+    <span class="ver" title="버전 (최신 확인용)">v42</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
@@ -249,12 +249,12 @@
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=41"></script>
-  <script src="js/dataSource.js?v=41"></script>
-  <script src="js/indicators.js?v=41"></script>
-  <script src="js/trading.js?v=41"></script>
-  <script src="js/chart.js?v=41"></script>
-  <script src="js/draw.js?v=41"></script>
-  <script src="js/app.js?v=41"></script>
+  <script src="js/tickEngine.js?v=42"></script>
+  <script src="js/dataSource.js?v=42"></script>
+  <script src="js/indicators.js?v=42"></script>
+  <script src="js/trading.js?v=42"></script>
+  <script src="js/chart.js?v=42"></script>
+  <script src="js/draw.js?v=42"></script>
+  <script src="js/app.js?v=42"></script>
 </body>
 </html>

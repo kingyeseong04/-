@@ -886,8 +886,6 @@
     state.sl = on ? (parseFloat($('order-sl').value) || null) : null;
     state.tpPct = Math.max(1, Math.min(100, parseInt($('order-tp-qty').value, 10) || 100));
     state.slPct = Math.max(1, Math.min(100, parseInt($('order-sl-qty').value, 10) || 100));
-    $('tp-qty-lbl').textContent = state.tpPct + '%';
-    $('sl-qty-lbl').textContent = state.slPct + '%';
     if (account.qty !== 0) { chart.setTpLine(state.tp); chart.setSlLine(state.sl); }
     updateTpSlLabels();
   }
@@ -947,8 +945,8 @@
     // ✕ on a TP/SL label cancels that target.
     const cancelTpSl = (e) => {
       const b = e.target.closest('[data-tpslclose]'); if (!b) return;
-      if (b.dataset.tpslclose === 'TP') { state.tp = null; state.tpPct = 100; $('order-tp').value = ''; $('order-tp-qty').value = 100; $('tp-qty-lbl').textContent = '100%'; chart.setTpLine(null); }
-      else { state.sl = null; state.slPct = 100; $('order-sl').value = ''; $('order-sl-qty').value = 100; $('sl-qty-lbl').textContent = '100%'; chart.setSlLine(null); }
+      if (b.dataset.tpslclose === 'TP') { state.tp = null; state.tpPct = 100; $('order-tp').value = ''; $('order-tp-qty').value = 100; $('tp-qty-num').value = 100; chart.setTpLine(null); }
+      else { state.sl = null; state.slPct = 100; $('order-sl').value = ''; $('order-sl-qty').value = 100; $('sl-qty-num').value = 100; chart.setSlLine(null); }
       if (!state.tp && !state.sl) $('tpsl-on').checked = false;
       updateTpSlLabels();
       setStatus(b.dataset.tpslclose + ' 취소됨', 'ok');
@@ -1004,10 +1002,24 @@
     $('btn-long').addEventListener('click', () => placeOrder('long'));
     $('btn-short').addEventListener('click', () => placeOrder('short'));
     // TP/SL: apply live so the lines update while a position is open.
-    ['tpsl-on', 'order-tp', 'order-sl', 'order-tp-qty', 'order-sl-qty'].forEach((id) => {
-      const el = $(id); if (el) el.addEventListener('input', applyTpSl);
-      if (el) el.addEventListener('change', applyTpSl);
+    ['tpsl-on', 'order-tp', 'order-sl'].forEach((id) => {
+      const el = $(id); if (el) { el.addEventListener('input', applyTpSl); el.addEventListener('change', applyTpSl); }
     });
+    // TP/SL quantity %: keep the slider and the manual number input in sync;
+    // either one drives applyTpSl.
+    const syncQty = (sliderId, numId) => {
+      const sl = $(sliderId), nm = $(numId); if (!sl || !nm) return;
+      sl.addEventListener('input', () => { nm.value = sl.value; applyTpSl(); });
+      const fromNum = () => {
+        let v = parseInt(nm.value, 10);
+        if (!isNaN(v)) { v = Math.max(0, Math.min(100, v)); sl.value = v; }
+        applyTpSl();
+      };
+      nm.addEventListener('input', fromNum);
+      nm.addEventListener('change', () => { nm.value = Math.max(0, Math.min(100, parseInt(nm.value, 10) || 0)); fromNum(); });
+    };
+    syncQty('order-tp-qty', 'tp-qty-num');
+    syncQty('order-sl-qty', 'sl-qty-num');
     $('btn-close').addEventListener('click', () => closePartial(1));
     $('btn-close-half').addEventListener('click', () => closePartial(0.5));
 
