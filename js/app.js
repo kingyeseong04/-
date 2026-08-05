@@ -430,6 +430,7 @@
     $('btn-play').textContent = '⏸ Pause';
     setInputsLocked(true);
     setStatus('Replaying… (설정 변경은 일시정지 후)', 'ok');
+    syncCleanTools();
     rafId = requestAnimationFrame(frame);
   }
 
@@ -438,6 +439,7 @@
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     $('btn-play').textContent = '▶ Play';
     setInputsLocked(false);
+    syncCleanTools();
   }
 
   function togglePlay() { state.playing ? pause() : play(); }
@@ -629,13 +631,13 @@
     // Account panel is always shown now (order book removed).
     const pnl = account.unrealizedPnl, pct = account.unrealizedPnlPct;
     $('ap-pnl-usdt').parentElement.className = 'ap-block ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
-    const u = ' ' + unitLabel();
-    $('ap-pnl-usdt').textContent = (account.qty === 0 ? '0.00' + u : sign(pnl) + fmt(pnl) + u);
+    // Number only — the "USDT" unit is a static span kept on the same line.
+    $('ap-pnl-usdt').textContent = (account.qty === 0 ? '0.00' : sign(pnl) + fmt(pnl));
     $('ap-pnl-pct').textContent = sign(pct) + fmt(pct, 2) + '%';
     $('ap-pnl-krw').textContent = fmtConv(pnl);
-    $('ap-equity').textContent = fmt(account.equity) + u;
+    $('ap-equity').textContent = fmt(account.equity);
     $('ap-equity-krw').textContent = fmtConv(account.equity);
-    $('ap-available').textContent = fmt(account.available) + u;
+    $('ap-available').textContent = fmt(account.available);
     $('ap-available-krw').textContent = fmtConv(account.available);
   }
 
@@ -1239,6 +1241,7 @@
       else if (act === 'draw' || act === 'ruler' || act === 'magnet') {
         if (window.Draw) Draw.toggle(act);
       }
+      else if (act === 'play') togglePlay();
       else if (act === 'clear') { if (window.Draw) Draw.clearAll(); }
       syncCleanTools();
     });
@@ -1264,6 +1267,7 @@
       const b = document.querySelector('#clean-tools [data-clean-act="' + act + '"]');
       if (b) b.classList.toggle('active', !!onv);
     };
+    const cp = $('clean-play'); if (cp) { cp.textContent = state.playing ? '⏸' : '▶'; cp.classList.toggle('active', state.playing); }
     set('lock', state.lockView);
     set('pnl', state.pnlBig);
     set('wallet', state.walletBig);

@@ -210,7 +210,8 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 .account-panel { padding: 18px 14px; display: flex; flex-direction: column; gap: 20px; }
 .account-panel .ap-block { text-align: center; }
 .account-panel .ap-label { font-size: 12px; color: var(--muted); letter-spacing: .5px; margin-bottom: 4px; }
-.account-panel .ap-val { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.account-panel .ap-val { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; white-space: nowrap; }
+.account-panel .ap-val .ap-unit { font-size: 0.62em; font-weight: 700; }
 .account-panel .ap-pct { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .account-panel .ap-krw { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
 .account-panel .ap-block.up .ap-val, .account-panel .ap-block.up .ap-pct, .account-panel .ap-block.up .ap-krw { color: var(--buy); }
