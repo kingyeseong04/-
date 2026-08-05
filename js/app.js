@@ -1042,10 +1042,11 @@
       const intv = $('inp-interval').value;
       const startVal = $('inp-start').value; // datetime-local, local time
       if (!startVal) { setStatus('날짜·시각을 먼저 선택하세요.', 'err'); return; }
-      // Fixed 100 candles before / 100 after the chosen date. If the timeframe
-      // can't supply that many, the count-based trim below just uses whatever is
-      // available (≤100). Kept a constant (no UI) to mirror Bybit's chart.
-      const beforeN = 100, afterN = 100;
+      // Fixed 250 candles before / 250 after the chosen date. Real intra-candle
+      // ticks stay real at this size (dynamic sub-interval keeps the sub-count
+      // under the cap for every timeframe). If the source can't supply 250, the
+      // count-based trim below just uses whatever is available (≤250).
+      const beforeN = 250, afterN = 250;
       try {
         // Same symbol+date reload (timeframe switch) → continue from the current
         // playhead and carry the open position instead of rewinding.
