@@ -133,12 +133,21 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
   letter-spacing: -0.2px; background: #101014; border: 1px solid var(--sell);
 }
 .tpsl-label > span { display: flex; align-items: center; height: 28px; }
-/* Drag grip: a column of exactly 6 short red rectangles (like Bybit).
-   period 5px (3px bar + 2px gap) × 6 = 28px = the grip height, so the tile
-   lands 6 crisp bars with no partial seventh. */
+/* Drag grip: exactly 6 short rectangles centred with padding top/bottom, like
+   Bybit. Hard-stop percentages guarantee 6 bars at any height (background-size
+   can't reliably clip a repeating gradient). --grip sets the colour so the
+   green side variants only override that one value. */
 .tpsl-label .tpsl-grip {
+  --grip: var(--sell);
   width: 14px;
-  background: repeating-linear-gradient(to bottom, var(--sell) 0 3px, transparent 3px 5px) center / 8px 28px no-repeat;
+  background: linear-gradient(to bottom,
+    transparent 0 8%, var(--grip) 8% 15%,
+    transparent 15% 23%, var(--grip) 23% 30%,
+    transparent 30% 39%, var(--grip) 39% 46%,
+    transparent 46% 54%, var(--grip) 54% 61%,
+    transparent 61% 70%, var(--grip) 70% 77%,
+    transparent 77% 85%, var(--grip) 85% 92%,
+    transparent 92%) center / 9px 100% no-repeat;
 }
 .tpsl-label .tpsl-name { padding: 0 11px; color: #fff; }
 .tpsl-label .tpsl-qty { padding: 0 11px; color: #fff; background: var(--sell); border-left: 1px solid var(--sell); }
@@ -147,16 +156,12 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 /* TP/SL close a short by buying → green-tinted label (a long's TP/SL close by
    selling and keep the red default). */
 .tpsl-label.short { border-color: var(--buy); }
-.tpsl-label.short .tpsl-grip {
-  background: repeating-linear-gradient(to bottom, var(--buy) 0 3px, transparent 3px 5px) center / 8px 28px no-repeat;
-}
+.tpsl-label.short .tpsl-grip { --grip: var(--buy); }
 .tpsl-label.short .tpsl-qty { background: var(--buy); border-left-color: var(--buy); }
 .tpsl-label.short .tpsl-close { border-left-color: var(--buy); }
 /* Resting Limit order box: buy = green (sell keeps the red default). */
 .tpsl-label.limit-buy { border-color: var(--buy); }
-.tpsl-label.limit-buy .tpsl-grip {
-  background: repeating-linear-gradient(to bottom, var(--buy) 0 3px, transparent 3px 5px) center / 8px 28px no-repeat;
-}
+.tpsl-label.limit-buy .tpsl-grip { --grip: var(--buy); }
 .tpsl-label.limit-buy .tpsl-qty { background: var(--buy); border-left-color: var(--buy); }
 .tpsl-label.limit-buy .tpsl-close { border-left-color: var(--buy); }
 
