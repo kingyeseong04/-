@@ -12,8 +12,9 @@
   // GET /api/v3/klines -> array of:
   //   [openTime(ms), open, high, low, close, volume, closeTime, ...]
   // Exchanges cap each request at ~1000 candles, so we paginate to fetch more.
-  // Kept high so real sub-candle (tick) data can always be fetched.
-  const MAX_CANDLES = 60000;
+  // Kept high so real sub-candle (tick) data can always be fetched — high enough
+  // for the finest sub-intervals (e.g. 250×4h candles × 240 one-minute subs).
+  const MAX_CANDLES = 80000;
 
   // Duration of one candle in ms, per interval (used to build time windows).
   const INTERVAL_MS = {
@@ -33,15 +34,18 @@
   // Choose the FINEST sub-interval whose total sub-candle count for `replayCount`
   // parent candles stays under `cap`, so ticks are ALWAYS built from real data
   // while keeping the download bounded (finer for small loads, coarser for big).
+  // 1m is listed first wherever feasible so intra-candle motion uses the finest
+  // real data the exchange offers. The cap keeps the download bounded — the very
+  // heaviest case (1d → 1m ≈ 360k subs) is skipped in favour of 1d → 5m.
   const SUB_PREFS = {
-    '5m': ['1m'], '15m': ['1m', '5m'], '30m': ['5m', '15m'],
-    '1h': ['1m', '5m', '15m'], '2h': ['5m', '15m'], '4h': ['5m', '15m', '1h'],
-    '6h': ['15m', '1h'], '12h': ['15m', '1h'], '1d': ['15m', '1h'], '1w': ['1h', '4h'],
+    '5m': ['1m'], '15m': ['1m', '5m'], '30m': ['1m', '5m', '15m'],
+    '1h': ['1m', '5m', '15m'], '2h': ['1m', '5m', '15m'], '4h': ['1m', '5m', '15m', '1h'],
+    '6h': ['1m', '5m', '15m', '1h'], '12h': ['5m', '15m', '1h'], '1d': ['1m', '5m', '15m', '1h'], '1w': ['1h', '4h'],
   };
   function pickSubInterval(interval, replayCount, cap) {
     const prefs = SUB_PREFS[interval];
     if (!prefs) return null;
-    cap = cap || 30000;
+    cap = cap || 72000;
     const dur = intervalToMs(interval);
     let coarsest = prefs[prefs.length - 1];
     for (const s of prefs) {
