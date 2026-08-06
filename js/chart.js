@@ -62,6 +62,52 @@
     paneViews() { return [this._pv]; }
   }
 
+  // ---- Horizontal dotted line at a price (TP / SL). Bybit's dotted line is a
+  // sparse run of short dashes — measured ~3px dash + 4px gap — which the
+  // lightweight-charts built-in LineStyle can't reproduce, so we draw it
+  // ourselves and let a line-less price line supply the coloured axis tag. ----
+  class HLineRenderer {
+    constructor(y, color, width, dash) { this._y = y; this._c = color; this._w = width; this._dash = dash; }
+    draw(target) {
+      if (this._y == null) return;
+      target.useBitmapCoordinateSpace((scope) => {
+        const ctx = scope.context;
+        const hr = scope.horizontalPixelRatio, vr = scope.verticalPixelRatio;
+        const y = Math.round(this._y * vr) + 0.5;
+        ctx.save();
+        ctx.strokeStyle = this._c;
+        ctx.lineWidth = Math.max(1, this._w * vr);
+        ctx.lineCap = 'butt';
+        ctx.setLineDash([this._dash[0] * hr, this._dash[1] * hr]);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(scope.bitmapSize.width, y);
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+  }
+  class HLinePaneView {
+    constructor(src) { this._src = src; this._y = null; }
+    update() {
+      const s = this._src;
+      this._y = (s._series && s._price != null) ? s._series.priceToCoordinate(s._price) : null;
+    }
+    renderer() { return new HLineRenderer(this._y, this._src._color, this._src._w, this._src._dash); }
+    zOrder() { return 'top'; }
+  }
+  class HLinePrimitive {
+    constructor(color, width, dash) {
+      this._price = null; this._color = color; this._w = width; this._dash = dash;
+      this._series = null; this._requestUpdate = null; this._pv = new HLinePaneView(this);
+    }
+    attached(p) { this._series = p.series; this._requestUpdate = p.requestUpdate; }
+    detached() { this._series = null; }
+    set(price, color) { this._price = price; if (color) this._color = color; if (this._requestUpdate) this._requestUpdate(); }
+    updateAllViews() { this._pv.update(); }
+    paneViews() { return [this._pv]; }
+  }
+
   class Chart {
     constructor(container) {
       this.chart = LightweightCharts.createChart(container, {
@@ -150,6 +196,13 @@
 
       this.entryLine = null;
       this.liqLine = null;
+
+      // Custom dotted TP/SL lines (drawn by us for the exact Bybit dash rhythm).
+      // Colour is set per position side when a line is shown.
+      this.tpPrim = new HLinePrimitive('#ef454a', 1.4, [3, 4]);
+      this.slPrim = new HLinePrimitive('#ef454a', 1.4, [3, 4]);
+      this.series.attachPrimitive(this.tpPrim);
+      this.series.attachPrimitive(this.slPrim);
     }
 
     // Render already-completed candles (the "past" before the playhead).
@@ -186,22 +239,28 @@
       });
     }
 
-    // TP/SL lines — Bybit draws both as red dotted lines with a red price tag
-    // on the axis (the fancy label box is a separate HTML overlay).
-    setTpLine(price) {
+    // TP/SL lines — Bybit tints them by the POSITION side (green on a long,
+    // red on a short), matching the entry line. The dotted line itself is our
+    // canvas primitive; a line-less price line supplies the coloured axis tag.
+    _tpslColor(side) { return side === 'long' ? '#20b26c' : '#ef454a'; }
+    setTpLine(price, side) {
+      const col = this._tpslColor(side);
+      this.tpPrim.set(price, col);
       if (this.tpLine) { this.series.removePriceLine(this.tpLine); this.tpLine = null; }
       if (price == null) return;
       this.tpLine = this.series.createPriceLine({
-        price, color: '#ef454a', lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.SparseDotted, axisLabelVisible: true, title: '',
+        price, color: col, lineWidth: 1, lineVisible: false,
+        axisLabelVisible: true, title: '',
       });
     }
-    setSlLine(price) {
+    setSlLine(price, side) {
+      const col = this._tpslColor(side);
+      this.slPrim.set(price, col);
       if (this.slLine) { this.series.removePriceLine(this.slLine); this.slLine = null; }
       if (price == null) return;
       this.slLine = this.series.createPriceLine({
-        price, color: '#ef454a', lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.SparseDotted, axisLabelVisible: true, title: '',
+        price, color: col, lineWidth: 1, lineVisible: false,
+        axisLabelVisible: true, title: '',
       });
     }
 

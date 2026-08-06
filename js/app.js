@@ -679,7 +679,10 @@
     if (y == null) { el.style.display = 'none'; return; }
     // Show the set quantity, or "All" for a full-position close.
     const qtyTxt = (qty && qty < Math.abs(account.qty)) ? fmt(qty, 3) : 'All';
-    const sig = price + '/' + qtyTxt;
+    // Tint by position side (green long / red short), like Bybit.
+    const side = account.qty > 0 ? 'long' : 'short';
+    const sig = price + '/' + qtyTxt + '/' + side;
+    el.className = 'tpsl-label ' + side;
     if (el._sig !== sig) {
       el._sig = sig;
       el.innerHTML =
@@ -819,9 +822,10 @@
       state.tp = state.sl = null; state.tpPct = state.slPct = 100; // clear TP/SL when flat
       chart.setTpLine(null); chart.setSlLine(null);
     } else {
-      chart.setEntryLine(account.avgEntry, account.qty > 0 ? 'long' : 'short', Math.abs(account.qty));
-      chart.setTpLine(state.tp);
-      chart.setSlLine(state.sl);
+      const side = account.qty > 0 ? 'long' : 'short';
+      chart.setEntryLine(account.avgEntry, side, Math.abs(account.qty));
+      chart.setTpLine(state.tp, side);
+      chart.setSlLine(state.sl, side);
     }
     // Liquidation line intentionally not drawn on the chart (per request).
     renderAccount();
@@ -887,7 +891,10 @@
     state.sl = on ? (parseFloat($('order-sl').value) || null) : null;
     state.tpPct = Math.max(1, Math.min(100, parseInt($('order-tp-qty').value, 10) || 100));
     state.slPct = Math.max(1, Math.min(100, parseInt($('order-sl-qty').value, 10) || 100));
-    if (account.qty !== 0) { chart.setTpLine(state.tp); chart.setSlLine(state.sl); }
+    if (account.qty !== 0) {
+      const side = account.qty > 0 ? 'long' : 'short';
+      chart.setTpLine(state.tp, side); chart.setSlLine(state.sl, side);
+    }
     updateTpSlLabels();
   }
 
