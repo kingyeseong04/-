@@ -108,6 +108,59 @@
     paneViews() { return [this._pv]; }
   }
 
+  // ---- Vertical gridlines locked to a fixed candle count. lightweight-charts'
+  // built-in vertical grid follows calendar tick marks, so during replay a line
+  // can appear at an irregular spot; instead we draw one every `step` bars,
+  // anchored to logical index 0, so the spacing is always exactly N candles. ----
+  class VLinesRenderer {
+    constructor(xs, color) { this._xs = xs; this._c = color; }
+    draw(target) {
+      target.useBitmapCoordinateSpace((scope) => {
+        const ctx = scope.context;
+        const hr = scope.horizontalPixelRatio;
+        ctx.save();
+        ctx.strokeStyle = this._c;
+        ctx.lineWidth = 1;
+        for (const x of this._xs) {
+          const px = Math.round(x * hr) + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(px, 0);
+          ctx.lineTo(px, scope.bitmapSize.height);
+          ctx.stroke();
+        }
+        ctx.restore();
+      });
+    }
+  }
+  class VLinesPaneView {
+    constructor(src) { this._src = src; this._xs = []; }
+    update() {
+      const s = this._src; this._xs = [];
+      const chart = s._chart; if (!chart) return;
+      const ts = chart.timeScale();
+      const range = ts.getVisibleLogicalRange(); if (!range) return;
+      const step = s._step;
+      const first = Math.ceil(range.from / step) * step;
+      for (let i = first; i <= range.to; i += step) {
+        const x = ts.logicalToCoordinate(i);
+        if (x != null) this._xs.push(x);
+      }
+    }
+    renderer() { return new VLinesRenderer(this._xs, this._src._color); }
+    zOrder() { return 'bottom'; }
+  }
+  class VLinesPrimitive {
+    constructor(step, color) {
+      this._step = step; this._color = color;
+      this._chart = null; this._series = null; this._requestUpdate = null;
+      this._pv = new VLinesPaneView(this);
+    }
+    attached(p) { this._chart = p.chart; this._series = p.series; this._requestUpdate = p.requestUpdate; }
+    detached() { this._chart = null; this._series = null; }
+    updateAllViews() { this._pv.update(); }
+    paneViews() { return [this._pv]; }
+  }
+
   class Chart {
     constructor(container) {
       this.chart = LightweightCharts.createChart(container, {
@@ -118,7 +171,9 @@
           fontSize: 12,
         },
         grid: {
-          vertLines: { color: '#202124' },
+          // Vertical grid drawn by VLinesPrimitive (every 12 candles); disable
+          // the built-in calendar-based one so lines don't jump mid-replay.
+          vertLines: { visible: false },
           horzLines: { color: '#202124' },
         },
         rightPriceScale: {
@@ -203,6 +258,10 @@
       this.slPrim = new HLinePrimitive('#ef454a', 1.4, [3, 4]);
       this.series.attachPrimitive(this.tpPrim);
       this.series.attachPrimitive(this.slPrim);
+
+      // Vertical gridline every 12 candles (fixed spacing, replay-stable).
+      this.vlines = new VLinesPrimitive(12, '#202124');
+      this.series.attachPrimitive(this.vlines);
     }
 
     // Render already-completed candles (the "past" before the playhead).

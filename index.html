@@ -64,6 +64,10 @@
         <!-- Floating controls available in clean/recording mode (items 2,3) -->
         <div id="clean-tools" class="clean-tools">
           <button data-clean-act="play" id="clean-play" title="재생/일시정지">▶</button>
+          <span class="clean-speed" title="배속 (재생 속도)">
+            <input type="range" id="clean-speed" min="0" max="100" value="50" />
+            <span id="clean-speed-lbl">60×</span>
+          </span>
           <button data-clean-act="lock" title="현재 봉에 고정">🔒</button>
           <button data-clean-act="ind" title="지표 (볼린저·일목)">📈</button>
           <button data-clean-act="draw" title="선 긋기">✏️</button>
@@ -223,7 +227,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v47</span>
+    <span class="ver" title="버전 (최신 확인용)">v48</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>

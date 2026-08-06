@@ -314,6 +314,9 @@ body.clean #account-panel { display: flex !important; justify-content: center; }
 body.clean .clean-tools { display: flex; }
 .clean-tools button { width: 40px; height: 40px; border-radius: 8px; padding: 0; background: rgba(30,32,39,.85); color: var(--text); border: 1px solid var(--border); font-size: 16px; opacity: .8; cursor: pointer; }
 .clean-tools button.active { border-color: var(--accent); color: var(--accent); opacity: 1; }
+.clean-tools .clean-speed { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px; border-radius: 8px; background: rgba(30,32,39,.85); border: 1px solid var(--border); }
+.clean-tools .clean-speed input[type=range] { width: 90px; accent-color: var(--accent); }
+.clean-tools .clean-speed #clean-speed-lbl { font-size: 12px; font-weight: 700; color: var(--text); min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
 /* The drawing tools work outside clean mode too — show a matching toolbar. */
 .draw-tools { position: absolute; top: 10px; left: 10px; z-index: 6; display: flex; gap: 6px; }
 .draw-tools button { width: 34px; height: 34px; border-radius: 7px; padding: 0; background: rgba(30,32,39,.7); color: var(--muted); border: 1px solid var(--border); font-size: 14px; cursor: pointer; }

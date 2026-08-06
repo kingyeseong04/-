@@ -1068,10 +1068,13 @@
       state.speedX = Math.max(1, Math.min(MAXX, Math.round(x || 1)));
       if (from !== 'num') $('speed-num').value = state.speedX;
       if (from !== 'slider') $('speed').value = xToSlider(state.speedX);
+      const cs = $('clean-speed'); if (cs && from !== 'cleanslider') cs.value = xToSlider(state.speedX);
+      const csl = $('clean-speed-lbl'); if (csl) csl.textContent = state.speedX + '×';
       updateSpeedLabel();
     };
     $('speed').addEventListener('input', (e) => setSpeed(sliderToX(Number(e.target.value)), 'slider'));
     $('speed-num').addEventListener('input', (e) => setSpeed(Number(e.target.value), 'num'));
+    $('clean-speed').addEventListener('input', (e) => setSpeed(sliderToX(Number(e.target.value)), 'cleanslider'));
     $('inp-interval').addEventListener('change', updateSpeedLabel);
     setSpeed(state.speedX);
     // Keep the reference so the label can refresh after data loads.
