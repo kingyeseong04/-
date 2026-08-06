@@ -1278,7 +1278,7 @@
     ['bb-on', 'bb-period', 'bb-mult', 'ichi-on', 'ichi-t', 'ichi-k', 'ichi-b', 'ichi-d']
       .forEach((id) => $(id).addEventListener('change', readInd));
 
-    // Clean / recording mode: chart-only, optionally real fullscreen.
+    // Clean / recording mode: chart-only (exit via ✕ or Esc, no swipe-out).
     $('btn-clean').addEventListener('click', () => setClean(true));
     $('btn-exit-clean').addEventListener('click', () => setClean(false));
 
@@ -1295,9 +1295,6 @@
       else if (act === 'play') togglePlay();
       else if (act === 'clear') { if (window.Draw) Draw.clearAll(); }
       syncCleanTools();
-    });
-    document.addEventListener('fullscreenchange', () => {
-      if (!document.fullscreenElement) document.body.classList.remove('clean');
     });
 
     // Keyboard: space = play/pause, L/S/C orders, F = clean mode, Esc = exit.
@@ -1329,7 +1326,9 @@
     }
   }
 
-  // Toggle chart-only recording mode (and real fullscreen when available).
+  // Toggle chart-only recording mode. Intentionally NOT native fullscreen: on
+  // iPad a swipe-down exits fullscreen, which would drop clean mode while the
+  // user is just panning the chart. Exit is by the ✕ button (or Esc) only.
   function setClean(on) {
     document.body.classList.toggle('clean', on);
     // Clean mode shows a FIXED P&L / Equity / Available panel in a reserved
@@ -1338,13 +1337,6 @@
     if (on) syncCleanTools();
     // Chart-wrap changes size in clean mode → resize the drawing canvas to match.
     if (window.Draw) setTimeout(() => { Draw.resize(); Draw.redraw(); }, 60);
-    try {
-      if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      } else if (!on && document.fullscreenElement && document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-      }
-    } catch (_) { /* fullscreen may be blocked; class toggle still applies */ }
   }
 
   // ----- Boot ------------------------------------------------------------
