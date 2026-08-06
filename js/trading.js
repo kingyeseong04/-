@@ -30,9 +30,31 @@
       this.leverage = 1;     // effective leverage of current position
       this.markPrice = 0;
       this.liquidated = false;
-      this.trades = [];      // closed-trade log
+      this.trades = [];      // closed-trade log (entry→exit round-trips)
+      this.fills = [];       // per-fill log, like Bybit's Order History
       this.realizedTotal = 0;
       this.feesTotal = 0;
+    }
+
+    // Record one fill for the Bybit-style Order History.
+    //   dir  : 'open' | 'close'
+    //   side : 'long' | 'short' (the position side this fill opens/closes)
+    _logFill(dir, side, qty, price, fee, orderType, time) {
+      // Matching-engine colour: a buy is green, a sell is red.
+      //   open long / close short  = buy  (green)
+      //   open short / close long  = sell (red)
+      const isBuy = (dir === 'open') === (side === 'long');
+      this.fills.push({
+        time: time || 0,
+        orderType: orderType || 'Market',
+        dir, side,
+        direction: (dir === 'open' ? 'Open ' : 'Close ') + (side === 'long' ? 'Long' : 'Short'),
+        buy: isBuy,
+        qty: Math.abs(qty),
+        price,
+        value: Math.abs(qty) * price,
+        fee,
+      });
     }
 
     get side() {
@@ -76,7 +98,7 @@
     // Open or increase a position. marginUSD is collateral committed;
     // notional = marginUSD * leverage; qty = notional / price.
     // side: 'long' | 'short'
-    order(side, marginUSD, leverage, price, time) {
+    order(side, marginUSD, leverage, price, time, orderType) {
       if (this.liquidated) return { ok: false, msg: 'Account liquidated.' };
       marginUSD = Number(marginUSD);
       leverage = Math.max(1, Number(leverage) || 1);
@@ -94,20 +116,23 @@
       this.feesTotal += fee;
 
       this._applyFill(dQty, price, marginUSD, leverage, time);
+      this._logFill('open', side, orderQty, price, fee, orderType, time);
       return { ok: true };
     }
 
     // Reduce/close part or all of the position by a fraction (0..1) of qty.
-    reduce(fraction, price, time) {
+    reduce(fraction, price, time, orderType) {
       if (this.qty === 0) return { ok: false, msg: 'No open position.' };
       fraction = Math.max(0, Math.min(1, fraction));
       const closeQty = this.qty * fraction; // signed
+      const closedSide = this.qty > 0 ? 'long' : 'short'; // side being closed
       this.setMark(price);
       const notional = Math.abs(closeQty) * price;
       const fee = notional * FEE_RATE;
       this.balance -= fee;
       this.feesTotal += fee;
       this._applyFill(-closeQty, price, 0, this.leverage, time);
+      this._logFill('close', closedSide, closeQty, price, fee, orderType, time);
       return { ok: true };
     }
 

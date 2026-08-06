@@ -38,6 +38,8 @@
     sl: null,             // stop-loss price (auto-close)
     tpPct: 100,           // TP close % of position (100 = All)
     slPct: 100,           // SL close % of position (100 = All)
+    orderType: 'market',  // 'market' (즉시) or 'limit' (지정가 대기)
+    pending: null,        // resting limit order {side, price, margin, lev, time}
     quote: 'USD',         // instrument quote currency: 'USD' (USDT) or 'KRW'
     symbolDisp: '',       // pretty symbol name for the legend/overlays
     orderbook: false,     // order book removed — account panel always shown
@@ -199,6 +201,7 @@
     chart.fitContent();
     chart.setEntryLine(null);
     chart.setLiqLine(null);
+    state.pending = null; chart.setPendingLine(null); // drop any resting order
 
     state.lastPrice = candles[state.warmup - 1].close;
     if (meta.keepAccount) account.setMark(state.lastPrice);
@@ -328,6 +331,27 @@
         onPositionChanged();
         renderTrades();
         setStatus(kind + ' 도달 → ' + (frac < 1 ? '부분' : '전량') + ' 시장가 청산 @ ~' + fmt(hit), kind === 'TP' ? 'ok' : 'err');
+      }
+    }
+
+    // Resting limit order: fill cleanly at the exact limit once the tick
+    // reaches it (a long fills when price drops to it, a short when it rises).
+    if (state.pending) {
+      const pd = state.pending;
+      const reached = pd.side === 'long' ? price <= pd.price : price >= pd.price;
+      if (reached) {
+        const res = account.order(pd.side, pd.margin, pd.lev, pd.price, r.time, 'Limit');
+        state.pending = null;
+        chart.setPendingLine(null);
+        if (res.ok) {
+          account.setMark(price);
+          applyTpSl();
+          onPositionChanged();
+          renderTrades();
+          setStatus(pd.side.toUpperCase() + ' 지정가 체결 @ ' + fmt(pd.price), 'ok');
+        } else {
+          setStatus('지정가 취소: ' + res.msg, 'err');
+        }
       }
     }
 
@@ -836,21 +860,21 @@
     updateTpSlLabels();
   }
 
+  // Bybit-style Order History: one row per FILL (open/close), newest first.
   function renderTrades() {
     const tbody = $('trades-body');
     tbody.innerHTML = '';
-    const rows = account.trades.slice().reverse();
-    for (const t of rows) {
+    const rows = account.fills.slice().reverse();
+    for (const f of rows) {
       const tr = document.createElement('tr');
-      const cls = t.pnl >= 0 ? 'up' : 'down';
+      const pd = f.price < 10 ? 5 : 2;   // more decimals for cheap instruments
       tr.innerHTML =
-        '<td class="' + (t.side === 'long' ? 'up' : 'down') + '">' + t.side.toUpperCase() +
-        (t.liquidated ? ' 💥' : '') + '</td>' +
-        '<td>' + fmt(t.entry, t.entry < 10 ? 5 : 2) + '</td>' +
-        '<td>' + fmt(t.exit, t.exit < 10 ? 5 : 2) + '</td>' +
-        '<td>' + fmt(t.qty, 4) + '</td>' +
-        '<td class="' + cls + '">' + sign(t.pnl) + fmt(t.pnl) + '</td>' +
-        '<td class="' + cls + '">' + sign(t.pnlPct) + fmt(t.pnlPct, 1) + '%</td>';
+        '<td class="oh-type">' + f.orderType + '</td>' +
+        '<td class="' + (f.buy ? 'up' : 'down') + '">' + f.direction + '</td>' +
+        '<td>' + fmt(f.price, pd) + '</td>' +
+        '<td>' + fmt(f.qty, 4) + '</td>' +
+        '<td>' + fmt(f.value) + '</td>' +
+        '<td class="oh-fee">' + fmt(f.fee, 4) + '</td>';
       tbody.appendChild(tr);
     }
     const realized = account.realizedTotal;
@@ -858,7 +882,7 @@
     rEl.textContent = sign(realized) + fmt(realized);
     rEl.className = realized >= 0 ? 'up' : 'down';
     $('fees-total').textContent = fmt(account.feesTotal);
-    $('trade-count').textContent = account.trades.length;
+    $('trade-count').textContent = account.fills.length;
   }
 
   // ----- Trading actions -------------------------------------------------
@@ -867,21 +891,55 @@
     const margin = parseFloat($('order-margin').value);
     const lev = parseFloat($('order-lev').value);
     const time = state.running.time || 0;
-    // Item 4: optional user-specified entry price. If set, the position fills
-    // at THAT price (avgEntry) while the mark stays at the current price — so a
-    // long entered below market shows instant profit. Empty → market fill.
-    const entryRaw = parseFloat($('order-entry').value);
-    const useEntry = isFinite(entryRaw) && entryRaw > 0;
-    const fillPrice = useEntry ? entryRaw : state.lastPrice;
-    const res = account.order(side, margin, lev, fillPrice, time);
+    const priceRaw = parseFloat($('order-entry').value);
+    const hasPrice = isFinite(priceRaw) && priceRaw > 0;
+
+    // Limit (지정가): rest the order and let a later tick fill it cleanly at the
+    // exact price. Requires an explicit price.
+    if (state.orderType === 'limit') {
+      if (!hasPrice) { setStatus('지정가에는 가격을 입력하세요.', 'err'); return; }
+      state.pending = { side, price: priceRaw, margin, lev, time };
+      chart.setPendingLine(priceRaw, side);
+      setStatus(side.toUpperCase() + ' 지정가 대기 @ ' + fmt(priceRaw) +
+        ' (현재가 ' + fmt(state.lastPrice) + ')', 'ok');
+      return;
+    }
+
+    // Market (시장가): fill immediately. A market order walks the book, so we
+    // split it into a few chunks at slightly adverse prices around the target.
+    // Empty price → current price; a set price fills "무조건" at that level.
+    const target = hasPrice ? priceRaw : state.lastPrice;
+    const res = marketOpenSplit(side, margin, lev, target, time);
     if (!res.ok) { setStatus(res.msg, 'err'); return; }
-    // Keep the mark at the live price so P&L reflects (mark − specified entry).
+    // Keep the mark at the live price so P&L reflects (mark − avg entry).
     account.setMark(state.lastPrice);
     applyTpSl(); // capture any TP/SL set for this order
     onPositionChanged();
     renderTrades();
-    setStatus(side.toUpperCase() + ' filled @ ' + fmt(fillPrice) +
-      (useEntry ? ' (지정가, 현재가 ' + fmt(state.lastPrice) + ')' : ''), 'ok');
+    setStatus(side.toUpperCase() + ' 시장가 체결 @ ~' + fmt(account.avgEntry) +
+      (hasPrice ? ' (지정 ' + fmt(target) + ')' : ''), 'ok');
+  }
+
+  // A market OPEN of `margin` collateral at ~price, split into a few book-walk
+  // fills at progressively worse prices (a long buys UP into asks, a short
+  // sells DOWN into bids) so the average entry and the order history look real.
+  function marketOpenSplit(side, margin, lev, price, time) {
+    const isLong = side === 'long';
+    const dir = isLong ? 1 : -1;
+    const tick = Math.pow(10, -dec(price));
+    const roundP = (p) => Math.round(p / tick) * tick;
+    const chunks = 2 + Math.floor(Math.random() * 2); // 2..3 fills
+    const w = []; let ws = 0;
+    for (let i = 0; i < chunks; i++) { const x = 0.6 + Math.random(); w.push(x); ws += x; }
+    let slip = 0, spent = 0, filled = false, lastMsg = 'Invalid order size.';
+    for (let i = 0; i < chunks; i++) {
+      const m = (i === chunks - 1) ? margin - spent : margin * w[i] / ws;
+      const p = roundP(price + dir * slip);
+      const r = account.order(side, m, lev, p, time, 'Market');
+      if (r.ok) { filled = true; spent += m; } else { lastMsg = r.msg; break; }
+      slip += price * 0.00012 * (0.4 + Math.random());
+    }
+    return filled ? { ok: true } : { ok: false, msg: lastMsg };
   }
 
   // Read the TP/SL inputs into state and (re)draw the lines on an open position.
@@ -918,20 +976,20 @@
       if (cur <= 0) break;
       const fr = Math.min(1, q / cur);
       const p = roundP(hitPrice + dir * slip);          // first fill at hit, then worse
-      account.reduce(fr, p, time);
+      account.reduce(fr, p, time, 'Market');
       slip += hitPrice * 0.00015 * (0.4 + Math.random()); // ~a few bps deeper each chunk
       remaining -= q;
     }
-    if (account.qty !== 0 && frac >= 1) account.reduce(1, roundP(hitPrice + dir * slip), time);
+    if (account.qty !== 0 && frac >= 1) account.reduce(1, roundP(hitPrice + dir * slip), time, 'Market');
   }
 
   function closePartial(frac) {
     if (account.qty === 0) { setStatus('No open position.', 'err'); return; }
-    const res = account.reduce(frac, state.lastPrice, state.running.time || 0);
-    if (!res.ok) { setStatus(res.msg, 'err'); return; }
+    // A manual close is a market order too → split into realistic book-walk fills.
+    marketCloseSplit(state.lastPrice, frac, account.qty > 0, state.running.time || 0);
     onPositionChanged();
     renderTrades();
-    setStatus('Closed ' + Math.round(frac * 100) + '% @ ' + fmt(state.lastPrice), 'ok');
+    setStatus('시장가 청산 ' + Math.round(frac * 100) + '% @ ~' + fmt(state.lastPrice), 'ok');
   }
 
   // Bybit-style "reverse" (⇅): flip to the opposite side keeping the same size.
@@ -1036,6 +1094,18 @@
 
     $('btn-long').addEventListener('click', () => placeOrder('long'));
     $('btn-short').addEventListener('click', () => placeOrder('short'));
+    // Market / Limit order-type tabs (Bybit 시장가 / 지정가).
+    $('order-type-tabs').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-otype]'); if (!b) return;
+      state.orderType = b.dataset.otype;
+      document.querySelectorAll('#order-type-tabs .ot-tab').forEach((t) =>
+        t.classList.toggle('active', t === b));
+      const limit = state.orderType === 'limit';
+      $('order-price-note').textContent = limit ? '이 가격에 도달하면 체결' : '비우면 현재가에 즉시 체결';
+      $('order-entry').placeholder = limit ? '지정가 (필수)' : '예: 100 → 그 가격에 체결';
+      // Switching away from limit cancels any resting order.
+      if (!limit && state.pending) { state.pending = null; chart.setPendingLine(null); }
+    });
     // TP/SL: apply live so the lines update while a position is open.
     ['tpsl-on', 'order-tp', 'order-sl'].forEach((id) => {
       const el = $(id); if (el) { el.addEventListener('input', applyTpSl); el.addEventListener('change', applyTpSl); }

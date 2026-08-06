@@ -76,7 +76,7 @@
       <div class="bottom-tabs">
         <div class="tabbar">
           <button class="tab active" id="tab-positions">Positions</button>
-          <button class="tab" id="tab-history">Trade History</button>
+          <button class="tab" id="tab-history">Order History</button>
           <span class="tab-spacer"></span>
           <span class="mini" id="candle-count"></span>
         </div>
@@ -99,16 +99,16 @@
         </div>
 
         <div class="tabpanel" id="panel-history" style="display:none;">
-          <table class="pos-table">
+          <table class="pos-table order-hist">
             <thead>
-              <tr><th>Side</th><th>Entry</th><th>Exit</th><th>Qty</th><th>Realized P&amp;L</th><th>%</th></tr>
+              <tr><th>Order Type</th><th>Direction</th><th>Filled Price</th><th>Filled Qty</th><th>Filled Value</th><th>Trading Fees</th></tr>
             </thead>
             <tbody id="trades-body"></tbody>
           </table>
           <div class="summary">
             <span><label>Realized</label><b id="realized-total">0.00</b></span>
             <span><label>Fees</label><b id="fees-total">0.00</b></span>
-            <span><label>Trades</label><b id="trade-count">0</b></span>
+            <span><label>Fills</label><b id="trade-count">0</b></span>
           </div>
         </div>
       </div>
@@ -146,9 +146,13 @@
         <label>환율 (₩ / USDT) <span class="fx-note" id="fx-note"></span></label>
         <input type="number" id="inp-fx" value="1350" min="0" step="1" />
       </div>
+      <div class="order-type-tabs" id="order-type-tabs">
+        <button type="button" class="ot-tab active" data-otype="market" title="지금 즉시 체결 (호가에 따라 랜덤 분할 체결)">시장가</button>
+        <button type="button" class="ot-tab" data-otype="limit" title="지정가에 걸어두고 그 가격 도달 시 체결">지정가</button>
+      </div>
       <div class="field">
-        <label>진입가 지정 (선택) <span class="fx-note">비우면 현재가</span></label>
-        <input type="number" id="order-entry" placeholder="예: 100 → 그 가격에 진입" min="0" step="any" />
+        <label id="order-price-label">가격 <span class="fx-note" id="order-price-note">비우면 현재가에 즉시 체결</span></label>
+        <input type="number" id="order-entry" placeholder="예: 100 → 그 가격에 체결" min="0" step="any" />
       </div>
       <div class="field tpsl-field">
         <label><input type="checkbox" id="tpsl-on" /> TP / SL <span class="fx-note">가격 도달 시 자동 청산 · 수량은 % 슬라이더</span></label>
@@ -219,7 +223,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v46</span>
+    <span class="ver" title="버전 (최신 확인용)">v47</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>

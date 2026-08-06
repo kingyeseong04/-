@@ -198,6 +198,15 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 .account-panel .ap-block.down .ap-val, .account-panel .ap-block.down .ap-pct, .account-panel .ap-block.down .ap-krw { color: var(--sell); }
 
 /* ---- Order entry ---- */
+.order-type-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.order-type-tabs .ot-tab {
+  flex: 1; padding: 8px 0; background: var(--field); color: var(--muted);
+  border: 1px solid var(--border); border-radius: 4px; font: inherit; font-weight: 700;
+  cursor: pointer;
+}
+.order-type-tabs .ot-tab.active { background: #2a2d35; color: #fff; border-color: #3a3f4b; }
+/* Order-history table: muted Order-Type / Fees columns like Bybit. */
+.order-hist .oh-type, .order-hist .oh-fee { color: var(--muted); }
 .assets { margin-bottom: 12px; }
 .a-row { display: flex; justify-content: space-between; padding: 3px 0; }
 .a-row span { color: var(--muted); }

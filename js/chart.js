@@ -266,6 +266,18 @@
       });
     }
 
+    // Resting limit order: a thin dashed line in the order side's colour
+    // (buy/long green, sell/short red) with the price on the axis, like a
+    // Bybit open order.
+    setPendingLine(price, side) {
+      if (this.pendingLine) { this.series.removePriceLine(this.pendingLine); this.pendingLine = null; }
+      if (price == null) return;
+      this.pendingLine = this.series.createPriceLine({
+        price, color: side === 'long' ? '#20b26c' : '#ef454a', lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'Limit',
+      });
+    }
+
     setLiqLine(price) {
       if (this.liqLine) { this.series.removePriceLine(this.liqLine); this.liqLine = null; }
       if (price == null) return;
