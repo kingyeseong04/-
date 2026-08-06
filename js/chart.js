@@ -262,6 +262,10 @@
       // Vertical gridline every 12 candles (fixed spacing, replay-stable).
       this.vlines = new VLinesPrimitive(12, '#202124');
       this.series.attachPrimitive(this.vlines);
+
+      // Resting limit-order dotted line (green buy / red sell).
+      this.pendingPrim = new HLinePrimitive('#20b26c', 1.4, [3, 4]);
+      this.series.attachPrimitive(this.pendingPrim);
     }
 
     // Render already-completed candles (the "past" before the playhead).
@@ -325,15 +329,17 @@
       });
     }
 
-    // Resting limit order: a thin dashed line in the order side's colour
-    // (buy/long green, sell/short red) with the price on the axis, like a
-    // Bybit open order.
+    // Resting limit order: a dotted line in the order side's colour (buy/long
+    // green, sell/short red) drawn by our primitive, plus a line-less price
+    // line supplying the coloured axis tag (the "Limit" box is an HTML overlay).
     setPendingLine(price, side) {
+      const col = side === 'short' ? '#ef454a' : '#20b26c';
+      this.pendingPrim.set(price, col);
       if (this.pendingLine) { this.series.removePriceLine(this.pendingLine); this.pendingLine = null; }
       if (price == null) return;
       this.pendingLine = this.series.createPriceLine({
-        price, color: side === 'long' ? '#20b26c' : '#ef454a', lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: 'Limit',
+        price, color: col, lineWidth: 1, lineVisible: false,
+        axisLabelVisible: true, title: '',
       });
     }
 

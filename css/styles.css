@@ -152,6 +152,13 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 }
 .tpsl-label.short .tpsl-qty { background: var(--buy); border-left-color: var(--buy); }
 .tpsl-label.short .tpsl-close { border-left-color: var(--buy); }
+/* Resting Limit order box: buy = green (sell keeps the red default). */
+.tpsl-label.limit-buy { border-color: var(--buy); }
+.tpsl-label.limit-buy .tpsl-grip {
+  background: repeating-linear-gradient(to bottom, var(--buy) 0 3px, transparent 3px 5px) center / 8px 28px no-repeat;
+}
+.tpsl-label.limit-buy .tpsl-qty { background: var(--buy); border-left-color: var(--buy); }
+.tpsl-label.limit-buy .tpsl-close { border-left-color: var(--buy); }
 
 /* Indicator settings panel */
 .ind-panel {

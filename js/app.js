@@ -70,8 +70,11 @@
   // renderFrame only runs during playback. A tiny always-on rAF handles it
   // (does DOM work only when paused with an open position; no-op otherwise).
   function labelTrackLoop() {
-    if (!state.playing && account.qty !== 0 && typeof updatePosLabel === 'function') {
-      updatePosLabel(); updateTpSlLabels();
+    if (!state.playing) {
+      if (account.qty !== 0 && typeof updatePosLabel === 'function') {
+        updatePosLabel(); updateTpSlLabels();
+      }
+      if (state.pending) updatePendingLabel(); // resting order can exist while flat
     }
     requestAnimationFrame(labelTrackLoop);
   }
@@ -725,9 +728,34 @@
     tpslLabel('sl-label', state.sl, 'SL', pctQty(state.slPct));
   }
 
+  // Bybit-style resting Limit order box riding its price line (green buy /
+  // red sell), showing "Limit <price>", the order size and an ✕ to cancel.
+  function updatePendingLabel() {
+    const el = $('limit-label');
+    if (!el) return;
+    const p = state.pending;
+    if (!p) { el.style.display = 'none'; el._sig = undefined; return; }
+    const y = chart.priceToY(p.price);
+    if (y == null) { el.style.display = 'none'; return; }
+    const qty = (p.margin * p.lev) / p.price; // order size in base units
+    const buy = p.side === 'long';
+    const sig = p.price + '/' + qty.toFixed(3) + '/' + buy;
+    el.className = 'tpsl-label' + (buy ? ' limit-buy' : '');
+    if (el._sig !== sig) {
+      el._sig = sig;
+      el.innerHTML =
+        '<span class="tpsl-grip"></span>' +
+        '<span class="tpsl-name">Limit ' + fmt(p.price, dec(p.price)) + '</span>' +
+        '<span class="tpsl-qty">' + fmt(qty, 3) + '</span>' +
+        '<span class="tpsl-close" data-limitcancel title="지정가 주문 취소">✕</span>';
+    }
+    el.style.top = y + 'px';
+    el.style.display = 'flex';
+  }
+
   function renderOverlays() {
     updateLegend(); updatePnlBig(); updateWalletBig(); updateAccountPanel();
-    updatePosLabel(); updateTpSlLabels();
+    updatePosLabel(); updateTpSlLabels(); updatePendingLabel();
   }
 
   // Cost (initial margin) shown on the Buy/Sell buttons.
@@ -900,6 +928,7 @@
       if (!hasPrice) { setStatus('지정가에는 가격을 입력하세요.', 'err'); return; }
       state.pending = { side, price: priceRaw, margin, lev, time };
       chart.setPendingLine(priceRaw, side);
+      updatePendingLabel();
       setStatus(side.toUpperCase() + ' 지정가 대기 @ ' + fmt(priceRaw) +
         ' (현재가 ' + fmt(state.lastPrice) + ')', 'ok');
       return;
@@ -1046,6 +1075,12 @@
     };
     $('tp-label').addEventListener('click', cancelTpSl);
     $('sl-label').addEventListener('click', cancelTpSl);
+    // Cancel a resting limit order from its ✕ box.
+    $('limit-label').addEventListener('click', (e) => {
+      if (!e.target.closest('[data-limitcancel]')) return;
+      state.pending = null; chart.setPendingLine(null); updatePendingLabel();
+      setStatus('지정가 주문 취소됨', 'ok');
+    });
 
     // Speed = real-time multiplier (배속). Slider 0..100 maps exponentially to
     // 1×..3600×. The label shows how long ONE candle of the current interval
@@ -1107,7 +1142,7 @@
       $('order-price-note').textContent = limit ? '이 가격에 도달하면 체결' : '비우면 현재가에 즉시 체결';
       $('order-entry').placeholder = limit ? '지정가 (필수)' : '예: 100 → 그 가격에 체결';
       // Switching away from limit cancels any resting order.
-      if (!limit && state.pending) { state.pending = null; chart.setPendingLine(null); }
+      if (!limit && state.pending) { state.pending = null; chart.setPendingLine(null); updatePendingLabel(); }
     });
     // TP/SL: apply live so the lines update while a position is open.
     ['tpsl-on', 'order-tp', 'order-sl'].forEach((id) => {

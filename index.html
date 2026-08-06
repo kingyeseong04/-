@@ -8,7 +8,7 @@
   <!-- Bybit's web UI renders in the platform system font (San Francisco on
        iPad/Safari). Use the same system stack so the app matches Bybit exactly
        on-device — and drop the external Google Fonts dependency. -->
-  <link rel="stylesheet" href="css/styles.css?v=49" />
+  <link rel="stylesheet" href="css/styles.css?v=50" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -45,6 +45,8 @@
         <!-- Bybit-style TP / SL labels on their lines -->
         <div id="tp-label" class="tpsl-label" style="display:none;"></div>
         <div id="sl-label" class="tpsl-label" style="display:none;"></div>
+        <!-- Bybit-style resting Limit order box on its price line -->
+        <div id="limit-label" class="tpsl-label" style="display:none;"></div>
         <!-- Indicator settings -->
         <div id="ind-panel" class="ind-panel" style="display:none;">
           <div class="ind-row">
@@ -227,7 +229,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v49</span>
+    <span class="ver" title="버전 (최신 확인용)">v50</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
@@ -253,12 +255,12 @@
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=49"></script>
-  <script src="js/dataSource.js?v=49"></script>
-  <script src="js/indicators.js?v=49"></script>
-  <script src="js/trading.js?v=49"></script>
-  <script src="js/chart.js?v=49"></script>
-  <script src="js/draw.js?v=49"></script>
-  <script src="js/app.js?v=49"></script>
+  <script src="js/tickEngine.js?v=50"></script>
+  <script src="js/dataSource.js?v=50"></script>
+  <script src="js/indicators.js?v=50"></script>
+  <script src="js/trading.js?v=50"></script>
+  <script src="js/chart.js?v=50"></script>
+  <script src="js/draw.js?v=50"></script>
+  <script src="js/app.js?v=50"></script>
 </body>
 </html>
