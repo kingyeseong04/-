@@ -239,10 +239,12 @@
       });
     }
 
-    // TP/SL lines — Bybit tints them by the POSITION side (green on a long,
-    // red on a short), matching the entry line. The dotted line itself is our
-    // canvas primitive; a line-less price line supplies the coloured axis tag.
-    _tpslColor(side) { return side === 'long' ? '#20b26c' : '#ef454a'; }
+    // TP/SL lines — Bybit tints them by the CLOSING order side, which is the
+    // OPPOSITE of the position: a long is closed by selling (red), a short is
+    // closed by buying (green). So a long's TP/SL are red, a short's are green.
+    // The dotted line is our canvas primitive; a line-less price line supplies
+    // the matching coloured axis tag.
+    _tpslColor(side) { return side === 'long' ? '#ef454a' : '#20b26c'; }
     setTpLine(price, side) {
       const col = this._tpslColor(side);
       this.tpPrim.set(price, col);

@@ -1202,18 +1202,6 @@
     makeDraggable($('pnl-big'));
     makeDraggable($('wallet-big'));
 
-    // Enlarged P&L overlay toggle.
-    $('btn-pnl').addEventListener('click', () => {
-      state.pnlBig = !state.pnlBig;
-      $('btn-pnl').classList.toggle('active', state.pnlBig);
-      updatePnlBig();
-    });
-    // Enlarged Wallet-balance overlay toggle.
-    $('btn-wallet').addEventListener('click', () => {
-      state.walletBig = !state.walletBig;
-      $('btn-wallet').classList.toggle('active', state.walletBig);
-      updateWalletBig();
-    });
     // Lock the chart to the forming candle (disable mouse pan/zoom).
     const applyLock = () => {
       $('btn-lock').classList.toggle('active', state.lockView);
@@ -1274,8 +1262,6 @@
       const act = b.dataset.cleanAct;
       if (act === 'lock') $('btn-lock').click();
       else if (act === 'ind') $('btn-ind').click();
-      else if (act === 'pnl') $('btn-pnl').click();
-      else if (act === 'wallet') $('btn-wallet').click();
       else if (act === 'draw' || act === 'ruler' || act === 'magnet') {
         if (window.Draw) Draw.toggle(act);
       }
@@ -1307,8 +1293,6 @@
     };
     const cp = $('clean-play'); if (cp) { cp.textContent = state.playing ? '⏸' : '▶'; cp.classList.toggle('active', state.playing); }
     set('lock', state.lockView);
-    set('pnl', state.pnlBig);
-    set('wallet', state.walletBig);
     const ip = $('ind-panel');
     set('ind', ip && ip.style.display && ip.style.display !== 'none');
     if (window.Draw) {

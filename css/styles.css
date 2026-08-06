@@ -138,13 +138,14 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 .tpsl-label .tpsl-qty { padding: 0 11px; color: #fff; background: var(--sell); border-left: 1px solid var(--sell); }
 .tpsl-label .tpsl-close { width: 28px; justify-content: center; font-size: 18px; color: #9598a1; border-left: 1px solid var(--sell); cursor: pointer; pointer-events: auto; }
 .tpsl-label .tpsl-close:hover { color: #fff; }
-/* Long position → green-tinted TP/SL label (short keeps the red default). */
-.tpsl-label.long { border-color: var(--buy); }
-.tpsl-label.long .tpsl-grip {
+/* TP/SL close a short by buying → green-tinted label (a long's TP/SL close by
+   selling and keep the red default). */
+.tpsl-label.short { border-color: var(--buy); }
+.tpsl-label.short .tpsl-grip {
   background: repeating-linear-gradient(to bottom, var(--buy) 0 3px, transparent 3px 5px) center / 8px 28px no-repeat;
 }
-.tpsl-label.long .tpsl-qty { background: var(--buy); border-left-color: var(--buy); }
-.tpsl-label.long .tpsl-close { border-left-color: var(--buy); }
+.tpsl-label.short .tpsl-qty { background: var(--buy); border-left-color: var(--buy); }
+.tpsl-label.short .tpsl-close { border-left-color: var(--buy); }
 
 /* Indicator settings panel */
 .ind-panel {
