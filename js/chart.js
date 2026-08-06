@@ -193,7 +193,7 @@
       if (price == null) return;
       this.tpLine = this.series.createPriceLine({
         price, color: '#ef454a', lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.Dotted, axisLabelVisible: true, title: '',
+        lineStyle: LightweightCharts.LineStyle.SparseDotted, axisLabelVisible: true, title: '',
       });
     }
     setSlLine(price) {
@@ -201,7 +201,7 @@
       if (price == null) return;
       this.slLine = this.series.createPriceLine({
         price, color: '#ef454a', lineWidth: 1,
-        lineStyle: LightweightCharts.LineStyle.Dotted, axisLabelVisible: true, title: '',
+        lineStyle: LightweightCharts.LineStyle.SparseDotted, axisLabelVisible: true, title: '',
       });
     }
 

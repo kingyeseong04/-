@@ -320,13 +320,14 @@
         // Partial close if a quantity was set (else the whole position).
         const pct = kind === 'TP' ? state.tpPct : state.slPct;
         const frac = (pct != null && pct < 100) ? Math.max(0.01, pct / 100) : 1;
-        account.reduce(frac, hit, r.time);
+        // Market order: fills across a few nearby prices (slippage), not one price.
+        marketCloseSplit(hit, frac, isLong, r.time);
         // Clear the target that fired (the other one stays on the remainder).
         if (kind === 'TP') { state.tp = null; }
         else { state.sl = null; }
         onPositionChanged();
         renderTrades();
-        setStatus(kind + ' 도달 → ' + (frac < 1 ? '부분' : '전량') + ' 청산 @ ' + fmt(hit), kind === 'TP' ? 'ok' : 'err');
+        setStatus(kind + ' 도달 → ' + (frac < 1 ? '부분' : '전량') + ' 시장가 청산 @ ~' + fmt(hit), kind === 'TP' ? 'ok' : 'err');
       }
     }
 
@@ -627,7 +628,7 @@
     // Shown when the order book is off, OR always in clean mode (fixed slot).
     // Account panel is always shown now (order book removed).
     const pnl = account.unrealizedPnl, pct = account.unrealizedPnlPct;
-    $('ap-pnl-usdt').parentElement.className = 'ap-block ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
+    $('ap-pnl-usdt').closest('.ap-block').className = 'ap-block ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
     // Number only — the "USDT" unit is a static span kept on the same line.
     $('ap-pnl-usdt').textContent = (account.qty === 0 ? '0.00' : sign(pnl) + fmt(pnl));
     $('ap-pnl-pct').textContent = sign(pct) + fmt(pct, 2) + '%';
@@ -888,6 +889,33 @@
     state.slPct = Math.max(1, Math.min(100, parseInt($('order-sl-qty').value, 10) || 100));
     if (account.qty !== 0) { chart.setTpLine(state.tp); chart.setSlLine(state.sl); }
     updateTpSlLabels();
+  }
+
+  // A market close of `frac` of the position at ~hitPrice. Real market orders
+  // walk the book, so this fills the quantity in a few random chunks at slightly
+  // adverse, progressively-worse prices (closing a long sells DOWN into bids;
+  // closing a short buys UP into asks) — producing natural, multi-price fills.
+  function marketCloseSplit(hitPrice, frac, isLong, time) {
+    let closeQty = frac >= 1 ? Math.abs(account.qty) : Math.abs(account.qty) * frac;
+    if (closeQty <= 0 || account.qty === 0) return;
+    const dir = isLong ? -1 : 1;                       // adverse slippage direction
+    const tick = Math.pow(10, -dec(hitPrice));
+    const roundP = (p) => Math.round(p / tick) * tick;
+    const chunks = 2 + Math.floor(Math.random() * 3); // 2..4 partial fills
+    const w = []; let ws = 0;
+    for (let i = 0; i < chunks; i++) { const x = 0.6 + Math.random(); w.push(x); ws += x; }
+    let remaining = closeQty, slip = 0;
+    for (let i = 0; i < chunks; i++) {
+      let q = (i === chunks - 1) ? remaining : closeQty * w[i] / ws;
+      const cur = Math.abs(account.qty);
+      if (cur <= 0) break;
+      const fr = Math.min(1, q / cur);
+      const p = roundP(hitPrice + dir * slip);          // first fill at hit, then worse
+      account.reduce(fr, p, time);
+      slip += hitPrice * 0.00015 * (0.4 + Math.random()); // ~a few bps deeper each chunk
+      remaining -= q;
+    }
+    if (account.qty !== 0 && frac >= 1) account.reduce(1, roundP(hitPrice + dir * slip), time);
   }
 
   function closePartial(frac) {

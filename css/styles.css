@@ -122,15 +122,17 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 .tpsl-label {
   position: absolute; z-index: 5; left: 12px; transform: translateY(-50%);
   display: none; align-items: stretch; font-size: 13px; font-weight: 700;
-  border-radius: 2px; overflow: hidden; white-space: nowrap; pointer-events: none;
+  border-radius: 1px; overflow: hidden; white-space: nowrap; pointer-events: none;
   box-shadow: 0 1px 4px rgba(0,0,0,.4); font-variant-numeric: tabular-nums;
   letter-spacing: -0.2px; background: #101014; border: 1px solid var(--sell);
 }
 .tpsl-label > span { display: flex; align-items: center; height: 28px; }
-/* Drag grip: a red DASHED vertical line (like Bybit), not grey dots. */
+/* Drag grip: a column of exactly 6 short red rectangles (like Bybit).
+   period 5px (3px bar + 2px gap) × 6 = 28px = the grip height, so the tile
+   lands 6 crisp bars with no partial seventh. */
 .tpsl-label .tpsl-grip {
-  width: 13px;
-  background: repeating-linear-gradient(to bottom, var(--sell) 0 3px, transparent 3px 6px) center / 2px 20px no-repeat;
+  width: 14px;
+  background: repeating-linear-gradient(to bottom, var(--sell) 0 3px, transparent 3px 5px) center / 8px 28px no-repeat;
 }
 .tpsl-label .tpsl-name { padding: 0 11px; color: #fff; }
 .tpsl-label .tpsl-qty { padding: 0 11px; color: #fff; background: var(--sell); border-left: 1px solid var(--sell); }
