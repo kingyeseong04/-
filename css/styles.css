@@ -180,22 +180,6 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
 }
 .ind-panel input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
 
-/* Enlarged unrealized-P&L overlay for video (draggable) */
-.pnl-big {
-  position: absolute; z-index: 6; top: 64px; left: 50%; transform: translateX(-50%);
-  display: none; flex-direction: column; align-items: center; gap: 2px;
-  padding: 14px 26px; border-radius: 10px; cursor: move; user-select: none; touch-action: none;
-  background: rgba(20, 22, 28, .82); border: 1px solid var(--border);
-  font-variant-numeric: tabular-nums; text-align: center;
-}
-.pnl-big .pnl-big-label { font-size: 13px; color: var(--muted); letter-spacing: .5px; }
-.pnl-big .pnl-big-val { font-size: 44px; font-weight: 800; line-height: 1.1; }
-.pnl-big .pnl-big-pct { font-size: 22px; font-weight: 700; }
-.pnl-big .pnl-big-krw { font-size: 20px; font-weight: 700; margin-top: 2px; }
-.pnl-big.up { color: var(--buy); }
-.pnl-big.down { color: var(--sell); }
-.pnl-big.up .pnl-big-label, .pnl-big.down .pnl-big-label { color: var(--muted); }
-#wallet-big { top: 172px; } /* offset so it doesn't overlap the P&L overlay */
 .load-msg {
   position: absolute; z-index: 4; top: 50%; left: 50%; transform: translate(-50%, -50%);
   max-width: 80%; text-align: center; white-space: pre-line;

@@ -5,7 +5,17 @@
 (function () {
   'use strict';
 
-  const $ = (id) => document.getElementById(id);
+  // getElementById is called dozens of times per frame; memoise by id. All
+  // targets are persistent elements, and the isConnected guard re-resolves if
+  // one is ever replaced, so the cache can't go stale.
+  const _elCache = new Map();
+  const $ = (id) => {
+    const c = _elCache.get(id);
+    if (c && c.isConnected) return c;
+    const el = document.getElementById(id);
+    if (el) _elCache.set(id, el);
+    return el;
+  };
   const fmt = (n, d = 2) =>
     (n == null || isNaN(n)) ? '-' :
       Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -31,8 +41,6 @@
     sessLow: 0,
     turnover: 0,          // synthetic 24h turnover (USDT)
     subMap: null,         // Map candleTime -> real sub-candles (for real ticks)
-    pnlBig: false,        // enlarged unrealized-P&L overlay (for video)
-    walletBig: false,     // enlarged wallet-balance overlay (for video)
     fx: 1350,             // ₩ per USDT (for KRW conversion)
     tp: null,             // take-profit price (auto-close)
     sl: null,             // stop-loss price (auto-close)
@@ -586,68 +594,11 @@
       $('inp-fx').value = Math.round(res.rate * 100) / 100;
       state._fxDate = res.date;
       setFxNote(res.rate, res.date, true, null, res.src);
-      updatePnlBig(); updateWalletBig(); updateAccountPanel();
+      updateAccountPanel();
       return;
     }
     // Couldn't fetch (network/CORS/blocked) → keep the manual value, say so.
     setFxNote(state.fx, null, false, '자동조회 실패(수동값 사용)');
-  }
-
-  // Enlarged unrealized-P&L overlay (toggle + draggable) for video emphasis.
-  function updatePnlBig() {
-    const el = $('pnl-big');
-    if (!state.pnlBig) { el.style.display = 'none'; return; }
-    el.style.display = 'flex';
-    const mode = account.qty === 0 ? 'flat' : 'pos';
-    // (Re)build structure only when switching between flat/position layouts.
-    if (el._mode !== mode) {
-      el._mode = mode;
-      if (mode === 'flat') {
-        el.className = 'pnl-big';
-        el.innerHTML =
-          '<span class="pnl-big-label">Unrealized P&amp;L</span>' +
-          '<span class="pnl-big-val" style="color:var(--muted)">포지션 없음</span>';
-      } else {
-        el.innerHTML =
-          '<span class="pnl-big-label">Unrealized P&amp;L</span>' +
-          '<span class="pnl-big-val"></span>' +
-          '<span class="pnl-big-pct"></span>' +
-          '<span class="pnl-big-krw"></span>';
-        el._val = el.querySelector('.pnl-big-val');
-        el._pct = el.querySelector('.pnl-big-pct');
-        el._krw = el.querySelector('.pnl-big-krw');
-      }
-    }
-    if (mode === 'flat') return;
-    const pnl = account.unrealizedPnl, pct = account.unrealizedPnlPct;
-    el.className = 'pnl-big ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : '');
-    el._val.textContent = sign(pnl) + fmt(pnl) + ' ' + unitLabel();
-    el._pct.textContent = sign(pct) + fmt(pct, 2) + '%';
-    el._krw.textContent = fmtConv(pnl);
-  }
-
-  // Enlarged Equity + Available overlay (toggle + draggable) for video.
-  function updateWalletBig() {
-    const el = $('wallet-big');
-    if (!state.walletBig) { el.style.display = 'none'; return; }
-    if (!el._built) {
-      el._built = true;
-      el.className = 'pnl-big';
-      el.innerHTML =
-        '<span class="pnl-big-label">Equity</span>' +
-        '<span class="pnl-big-val" data-eq style="color:var(--text)"></span>' +
-        '<span class="pnl-big-krw" data-eqk></span>' +
-        '<span class="pnl-big-label" style="margin-top:12px">Available</span>' +
-        '<span class="pnl-big-val" data-av style="color:var(--text)"></span>' +
-        '<span class="pnl-big-krw" data-avk></span>';
-      el._eq = el.querySelector('[data-eq]'); el._eqk = el.querySelector('[data-eqk]');
-      el._av = el.querySelector('[data-av]'); el._avk = el.querySelector('[data-avk]');
-    }
-    el._eq.textContent = fmt(account.equity) + ' ' + unitLabel();
-    el._eqk.textContent = fmtConv(account.equity);
-    el._av.textContent = fmt(account.available) + ' ' + unitLabel();
-    el._avk.textContent = fmtConv(account.available);
-    el.style.display = 'flex';
   }
 
   // Account panel shown in place of the order book (Unrealized P&L + Wallet).
@@ -754,7 +705,7 @@
   }
 
   function renderOverlays() {
-    updateLegend(); updatePnlBig(); updateWalletBig(); updateAccountPanel();
+    updateLegend(); updateAccountPanel();
     updatePosLabel(); updateTpSlLabels(); updatePendingLabel();
   }
 
@@ -881,8 +832,6 @@
     }
     // Liquidation line intentionally not drawn on the chart (per request).
     renderAccount();
-    updatePnlBig();
-    updateWalletBig();
     updateAccountPanel();
     updatePosLabel();
     updateTpSlLabels();
@@ -1125,8 +1074,6 @@
     $('inp-fx').addEventListener('input', (e) => {
       state.fx = Math.max(0, Number(e.target.value) || 0);
       setFxNote(state.fx, null, false); // manual override
-      updatePnlBig();
-      updateWalletBig();
       updateAccountPanel();
     });
 
@@ -1281,34 +1228,6 @@
         setStatus('불러오기 실패: ' + err.message, 'err');
       }
     });
-
-    // Draggable helper. Uses document-level listeners added only while
-    // dragging (no setPointerCapture, which could get stuck on touch and
-    // then swallow every tap on the page).
-    const makeDraggable = (el) => {
-      let ox = 0, oy = 0;
-      const onMove = (e) => {
-        const p = el.parentElement.getBoundingClientRect();
-        el.style.left = (e.clientX - p.left - ox) + 'px';
-        el.style.top = (e.clientY - p.top - oy) + 'px';
-      };
-      const onUp = () => {
-        document.removeEventListener('pointermove', onMove);
-        document.removeEventListener('pointerup', onUp);
-        document.removeEventListener('pointercancel', onUp);
-      };
-      el.addEventListener('pointerdown', (e) => {
-        const r = el.getBoundingClientRect();
-        ox = e.clientX - r.left; oy = e.clientY - r.top;
-        el.style.transform = 'none';
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onUp);
-        document.addEventListener('pointercancel', onUp);
-        e.preventDefault();
-      });
-    };
-    makeDraggable($('pnl-big'));
-    makeDraggable($('wallet-big'));
 
     // Lock the chart to the forming candle (disable mouse pan/zoom).
     const applyLock = () => {
