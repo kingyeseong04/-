@@ -141,13 +141,13 @@ button, .btn-ghost, .file-btn, .tab, .ord-tab, .step, label, .qty-pct-btns butto
   --grip: var(--sell);
   width: 14px;
   background: linear-gradient(to bottom,
-    transparent 0 8%, var(--grip) 8% 15%,
-    transparent 15% 23%, var(--grip) 23% 30%,
-    transparent 30% 39%, var(--grip) 39% 46%,
-    transparent 46% 54%, var(--grip) 54% 61%,
-    transparent 61% 70%, var(--grip) 70% 77%,
-    transparent 77% 85%, var(--grip) 85% 92%,
-    transparent 92%) center / 9px 100% no-repeat;
+    transparent 0 22.5%, var(--grip) 22.5% 27.5%,
+    transparent 27.5% 32.5%, var(--grip) 32.5% 37.5%,
+    transparent 37.5% 42.5%, var(--grip) 42.5% 47.5%,
+    transparent 47.5% 52.5%, var(--grip) 52.5% 57.5%,
+    transparent 57.5% 62.5%, var(--grip) 62.5% 67.5%,
+    transparent 67.5% 72.5%, var(--grip) 72.5% 77.5%,
+    transparent 77.5%) center / 9px 100% no-repeat;
 }
 .tpsl-label .tpsl-name { padding: 0 11px; color: #fff; }
 .tpsl-label .tpsl-qty { padding: 0 11px; color: #fff; background: var(--sell); border-left: 1px solid var(--sell); }
