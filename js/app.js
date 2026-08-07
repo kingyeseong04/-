@@ -95,7 +95,7 @@
   let priceRange = null;
   chart.setPriceRangeProvider(() => priceRange);
   function recomputePriceRange() {
-    const from = Math.max(0, state.idx - 48), to = state.idx;
+    const from = Math.max(0, state.idx - (state.frame ? 82 : 48)), to = state.idx;
     let lo = Infinity, hi = -Infinity;
     for (let j = from; j <= to; j++) {
       const cc = state.candles[j];
@@ -121,40 +121,21 @@
     if (c.low - pad < priceRange.min) priceRange.min = c.low - pad;
     if (c.high + pad > priceRange.max) priceRange.max = c.high + pad;
   }
-  // ----- Video-frame (eye-tracking) mode --------------------------------
-  // A fixed price height so the current price can sit dead-centre and the
-  // candles scroll around it. Computed from recent volatility on entry.
-  let frameSpan = 0;
-  function computeFrameSpan() {
-    const from = Math.max(0, state.idx - 48);
-    let lo = Infinity, hi = -Infinity;
-    for (let j = from; j <= state.idx; j++) {
-      const c = state.candles[j]; if (!c) continue;
-      if (c.low < lo) lo = c.low; if (c.high > hi) hi = c.high;
-    }
-    const rng = isFinite(lo) ? (hi - lo) : (state.lastPrice * 0.02);
-    // Tighter than the on-screen range → bigger candles in the frame.
-    frameSpan = Math.max(rng * 1.1, state.lastPrice * 0.0025) || 1;
-  }
-  // Pin the current price to the vertical centre (eye-tracking): the range
-  // slides with lastPrice so the current point stays put and candles flow.
-  function centerFrameRange() {
-    if (!frameSpan) computeFrameSpan();
-    const half = frameSpan / 2;
-    priceRange = { min: state.lastPrice - half, max: state.lastPrice + half, pad: frameSpan * 0.08 };
-  }
-  // Pin the current candle at ~68% width (right of centre) with room to its right.
+  // ----- Video-frame mode -----------------------------------------------
+  // Horizontal-only anchor: keep the current candle pinned to the right with
+  // more history visible (thinner candles). The price scale uses the normal
+  // sticky range (no per-tick vertical re-centring) so the chart doesn't shake
+  // at high speed — it only steps up/down when candles close out of range.
   function frameAnchor() {
     if (state.candles.length === 0) return;
-    chart.setVisibleLogicalRange(state.idx - 42, state.idx + 20);
+    chart.setVisibleLogicalRange(state.idx - 60, state.idx + 20);
   }
 
   // On candle close, only recenter the scale if the visible candles no longer
   // fit the current range — so the entry line holds still across candles.
   function maybeRecenterRange() {
-    if (state.frame) return; // frame mode keeps the current price centred instead
     if (!priceRange) { recomputePriceRange(); return; }
-    const from = Math.max(0, state.idx - 48);
+    const from = Math.max(0, state.idx - (state.frame ? 82 : 48));
     let lo = Infinity, hi = -Infinity;
     for (let j = from; j < state.idx; j++) {
       const c = state.candles[j]; if (!c) continue;
@@ -426,7 +407,7 @@
     // index (its time matches), else lightweight-charts rejects the stale time.
     const cur = state.candles[state.idx];
     if (cur && state.running.time === cur.time) {
-      if (state.frame) centerFrameRange(); else expandPriceRangeToForming();
+      expandPriceRangeToForming();
       chart.updateCandle(state.running);
     }
     if (state.frame) frameAnchor();
@@ -1394,9 +1375,8 @@
     document.body.classList.toggle('frame', on);
     chart.setFrameLook(on);
     if (on) {
-      computeFrameSpan();
-      centerFrameRange();
-      frameAnchor();
+      recomputePriceRange();  // normal sticky scale (no eye-tracking) — no shake
+      frameAnchor();          // wider view = thinner candles, current bar right
       chart.refreshAutoScale();
       syncCleanTools();
     } else {

@@ -431,12 +431,13 @@
     // or null to fall back to the default autoscale.
     setPriceRangeProvider(fn) { this.priceRangeProvider = fn; }
 
-    // Video-frame look: hide ONLY the price-number axis. Keep the grid
-    // (horizontal + our vertical 12-candle lines) and the time axis, so the
-    // background still has the chart lines — just no price labels.
+    // Video-frame look: hide the price-number axis AND the time axis, but keep
+    // the grid (horizontal + our vertical 12-candle lines) so the background
+    // still shows the chart lines — just no axis labels.
     setFrameLook(on) {
       this.chart.applyOptions({
         rightPriceScale: { visible: !on },
+        timeScale: { visible: !on },
       });
     }
     // Force the price scale to re-read the range provider right now (e.g. after
