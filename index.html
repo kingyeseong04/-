@@ -8,7 +8,7 @@
   <!-- Bybit's web UI renders in the platform system font (San Francisco on
        iPad/Safari). Use the same system stack so the app matches Bybit exactly
        on-device — and drop the external Google Fonts dependency. -->
-  <link rel="stylesheet" href="css/styles.css?v=56" />
+  <link rel="stylesheet" href="css/styles.css?v=57" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -218,6 +218,7 @@
     <button id="btn-play">▶ Play</button>
     <button class="btn-ghost" id="btn-restart">⟲ Restart</button>
     <button class="btn-ghost" id="btn-clean" title="Chart-only fullscreen for recording (F)">⛶ Clean</button>
+    <button class="btn-ghost" id="btn-frame" title="영상용 프레임 (1440:1220, 캔들만, 현재봉 우중앙 고정)">🎬 프레임</button>
     <button class="btn-ghost active" id="btn-lock" title="현재 봉에 차트 고정 (마우스로 안 움직임)">🔒 고정</button>
     <button class="btn-ghost" id="btn-ind" title="지표 설정 (볼린저·일목)">📈 지표</button>
     <button class="btn-ghost" id="btn-draw" title="선 긋기 (드래그로 추세선, 캔들에 자동 스냅)">✏️ 선</button>
@@ -232,7 +233,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v56</span>
+    <span class="ver" title="버전 (최신 확인용)">v57</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
@@ -258,12 +259,12 @@
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=56"></script>
-  <script src="js/dataSource.js?v=56"></script>
-  <script src="js/indicators.js?v=56"></script>
-  <script src="js/trading.js?v=56"></script>
-  <script src="js/chart.js?v=56"></script>
-  <script src="js/draw.js?v=56"></script>
-  <script src="js/app.js?v=56"></script>
+  <script src="js/tickEngine.js?v=57"></script>
+  <script src="js/dataSource.js?v=57"></script>
+  <script src="js/indicators.js?v=57"></script>
+  <script src="js/trading.js?v=57"></script>
+  <script src="js/chart.js?v=57"></script>
+  <script src="js/draw.js?v=57"></script>
+  <script src="js/app.js?v=57"></script>
 </body>
 </html>

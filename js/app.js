@@ -52,6 +52,7 @@
     symbolDisp: '',       // pretty symbol name for the legend/overlays
     orderbook: false,     // order book removed — account panel always shown
     lockView: true,       // lock the chart to the forming candle (no mouse pan)
+    frame: false,         // video-frame mode: candles-only, current bar eye-tracked
     _loadMeta: null,
   };
 
@@ -120,9 +121,37 @@
     if (c.low - pad < priceRange.min) priceRange.min = c.low - pad;
     if (c.high + pad > priceRange.max) priceRange.max = c.high + pad;
   }
+  // ----- Video-frame (eye-tracking) mode --------------------------------
+  // A fixed price height so the current price can sit dead-centre and the
+  // candles scroll around it. Computed from recent volatility on entry.
+  let frameSpan = 0;
+  function computeFrameSpan() {
+    const from = Math.max(0, state.idx - 48);
+    let lo = Infinity, hi = -Infinity;
+    for (let j = from; j <= state.idx; j++) {
+      const c = state.candles[j]; if (!c) continue;
+      if (c.low < lo) lo = c.low; if (c.high > hi) hi = c.high;
+    }
+    const rng = isFinite(lo) ? (hi - lo) : (state.lastPrice * 0.02);
+    frameSpan = Math.max(rng * 1.7, state.lastPrice * 0.004) || 1;
+  }
+  // Pin the current price to the vertical centre (eye-tracking): the range
+  // slides with lastPrice so the current point stays put and candles flow.
+  function centerFrameRange() {
+    if (!frameSpan) computeFrameSpan();
+    const half = frameSpan / 2;
+    priceRange = { min: state.lastPrice - half, max: state.lastPrice + half, pad: frameSpan * 0.08 };
+  }
+  // Pin the current candle at ~68% width (right of centre) with room to its right.
+  function frameAnchor() {
+    if (state.candles.length === 0) return;
+    chart.setVisibleLogicalRange(state.idx - 42, state.idx + 20);
+  }
+
   // On candle close, only recenter the scale if the visible candles no longer
   // fit the current range — so the entry line holds still across candles.
   function maybeRecenterRange() {
+    if (state.frame) return; // frame mode keeps the current price centred instead
     if (!priceRange) { recomputePriceRange(); return; }
     const from = Math.max(0, state.idx - 48);
     let lo = Infinity, hi = -Infinity;
@@ -396,10 +425,11 @@
     // index (its time matches), else lightweight-charts rejects the stale time.
     const cur = state.candles[state.idx];
     if (cur && state.running.time === cur.time) {
-      expandPriceRangeToForming();
+      if (state.frame) centerFrameRange(); else expandPriceRangeToForming();
       chart.updateCandle(state.running);
     }
-    if (state.lockView) anchorView();
+    if (state.frame) frameAnchor();
+    else if (state.lockView) anchorView();
     updatePrice(state.lastPrice, state.lastPrice - lastRenderedPrice);
     lastRenderedPrice = state.lastPrice;
     renderAccount();
@@ -1290,7 +1320,13 @@
 
     // Clean / recording mode: chart-only (exit via ✕ or Esc, no swipe-out).
     $('btn-clean').addEventListener('click', () => setClean(true));
-    $('btn-exit-clean').addEventListener('click', () => setClean(false));
+    // Video-frame mode (1440:1220, candles only, current bar eye-tracked).
+    const btnFrame = $('btn-frame');
+    if (btnFrame) btnFrame.addEventListener('click', () => setFrame(true));
+    // The ✕ exits whichever recording mode is active.
+    $('btn-exit-clean').addEventListener('click', () => {
+      if (state.frame) setFrame(false); else setClean(false);
+    });
 
     // Floating clean-mode toolbar → reuse the existing control handlers so
     // there's a single source of truth for each toggle (items 2,3 + draw tools).
@@ -1315,7 +1351,7 @@
       else if (e.key === 's' || e.key === 'S') placeOrder('short');
       else if (e.key === 'c' || e.key === 'C') closePartial(1);
       else if (e.key === 'f' || e.key === 'F') setClean(!document.body.classList.contains('clean'));
-      else if (e.key === 'Escape') setClean(false);
+      else if (e.key === 'Escape') { if (state.frame) setFrame(false); else setClean(false); }
     });
   }
 
@@ -1346,6 +1382,27 @@
     updateAccountPanel();
     if (on) syncCleanTools();
     // Chart-wrap changes size in clean mode → resize the drawing canvas to match.
+    if (window.Draw) setTimeout(() => { Draw.resize(); Draw.redraw(); }, 60);
+  }
+
+  // Video-frame mode: candles-only chart in a fixed 1440:1220 box, current bar
+  // pinned right-of-centre with the current price eye-tracked to the vertical
+  // middle. For compositing the chart into the empty area of an edited video.
+  function setFrame(on) {
+    state.frame = on;
+    document.body.classList.toggle('frame', on);
+    chart.setFrameLook(on);
+    if (on) {
+      computeFrameSpan();
+      centerFrameRange();
+      frameAnchor();
+      chart.refreshAutoScale();
+      syncCleanTools();
+    } else {
+      recomputePriceRange();
+      if (state.lockView) anchorView();
+    }
+    // Box size changes → resize the drawing canvas to match.
     if (window.Draw) setTimeout(() => { Draw.resize(); Draw.redraw(); }, 60);
   }
 

@@ -310,6 +310,24 @@ body.clean .main { height: 100vh; }
 body.clean .col-order { flex: 0 0 340px; width: 340px; background: var(--bg); }
 body.clean .account-panel { padding-top: 22px; }
 
+/* ---- Video-frame mode: candles-only chart in a maximised 1440:1220 box ----
+   For compositing the chart into the empty area of an edited video. Everything
+   but the chart is hidden; the box is centred so the surrounding letterbox
+   holds the exit ✕ and the floating tools (outside the recorded area). */
+body.frame .stats-bar,
+body.frame .bottom-tabs,
+body.frame .controls,
+body.frame .col-order { display: none !important; }
+body.frame .main { height: 100vh; }
+body.frame .col-chart { align-items: center; justify-content: center; }
+body.frame #chart-wrap {
+  position: relative; flex: none;
+  width: min(100vw, calc(100vh * 1440 / 1220));
+  height: min(100vh, calc(100vw * 1220 / 1440));
+}
+body.frame .exit-clean { display: flex; opacity: 1; }
+body.frame .clean-tools { display: flex; position: fixed; left: 10px; bottom: 10px; }
+
 /* Floating clean-mode toolbar (lock / indicators / P&L / wallet / draw tools) */
 .clean-tools { position: absolute; bottom: 14px; left: 14px; z-index: 7; display: none; gap: 6px; flex-wrap: wrap; max-width: 60vw; }
 body.clean .clean-tools { display: flex; }

@@ -136,7 +136,7 @@
     constructor(src) { this._src = src; this._xs = []; }
     update() {
       const s = this._src; this._xs = [];
-      const chart = s._chart; if (!chart) return;
+      const chart = s._chart; if (!chart || !s._on) return;
       const ts = chart.timeScale();
       const range = ts.getVisibleLogicalRange(); if (!range) return;
       const step = s._step;
@@ -151,12 +151,13 @@
   }
   class VLinesPrimitive {
     constructor(step, color) {
-      this._step = step; this._color = color;
+      this._step = step; this._color = color; this._on = true;
       this._chart = null; this._series = null; this._requestUpdate = null;
       this._pv = new VLinesPaneView(this);
     }
     attached(p) { this._chart = p.chart; this._series = p.series; this._requestUpdate = p.requestUpdate; }
     detached() { this._chart = null; this._series = null; }
+    setVisible(on) { this._on = on; if (this._requestUpdate) this._requestUpdate(); }
     updateAllViews() { this._pv.update(); }
     paneViews() { return [this._pv]; }
   }
@@ -429,6 +430,22 @@
     // Register a callback returning { min, max } to drive the price-axis zoom,
     // or null to fall back to the default autoscale.
     setPriceRangeProvider(fn) { this.priceRangeProvider = fn; }
+
+    // Video-frame look: hide both axes and all gridlines so only candles show
+    // (the current price is read from the account panel, not the axis).
+    setFrameLook(on) {
+      this.chart.applyOptions({
+        rightPriceScale: { visible: !on },
+        timeScale: { visible: !on },
+        grid: { horzLines: { visible: !on, color: '#202124' }, vertLines: { visible: false } },
+      });
+      if (this.vlines) this.vlines.setVisible(!on);
+    }
+    // Force the price scale to re-read the range provider right now (e.g. after
+    // entering frame mode while paused, when no tick is driving a redraw).
+    refreshAutoScale() {
+      try { this.series.priceScale().applyOptions({ autoScale: true }); } catch (_) {}
+    }
 
     setWatermark(_text) {
       // Bybit's chart shows no watermark — intentionally a no-op.
