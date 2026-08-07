@@ -729,6 +729,16 @@
     const chgEl = $('price-change');
     chgEl.textContent = sign(chg) + fmt(chg, 2) + '%';
     chgEl.className = 'price-change ' + (chg >= 0 ? 'up' : 'down');
+
+    // Live "Last Price" in the account panel: same size as Equity/Available,
+    // tinted green on an up-tick / red on a down-tick (holds colour if flat).
+    const pEl = $('ap-price');
+    if (pEl) {
+      pEl.textContent = fmt(price, dec(price));
+      if (delta > 0) pEl.className = 'ap-val up';
+      else if (delta < 0) pEl.className = 'ap-val down';
+      $('ap-price-krw').textContent = fmtConv(price);
+    }
   }
 
   // Duration (seconds) of the candle currently being replayed.
