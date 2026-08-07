@@ -133,7 +133,8 @@
       if (c.low < lo) lo = c.low; if (c.high > hi) hi = c.high;
     }
     const rng = isFinite(lo) ? (hi - lo) : (state.lastPrice * 0.02);
-    frameSpan = Math.max(rng * 1.7, state.lastPrice * 0.004) || 1;
+    // Tighter than the on-screen range → bigger candles in the frame.
+    frameSpan = Math.max(rng * 1.1, state.lastPrice * 0.0025) || 1;
   }
   // Pin the current price to the vertical centre (eye-tracking): the range
   // slides with lastPrice so the current point stays put and candles flow.

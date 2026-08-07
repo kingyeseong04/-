@@ -310,20 +310,37 @@ body.clean .main { height: 100vh; }
 body.clean .col-order { flex: 0 0 340px; width: 340px; background: var(--bg); }
 body.clean .account-panel { padding-top: 22px; }
 
-/* ---- Video-frame mode: candles-only chart in a maximised 1440:1220 box ----
-   For compositing the chart into the empty area of an edited video. Everything
-   but the chart is hidden; the box is centred so the surrounding letterbox
-   holds the exit ✕ and the floating tools (outside the recorded area). */
+/* ---- Video-frame mode ----------------------------------------------------
+   A horizontal account strip (P&L / Equity / Available / Last Price) on top,
+   and a candles-only 1440:1220 chart below it — grid + time axis kept, only the
+   price-number axis removed. For compositing into an edited video's dark area. */
+body.frame { --fbar: 108px; }
 body.frame .stats-bar,
 body.frame .bottom-tabs,
 body.frame .controls,
-body.frame .col-order { display: none !important; }
-body.frame .main { height: 100vh; }
-body.frame .col-chart { align-items: center; justify-content: center; }
+body.frame .order-form { display: none !important; }
+body.frame .main { flex-direction: column; height: 100vh; }
+/* col-order becomes the top horizontal stats strip */
+body.frame .col-order {
+  order: -1; flex: 0 0 var(--fbar); height: var(--fbar); width: 100%;
+  border-left: none; border-bottom: 1px solid var(--border);
+  background: #101014; overflow: hidden;
+}
+body.frame .account-panel {
+  flex-direction: row; justify-content: space-around; align-items: center;
+  gap: 8px; padding: 8px 20px; height: 100%; border-bottom: none;
+}
+body.frame .account-panel .ap-block { flex: 1 1 0; min-width: 0; }
+body.frame .account-panel .ap-val { font-size: 22px; }
+body.frame .account-panel .ap-krw { font-size: 14px; margin-top: 0; }
+body.frame .account-panel .ap-pct { font-size: 14px; }
+body.frame .account-panel .ap-label { margin-bottom: 2px; }
+/* chart fills the rest, centred, at the 1440:1220 ratio */
+body.frame .col-chart { flex: 1 1 auto; min-height: 0; align-items: center; justify-content: center; }
 body.frame #chart-wrap {
-  position: relative; flex: none;
-  width: min(100vw, calc(100vh * 1440 / 1220));
-  height: min(100vh, calc(100vw * 1220 / 1440));
+  flex: none;
+  width: min(100vw, calc((100vh - var(--fbar)) * 1440 / 1220));
+  height: min(calc(100vh - var(--fbar)), calc(100vw * 1220 / 1440));
 }
 body.frame .exit-clean { display: flex; opacity: 1; }
 body.frame .clean-tools { display: flex; position: fixed; left: 10px; bottom: 10px; }
