@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Circle Icon Maker — 원형 아이콘 PNG 생성기</title>
+  <meta name="description" content="이미지나 이모지를 깔끔한 배경의 원형 아이콘으로 만들어 1080×1080 PNG로 내려받는 도구" />
+  <link rel="stylesheet" href="css/icon-maker.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-dot"></span>
+    <div>
+      <div class="brand-name">Circle Icon Maker</div>
+      <div class="brand-sub">원형 아이콘 · 깔끔한 배경 · 1080×1080 PNG</div>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn ghost" id="btn-reset" type="button">초기화</button>
+    <a class="btn ghost" href="index.html">← 다른 도구</a>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ================= Preview ================= -->
+  <section class="stage" id="stage">
+    <div class="stage-inner">
+      <div class="canvas-wrap" id="canvas-wrap">
+        <canvas id="preview" width="1080" height="1080" aria-label="아이콘 미리보기"></canvas>
+        <div class="drop-hint" id="drop-hint">
+          <div class="drop-icon">⬇</div>
+          <div class="drop-title">이미지를 여기에 끌어다 놓기</div>
+          <div class="drop-sub">또는 클릭해서 파일 선택 · <kbd>Ctrl</kbd>+<kbd>V</kbd> 붙여넣기</div>
+        </div>
+        <div class="pick-overlay" id="pick-overlay">클릭해서 지울 배경색을 고르세요 · <kbd>Esc</kbd> 취소</div>
+      </div>
+
+      <div class="stage-foot">
+        <div class="hint" id="stage-hint">드래그로 위치 이동 · 휠로 확대/축소</div>
+        <div class="size-badge" id="size-badge">1080 × 1080 px</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Controls ================= -->
+  <aside class="panel">
+
+    <!-- 소스 -->
+    <section class="card">
+      <h3>소스</h3>
+      <div class="seg" id="seg-source">
+        <button class="seg-btn active" data-source="image" type="button">이미지</button>
+        <button class="seg-btn" data-source="text" type="button">텍스트 / 이모지</button>
+      </div>
+
+      <div data-when="image">
+        <input type="file" id="file-input" accept="image/*" hidden />
+        <button class="btn block" id="btn-file" type="button">이미지 불러오기</button>
+        <div class="file-name" id="file-name">선택된 파일 없음</div>
+
+        <div class="field-row">
+          <button class="btn sm" id="btn-cover" type="button">꽉 채우기</button>
+          <button class="btn sm" id="btn-contain" type="button">여백 맞춤</button>
+          <button class="btn sm" id="btn-center" type="button">가운데</button>
+        </div>
+      </div>
+
+      <div data-when="text" hidden>
+        <div class="field">
+          <label for="text-value">내용</label>
+          <input type="text" id="text-value" value="⚗️" maxlength="8" placeholder="이모지 또는 1~3글자" />
+        </div>
+        <div class="field">
+          <label for="text-font">글꼴</label>
+          <select id="text-font">
+            <option value="system">시스템 산세리프</option>
+            <option value="serif">세리프</option>
+            <option value="mono">모노스페이스</option>
+            <option value="rounded">둥근 고딕</option>
+          </select>
+        </div>
+        <div class="field grid2">
+          <div>
+            <label for="text-color">글자색</label>
+            <input type="color" id="text-color" value="#ffffff" />
+          </div>
+          <div>
+            <label for="text-weight">굵기</label>
+            <select id="text-weight">
+              <option value="400">보통</option>
+              <option value="700" selected>굵게</option>
+              <option value="900">아주 굵게</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="text-scale">크기 <span class="ro" id="text-scale-ro">55%</span></label>
+          <input type="range" id="text-scale" min="10" max="100" value="55" />
+        </div>
+      </div>
+    </section>
+
+    <!-- 배경 -->
+    <section class="card">
+      <h3>배경</h3>
+      <div class="seg" id="seg-bg">
+        <button class="seg-btn" data-bg="none" type="button">투명</button>
+        <button class="seg-btn active" data-bg="solid" type="button">단색</button>
+        <button class="seg-btn" data-bg="gradient" type="button">그라디언트</button>
+      </div>
+
+      <div data-bgwhen="solid">
+        <div class="field grid2">
+          <div>
+            <label for="bg-color">색상</label>
+            <input type="color" id="bg-color" value="#2962ff" />
+          </div>
+          <div>
+            <label for="bg-hex">HEX</label>
+            <input type="text" id="bg-hex" value="#2962FF" spellcheck="false" />
+          </div>
+        </div>
+      </div>
+
+      <div data-bgwhen="gradient" hidden>
+        <div class="field grid2">
+          <div>
+            <label for="grad-a">시작</label>
+            <input type="color" id="grad-a" value="#2962ff" />
+          </div>
+          <div>
+            <label for="grad-b">끝</label>
+            <input type="color" id="grad-b" value="#00c2a8" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="grad-angle">각도 <span class="ro" id="grad-angle-ro">135°</span></label>
+          <input type="range" id="grad-angle" min="0" max="360" value="135" />
+        </div>
+      </div>
+
+      <div class="field" data-bgwhen="solid gradient">
+        <label>프리셋</label>
+        <div class="swatches" id="bg-presets"></div>
+      </div>
+
+      <div class="field" data-bgwhen="solid gradient">
+        <label>배경 범위</label>
+        <div class="seg small" id="seg-scope">
+          <button class="seg-btn active" data-scope="circle" type="button">원 안쪽만</button>
+          <button class="seg-btn" data-scope="square" type="button">전체 사각형</button>
+        </div>
+      </div>
+
+      <div class="field" data-scopewhen="square" hidden>
+        <label for="corner-radius">모서리 둥글기 <span class="ro" id="corner-ro">0%</span></label>
+        <input type="range" id="corner-radius" min="0" max="50" value="0" />
+      </div>
+    </section>
+
+    <!-- 이미지 배경 지우기 -->
+    <section class="card" data-when="image">
+      <h3>이미지 배경 지우기</h3>
+      <label class="check">
+        <input type="checkbox" id="remove-bg" />
+        <span>가장자리와 이어진 단색 배경 제거</span>
+      </label>
+
+      <div id="remove-opts" hidden>
+        <div class="field">
+          <label for="remove-tol">허용치 <span class="ro" id="remove-tol-ro">18</span></label>
+          <input type="range" id="remove-tol" min="1" max="70" value="18" />
+        </div>
+        <div class="field">
+          <label>기준 색</label>
+          <div class="field-row">
+            <span class="key-swatch" id="key-swatch" title="현재 기준 색"></span>
+            <button class="btn sm" id="btn-auto-key" type="button">자동</button>
+            <button class="btn sm" id="btn-pick-key" type="button">이미지에서 고르기</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="remove-feather">경계 부드럽게 <span class="ro" id="remove-feather-ro">2px</span></label>
+          <input type="range" id="remove-feather" min="0" max="6" value="2" />
+        </div>
+        <p class="note">흰 배경 로고처럼 <b>배경이 한 가지 색</b>일 때 잘 동작합니다. 사진 배경은 지워지지 않아요.</p>
+      </div>
+    </section>
+
+    <!-- 원 -->
+    <section class="card">
+      <h3>원 · 배치</h3>
+      <div class="field">
+        <label for="padding">바깥 여백 <span class="ro" id="padding-ro">0%</span></label>
+        <input type="range" id="padding" min="0" max="30" value="0" />
+      </div>
+      <div class="field" data-when="image">
+        <label for="zoom">확대 <span class="ro" id="zoom-ro">100%</span></label>
+        <input type="range" id="zoom" min="20" max="400" value="100" />
+      </div>
+      <div class="field" data-when="image">
+        <label for="inset">안쪽 여백 <span class="ro" id="inset-ro">0%</span></label>
+        <input type="range" id="inset" min="0" max="40" value="0" />
+      </div>
+      <div class="field">
+        <label for="rotate">회전 <span class="ro" id="rotate-ro">0°</span></label>
+        <input type="range" id="rotate" min="-180" max="180" value="0" />
+      </div>
+    </section>
+
+    <!-- 테두리 / 그림자 -->
+    <section class="card">
+      <h3>테두리 · 그림자</h3>
+      <div class="field">
+        <label for="ring-width">테두리 두께 <span class="ro" id="ring-ro">0%</span></label>
+        <input type="range" id="ring-width" min="0" max="10" value="0" step="0.5" />
+      </div>
+      <div class="field grid2">
+        <div>
+          <label for="ring-color">테두리 색</label>
+          <input type="color" id="ring-color" value="#ffffff" />
+        </div>
+        <div>
+          <label for="ring-opacity">불투명도 <span class="ro" id="ring-op-ro">100%</span></label>
+          <input type="range" id="ring-opacity" min="0" max="100" value="100" />
+        </div>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="shadow" />
+        <span>그림자 (배경이 있을 때만)</span>
+      </label>
+      <div class="field" id="shadow-opts" hidden>
+        <label for="shadow-strength">세기 <span class="ro" id="shadow-ro">50%</span></label>
+        <input type="range" id="shadow-strength" min="5" max="100" value="50" />
+      </div>
+    </section>
+
+    <!-- 내보내기 -->
+    <section class="card">
+      <h3>내보내기</h3>
+      <div class="field grid2">
+        <div>
+          <label for="export-size">크기</label>
+          <select id="export-size">
+            <option value="1080" selected>1080 × 1080</option>
+            <option value="2048">2048 × 2048</option>
+            <option value="1024">1024 × 1024</option>
+            <option value="512">512 × 512</option>
+            <option value="256">256 × 256</option>
+            <option value="192">192 × 192</option>
+            <option value="custom">직접 입력</option>
+          </select>
+        </div>
+        <div>
+          <label for="export-custom">px</label>
+          <input type="number" id="export-custom" value="1080" min="16" max="4096" step="1" disabled />
+        </div>
+      </div>
+      <div class="field">
+        <label for="file-base">파일 이름</label>
+        <input type="text" id="file-base" value="icon" spellcheck="false" />
+      </div>
+      <button class="btn primary block" id="btn-download" type="button">PNG 다운로드</button>
+      <div class="field-row">
+        <button class="btn sm grow" id="btn-copy" type="button">클립보드 복사</button>
+        <button class="btn sm grow" id="btn-pack" type="button">여러 크기 한번에</button>
+      </div>
+      <div class="toast" id="toast" hidden></div>
+    </section>
+
+  </aside>
+</main>
+
+<script src="js/iconMaker.js"></script>
+</body>
+</html>
