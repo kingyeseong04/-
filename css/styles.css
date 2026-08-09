@@ -331,10 +331,11 @@ body.frame .account-panel {
   gap: 8px; padding: 8px 20px; height: 100%; border-bottom: none;
 }
 body.frame .account-panel .ap-block { flex: 1 1 0; min-width: 0; }
-body.frame .account-panel .ap-val { font-size: 22px; }
-body.frame .account-panel .ap-krw { font-size: 14px; margin-top: 0; }
-body.frame .account-panel .ap-pct { font-size: 14px; }
-body.frame .account-panel .ap-label { margin-bottom: 2px; }
+body.frame .account-panel .ap-val { font-size: 24px; }
+/* Frame shows the numbers only — no labels / % / ₩. */
+body.frame .account-panel .ap-label,
+body.frame .account-panel .ap-pct,
+body.frame .account-panel .ap-krw { display: none; }
 /* chart fills the rest, centred, at the 1440:1220 ratio */
 body.frame .col-chart { flex: 1 1 auto; min-height: 0; align-items: center; justify-content: center; }
 body.frame #chart-wrap {

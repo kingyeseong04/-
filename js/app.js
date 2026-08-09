@@ -205,6 +205,9 @@
     state.interval = meta.interval || '';
     state.exchange = meta.exchange || '';
     state.subMap = meta.subMap || null;
+    // Funding rate display: real crypto ~0.01%/8h, stock/commodity perps ~0%.
+    state._funding = meta.funding != null ? meta.funding : 0.0001;
+    $('stat-funding').textContent = (state._funding * 100).toFixed(4) + '%';
     chart.setWatermark(state.symbol + (state.interval ? ' · ' + state.interval : ''));
     // History shown before the playhead. Explicit when a centered date window
     // is requested; otherwise a sensible default. Clamp so both sides exist.
@@ -658,6 +661,19 @@
     el._sizeEl.textContent = fmt(Math.abs(account.qty), 3);
     el.style.top = y + 'px';
     el.style.display = 'flex';
+    // Butt the position box's LEFT edge against the RIGHT edge of the
+    // left-anchored order/TP/SL boxes (like Bybit — the order 'becomes' the
+    // position). Falls back to the centred anchor when no such box is shown.
+    let rightEdge = null;
+    for (const id of ['limit-label', 'tp-label', 'sl-label']) {
+      const b = $(id);
+      if (b && b.offsetParent) {
+        const r = b.offsetLeft + b.offsetWidth;
+        if (rightEdge == null || r > rightEdge) rightEdge = r;
+      }
+    }
+    if (rightEdge != null) { el.style.left = rightEdge + 'px'; el.style.right = 'auto'; }
+    else { el.style.left = ''; el.style.right = ''; }
   }
 
   // Bybit-style TP / SL labels riding their lines (structure built once per
@@ -1227,7 +1243,7 @@
         const meta = {
           symbol: sym, symbolDisp: spec.label || sym, quote: spec.quote || 'USD',
           kind: spec.kind || 'Perpetual', interval: intv, exchange: source,
-          subMap, warmup, keepAccount,
+          subMap, warmup, keepAccount, funding: spec.funding,
         };
         const label = source + ' · ' + (spec.label || sym) + ' · ' + intv;
         loadCandles(candles, label, meta);

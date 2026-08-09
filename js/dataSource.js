@@ -64,17 +64,24 @@
   // All symbols are Bybit USDT-perpetuals so every one supports REAL intra-candle
   // ticks (stocks via Yahoo can't provide real intraday for past dates). The
   // ".P" (TradingView-style) key is stripped to the Bybit API symbol.
-  const perp = (t) => ({ label: t + 'USDT.P', provider: 'crypto', api: t + 'USDT', quote: 'USD', kind: 'Bybit Perp' });
+  // funding: the perpetual funding rate (fraction, per 8h). Real crypto perps
+  // run ~0.01%; tokenised stock/commodity perps carry ~0% funding on most
+  // exchanges (trading FEES are separate and still apply either way).
+  const perp = (t) => ({ label: t + 'USDT.P', provider: 'crypto', api: t + 'USDT', quote: 'USD', kind: 'Bybit Perp', funding: 0.0001 });
+  const sperp = (t) => ({ label: t + 'USDT.P', provider: 'crypto', api: t + 'USDT', quote: 'USD', kind: 'Bybit Perp', funding: 0 });
   const SYMBOLS = {
     'BTCUSDT.P': perp('BTC'),
     'ETHUSDT.P': perp('ETH'),
-    'SOXLUSDT.P': perp('SOXL'),
-    'TSLAUSDT.P': perp('TSLA'),
-    'COHRUSDT.P': perp('COHR'),
-    'ALABUSDT.P': perp('ALAB'),
-    'DRAMUSDT.P': perp('DRAM'),
-    'XAUUSDT.P': perp('XAU'),
-    'SAMSUNGUSDT.P': perp('SAMSUNG'),
+    'SOXLUSDT.P': sperp('SOXL'),
+    'TSLAUSDT.P': sperp('TSLA'),
+    'COHRUSDT.P': sperp('COHR'),
+    'ALABUSDT.P': sperp('ALAB'),
+    'DRAMUSDT.P': sperp('DRAM'),
+    'XAUUSDT.P': sperp('XAU'),
+    'SAMSUNGUSDT.P': sperp('SAMSUNG'),
+    'GOOGLUSDT.P': sperp('GOOGL'),
+    'NVDAUSDT.P': sperp('NVDA'),
+    'SKHYNIXUSDT.P': sperp('SKHYNIX'),
   };
   function resolveSymbol(v) {
     if (!v) return null;
@@ -82,7 +89,7 @@
     // Legacy ".P" values or bare tickers: strip .P and match, else treat as crypto.
     const bare = String(v).toUpperCase().replace(/\.P$/, '');
     for (const k in SYMBOLS) { if (SYMBOLS[k].api === bare || SYMBOLS[k].yahoo === bare) return SYMBOLS[k]; }
-    return { label: bare, provider: 'crypto', api: bare, quote: 'USD', kind: 'Crypto' };
+    return { label: bare, provider: 'crypto', api: bare, quote: 'USD', kind: 'Crypto', funding: 0.0001 };
   }
 
   // --- Yahoo Finance (stocks / ETF / gold / KRX) --------------------------
