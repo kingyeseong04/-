@@ -327,11 +327,13 @@ body.frame .col-order {
   background: #101014; overflow: hidden;
 }
 body.frame .account-panel {
-  flex-direction: row; justify-content: space-around; align-items: center;
-  gap: 8px; padding: 8px 20px; height: 100%; border-bottom: none;
+  flex-direction: row; justify-content: center; align-items: center;
+  gap: 18px; padding: 8px 20px; height: 100%; border-bottom: none;
 }
-body.frame .account-panel .ap-block { flex: 1 1 0; min-width: 0; }
-body.frame .account-panel .ap-val { font-size: 24px; }
+body.frame .account-panel .ap-block { flex: 0 0 auto; min-width: 0; }
+/* Only 3 numbers on top: P&L, Equity, Last Price — hide Available (3rd block). */
+body.frame .account-panel .ap-block:nth-child(3) { display: none; }
+body.frame .account-panel .ap-val { font-size: 28px; }
 /* Frame shows the numbers only — no labels / % / ₩. */
 body.frame .account-panel .ap-label,
 body.frame .account-panel .ap-pct,

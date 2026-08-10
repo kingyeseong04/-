@@ -95,7 +95,7 @@
   let priceRange = null;
   chart.setPriceRangeProvider(() => priceRange);
   function recomputePriceRange() {
-    const from = Math.max(0, state.idx - (state.frame ? 82 : 48)), to = state.idx;
+    const from = Math.max(0, state.idx - (state.frame ? 104 : 48)), to = state.idx;
     let lo = Infinity, hi = -Infinity;
     for (let j = from; j <= to; j++) {
       const cc = state.candles[j];
@@ -128,14 +128,14 @@
   // at high speed — it only steps up/down when candles close out of range.
   function frameAnchor() {
     if (state.candles.length === 0) return;
-    chart.setVisibleLogicalRange(state.idx - 60, state.idx + 20);
+    chart.setVisibleLogicalRange(state.idx - 100, state.idx + 20);
   }
 
   // On candle close, only recenter the scale if the visible candles no longer
   // fit the current range — so the entry line holds still across candles.
   function maybeRecenterRange() {
     if (!priceRange) { recomputePriceRange(); return; }
-    const from = Math.max(0, state.idx - (state.frame ? 82 : 48));
+    const from = Math.max(0, state.idx - (state.frame ? 104 : 48));
     let lo = Infinity, hi = -Infinity;
     for (let j = from; j < state.idx; j++) {
       const c = state.candles[j]; if (!c) continue;
