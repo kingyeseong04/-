@@ -14,7 +14,13 @@
   'use strict';
 
   const MMR = 0.05;       // maintenance margin rate (for liq price calc)
-  const FEE_RATE = 0.0004; // 0.04% taker fee on notional
+  // Bybit perp fees on notional: limit orders that rest are MAKER, market/
+  // stop (TP/SL) fills are TAKER. e.g. $24,000 notional → maker $4.80, taker
+  // $13.20.
+  const TAKER_FEE = 0.00055; // 0.055%
+  const MAKER_FEE = 0.0002;  // 0.020%
+  const FEE_RATE = TAKER_FEE; // default (market) rate; kept for compatibility
+  const feeFor = (orderType) => (orderType === 'Limit' ? MAKER_FEE : TAKER_FEE);
 
   class Account {
     constructor(startBalance) {
@@ -111,7 +117,7 @@
       const orderQty = notional / price;
       const dQty = side === 'long' ? orderQty : -orderQty;
 
-      const fee = notional * FEE_RATE;
+      const fee = notional * feeFor(orderType); // maker for limit, taker for market
       this.balance -= fee;
       this.feesTotal += fee;
 
@@ -128,7 +134,7 @@
       const closedSide = this.qty > 0 ? 'long' : 'short'; // side being closed
       this.setMark(price);
       const notional = Math.abs(closeQty) * price;
-      const fee = notional * FEE_RATE;
+      const fee = notional * feeFor(orderType); // maker for limit, taker for market
       this.balance -= fee;
       this.feesTotal += fee;
       this._applyFill(-closeQty, price, 0, this.leverage, time);

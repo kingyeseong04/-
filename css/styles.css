@@ -334,10 +334,15 @@ body.frame .account-panel .ap-block { flex: 0 0 auto; min-width: 0; }
 /* Only 3 numbers on top: P&L, Equity, Last Price — hide Available (3rd block). */
 body.frame .account-panel .ap-block:nth-child(3) { display: none; }
 body.frame .account-panel .ap-val { font-size: 28px; }
-/* Frame shows the numbers only — no labels / % / ₩. */
-body.frame .account-panel .ap-label,
-body.frame .account-panel .ap-pct,
+/* No labels in the frame strip. */
+body.frame .account-panel .ap-label { display: none; }
+/* Percentage shown only under P&L (1st block). */
+body.frame .account-panel .ap-pct { display: none; }
+body.frame .account-panel .ap-block:nth-child(1) .ap-pct { display: block; font-size: 15px; }
+/* Small ₩ line only under P&L (1st) and Equity (2nd). */
 body.frame .account-panel .ap-krw { display: none; }
+body.frame .account-panel .ap-block:nth-child(1) .ap-krw,
+body.frame .account-panel .ap-block:nth-child(2) .ap-krw { display: block; font-size: 13px; margin-top: 1px; }
 /* chart fills the rest, centred, at the 1440:1220 ratio */
 body.frame .col-chart { flex: 1 1 auto; min-height: 0; align-items: center; justify-content: center; }
 body.frame #chart-wrap {
