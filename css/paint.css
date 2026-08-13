@@ -136,6 +136,34 @@ body.dragover #cv { box-shadow: 0 0 0 2px var(--accent), 0 18px 60px rgba(0, 0, 
 }
 .sw.on { border-color: #fff; }
 
+#swatches { display: flex; gap: 6px; }
+
+/* The custom colour is the native picker styled as one more swatch — it opens
+   the OS colour UI on a phone, which a hand-rolled HSV square would not. */
+.sw-input {
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0;
+  background: none;
+}
+.sw-input::-webkit-color-swatch-wrapper { padding: 0; }
+.sw-input::-webkit-color-swatch { border: none; border-radius: 50%; }
+.sw-input::-moz-color-swatch { border: none; border-radius: 50%; }
+
+.hex {
+  width: 82px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: 600 12px/1 ui-monospace, Menlo, Consolas, monospace;
+  text-transform: uppercase;
+}
+.hex:focus { outline: none; border-color: var(--accent); }
+.hex.bad { border-color: #f23645; }
+
 #status { color: var(--dim); font-variant-numeric: tabular-nums; }
 
 /* ---- clean mode (recording / preview) ---- */

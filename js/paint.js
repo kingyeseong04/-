@@ -25,7 +25,20 @@
     '4:5':  [1080, 1350],
     '16:9': [1920, 1080],
   };
-  const COLORS = ['#ffe600', '#ff2d95', '#2979ff', '#00e676', '#ff7a00', '#ffffff'];
+  const COLORS = ['#ff2f2f', '#ffe600', '#00e676'];   // 빨 · 노 · 초 (+ 직접 지정)
+
+  // Pen acceleration along a stroke. Progress is eased over the stroke's whole
+  // length, so on a multi-segment line the pen keeps easing across the corners
+  // instead of restarting per segment. All of these map 0→0 and 1→1, which is
+  // what lets the scheduler keep using raw progress to decide what is finished.
+  const EASE = {
+    linear:   (t) => t,
+    cubicOut: (t) => 1 - Math.pow(1 - t, 3),          // 빠르게 출발 → 도착하며 감속
+    cubicIn:  (t) => t * t * t,                       // 느리게 출발 → 최고 속도로 끝
+    circEase: (t) => t < 0.5                          // 양끝 느리고 중간이 빠름
+      ? (1 - Math.sqrt(1 - 4 * t * t)) / 2
+      : (Math.sqrt(1 - Math.pow(-2 * t + 2, 2)) + 1) / 2,
+  };
   const HIT_PX = 18;      // grab radius for dragging an existing point
   const DUP_PX = 7;       // clicks closer than this to the last point are ignored
   const AUTO_SNAP_PX = 5; // un-shifted clicks this close to level/plumb are straightened
@@ -55,7 +68,7 @@
   let recorder = null, chunks = null, stream = null, recording = false;
   let clean = false;
 
-  const opt = { color: COLORS[0], width: 9, glow: 1, speed: 1400, gap: 250, arrow: false };
+  const opt = { color: COLORS[1], width: 9, glow: 1, speed: 1400, gap: 250, arrow: false, ease: 'cubicOut' };
 
   // ---------------------------------------------------------------- geometry
   const px = (p) => ({ x: p.u * CW, y: p.v * CH });
@@ -135,9 +148,16 @@
     return { items: items, total: items.length ? items[items.length - 1].end : 0 };
   }
 
+  // Raw 0..1 fraction of a stroke's time slot — used to decide what has
+  // finished, so it must stay un-eased.
   function progressAt(item, t) {
     if (!item.dur) return 1;
     return clamp((t - item.start) / item.dur, 0, 1);
+  }
+
+  // How far along its own length the pen has actually travelled.
+  function easedAt(s, item, t) {
+    return (EASE[s.ease] || EASE.linear)(progressAt(item, t));
   }
 
   // --------------------------------------------------------------- rendering
@@ -262,7 +282,7 @@
       }
       bakeUpTo(done);
       blitBake();
-      if (live >= 0) paintStroke(ctx, strokes[live], progressAt(sch.items[live], playT));
+      if (live >= 0) paintStroke(ctx, strokes[live], easedAt(strokes[live], sch.items[live], playT));
     } else {
       // Editing: everything is shown finished. Only the stroke still being
       // clicked stays out of the bake, since it changes on every click.
@@ -374,7 +394,7 @@
 
     let s = openStroke();
     if (!s) {
-      s = { pts: [], color: opt.color, width: opt.width, glow: opt.glow, arrow: opt.arrow, open: true };
+      s = { pts: [], color: opt.color, width: opt.width, glow: opt.glow, arrow: opt.arrow, ease: opt.ease, open: true };
       strokes.push(s);
     }
     const prev = s.pts[s.pts.length - 1];
@@ -382,6 +402,7 @@
     // Swallow the second click of a double-click (and stray double taps).
     if (prev && Math.hypot(p.x - px(prev).x, p.y - px(prev).y) < DUP_PX) return;
     s.pts.push({ u: p.x / CW, v: p.y / CH });
+    $('hint').hidden = true;   // drawing started; stop advertising the drop target
   }
 
   function onMove(e) {
@@ -523,18 +544,30 @@
   }
 
   // --------------------------------------------------------------------- UI
+  // Colour: three fixed presets plus a freely picked one. Whichever is active
+  // gets the ring, and the hex box always shows the colour in use so it can be
+  // read off or pasted into.
+  function selectColor(c) {
+    opt.color = c;
+    applyToOpen('color', c);
+    const custom = $('custom');
+    [...$('swatches').children].forEach((el) => el.classList.toggle('on', el.dataset.color === c));
+    custom.classList.toggle('on', !COLORS.includes(c));
+    custom.style.boxShadow = '0 0 10px ' + custom.value;
+    const hex = $('hex');
+    hex.value = c.toUpperCase();
+    hex.classList.remove('bad');
+  }
+
   function buildSwatches() {
     const wrap = $('swatches');
     COLORS.forEach((c, i) => {
       const b = document.createElement('button');
-      b.className = 'sw' + (i === 0 ? ' on' : '');
+      b.className = 'sw';
       b.style.color = c;
+      b.dataset.color = c;
       b.title = String(i + 1);
-      b.onclick = () => {
-        opt.color = c;
-        applyToOpen('color', c);
-        [...wrap.children].forEach((el) => el.classList.toggle('on', el === b));
-      };
+      b.onclick = () => selectColor(c);
       wrap.appendChild(b);
     });
   }
@@ -559,7 +592,25 @@
 
   function init() {
     buildSwatches();
+    selectColor(opt.color);
     setRatio('3:4');
+
+    $('custom').addEventListener('input', (e) => selectColor(e.target.value));
+    $('hex').addEventListener('input', (e) => {
+      const v = e.target.value.trim().replace(/^#?/, '#');
+      if (!/^#[0-9a-f]{6}$/i.test(v)) { e.target.classList.add('bad'); return; }
+      e.target.classList.remove('bad');
+      if (!COLORS.includes(v.toLowerCase())) $('custom').value = v;
+      opt.color = v;
+      applyToOpen('color', v);
+      [...$('swatches').children].forEach((el) => el.classList.toggle('on', el.dataset.color === v.toLowerCase()));
+      $('custom').classList.toggle('on', !COLORS.includes(v.toLowerCase()));
+      $('custom').style.boxShadow = '0 0 10px ' + $('custom').value;
+    });
+    $('ease').addEventListener('change', (e) => {
+      opt.ease = e.target.value;
+      applyToOpen('ease', opt.ease);
+    });
 
     slider('width', 'width', (v) => String(v), invalidateBake);
     slider('glow', 'glow', (v) => v.toFixed(1), invalidateBake);
@@ -626,7 +677,7 @@
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
       const k = e.key;
-      if (k >= '1' && k <= '6') { pickColor(Number(k) - 1); return; }
+      if (k >= '1' && k <= '3') { pickColor(Number(k) - 1); return; }
       switch (k) {
         case 'Enter': endStroke(); break;
         case 'Backspace': e.preventDefault(); undo(); break;
