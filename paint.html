@@ -66,7 +66,11 @@
   </div>
 
   <div class="grp">
-    <button id="btn-bg" class="btn tog" title="B — 배경을 검정으로 (편집기에서 스크린 블렌드용)">배경끄기</button>
+    <select id="bgmode" class="sel" title="B — 배경 전환">
+      <option value="photo" selected>배경: 사진</option>
+      <option value="black">배경: 검정</option>
+      <option value="white">배경: 흰색</option>
+    </select>
     <button id="btn-play" class="btn go" title="Space">▶ 재생</button>
     <button id="btn-rec" class="btn rec" title="V — webm 녹화">⏺ 녹화</button>
   </div>
@@ -79,6 +83,7 @@
 </div>
 
 <button id="btn-exit" class="exit" hidden>✕ 전체화면 나가기 <kbd>Esc</kbd></button>
+<button id="btn-fsplay" class="exit fsplay" hidden>▶ 재생</button>
 
 <div id="help" hidden>
   <div class="card">
@@ -91,6 +96,7 @@
       <tr><td>점을 끌기</td><td>이미 찍은 점 옮기기 (도형은 크기 조절)</td></tr>
       <tr><td>두 손가락</td><td>배경 사진 이동 · 오므리기/벌리기로 확대</td></tr>
       <tr><td>도구모음</td><td>도구 · 색 · 굵기 · 재생 · 녹화 전부 아래 버튼으로 됩니다</td></tr>
+      <tr><td>전체화면 중</td><td>아래 가운데 <b>▶ 재생</b>, 오른쪽 위 <b>✕ 나가기</b>. 재생이 시작되면 둘 다 사라져 화면녹화에 안 찍힙니다</td></tr>
 
       <tr><th colspan="2">키보드가 있을 때</th></tr>
       <tr><td><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></td><td>선 · 정원 · 타원 · 네모 도구</td></tr>
@@ -100,10 +106,10 @@
       <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>빨 · 노 · 초 선택</td></tr>
       <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>굵기 조절</td></tr>
       <tr><td><kbd>Space</kbd> · <kbd>V</kbd></td><td>재생 · 녹화</td></tr>
-      <tr><td><kbd>B</kbd> · <kbd>F</kbd> · <kbd>Esc</kbd></td><td>배경 끄기 · 전체화면 · 나가기</td></tr>
+      <tr><td><kbd>B</kbd> · <kbd>F</kbd> · <kbd>Esc</kbd></td><td>배경 전환(사진→검정→흰색) · 전체화면 · 나가기</td></tr>
       <tr><td><kbd>Alt</kbd>+드래그 · 휠 · <kbd>0</kbd></td><td>배경 이동 · 확대 · 맞춤 초기화</td></tr>
     </table>
-    <p class="tip">편집 영상에 얹을 때는 <b>배경끄기</b>로 녹화한 뒤, 편집 프로그램에서 <b>스크린(Screen) 블렌드</b>로 올리면 검정이 사라지고 네온만 남습니다.</p>
+    <p class="tip">편집 영상에 얹을 때는 <b>배경: 검정</b>으로 녹화한 뒤, 편집 프로그램에서 <b>스크린(Screen) 블렌드</b>로 올리면 검정이 사라지고 네온만 남습니다. <b>배경: 흰색</b>은 밝은 화면용으로, 이때는 네온이 흰 바탕에서 안 보이지 않도록 다른 방식으로 그려집니다.</p>
     <button id="help-close" class="btn">닫기</button>
   </div>
 </div>

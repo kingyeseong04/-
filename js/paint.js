@@ -73,11 +73,13 @@
   let playing = false, playT = 0, playStart = 0;
   let recorder = null, chunks = null, stream = null, recording = false;
   let clean = false;
+  let bgMode = 'photo';                 // 'photo' | 'black' | 'white'
 
   const opt = { kind: 'line', color: COLORS[1], width: 9, glow: 1, speed: 1400, gap: 250, arrow: false, ease: 'cubicOut' };
 
   // ---------------------------------------------------------------- geometry
   const px = (p) => ({ x: p.u * CW, y: p.v * CH });
+  const lightBg = () => bgMode === 'white';
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
   function openStroke() {
@@ -229,6 +231,26 @@
     g.save();
     g.lineCap = 'round';
     g.lineJoin = 'round';
+
+    if (lightBg()) {
+      // Additive blending has nowhere to go on white — every stroke saturates
+      // to white and vanishes, and the white-hot core is invisible anyway. On a
+      // light background the halo is painted normally and the colour itself
+      // becomes the core.
+      g.globalCompositeOperation = 'source-over';
+      g.strokeStyle = color;
+      for (const [mul, alpha] of HALO) {
+        g.lineWidth = width * (1 + (mul - 1) * glow);
+        g.globalAlpha = alpha * 0.45;
+        g.stroke(path);
+      }
+      g.globalAlpha = 1;
+      g.lineWidth = width;
+      g.stroke(path);
+      g.restore();
+      return;
+    }
+
     g.globalCompositeOperation = 'lighter';
     g.strokeStyle = color;
     for (const [mul, alpha] of HALO) {
@@ -302,11 +324,17 @@
 
   function drawBackground() {
     ctx.clearRect(0, 0, CW, CH);
-    ctx.fillStyle = '#000';
+    ctx.fillStyle = lightBg() ? '#ffffff' : '#000000';
     ctx.fillRect(0, 0, CW, CH);
-    if (img && !document.body.classList.contains('nobg')) {
+    if (img && bgMode === 'photo') {
       ctx.drawImage(img, bg.ox, bg.oy, img.width * bg.scale, img.height * bg.scale);
     }
+  }
+
+  function setBgMode(m) {
+    bgMode = m;
+    $('bgmode').value = m;
+    invalidateBake();   // the neon itself is rendered differently on white
   }
 
   // Where the next click would land, as a thin dashed outline. Deliberately not
@@ -325,7 +353,7 @@
     ctx.save();
     ctx.setLineDash([7, 6]);
     ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(255,255,255,.55)';
+    ctx.strokeStyle = lightBg() ? 'rgba(0,0,0,.5)' : 'rgba(255,255,255,.55)';
     ctx.stroke(linePath(isShape(ghost) ? pts : pts.slice(-2)));
     ctx.restore();
   }
@@ -340,13 +368,15 @@
         const p = px(s.pts[i]);
         ctx.beginPath();
         ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0,0,0,.55)';
+        ctx.fillStyle = lightBg() ? 'rgba(255,255,255,.75)' : 'rgba(0,0,0,.55)';
         ctx.fill();
         ctx.lineWidth = 2;
-        ctx.strokeStyle = s.open ? '#ffffff' : 'rgba(255,255,255,.55)';
+        ctx.strokeStyle = lightBg()
+          ? (s.open ? '#111111' : 'rgba(0,0,0,.5)')
+          : (s.open ? '#ffffff' : 'rgba(255,255,255,.55)');
         ctx.stroke();
         if (s.open) {
-          ctx.fillStyle = 'rgba(255,255,255,.85)';
+          ctx.fillStyle = lightBg() ? 'rgba(0,0,0,.8)' : 'rgba(255,255,255,.85)';
           ctx.fillText(String(i + 1), p.x, p.y - 20);
         }
       }
@@ -388,7 +418,7 @@
 
   function blitBake() {
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = lightBg() ? 'source-over' : 'lighter';
     ctx.drawImage(bake, 0, 0);
     ctx.restore();
   }
@@ -401,6 +431,7 @@
         playing = false;
         playT = sch.total;
         if (recording) stopRec();
+        setPlayingUI(false);
         $('btn-play').classList.remove('on');
       }
     }
@@ -665,6 +696,7 @@
     playT = 0;
     playStart = performance.now();
     playing = true;
+    setPlayingUI(true);
     $('btn-play').classList.add('on');
   }
 
@@ -729,6 +761,7 @@
     document.body.classList.toggle('clean', on);
     $('btn-clean').classList.toggle('on', on);
     $('btn-exit').hidden = !on;
+    $('btn-fsplay').hidden = !on;
     if (!fromFs) {
       const el = document.documentElement;
       if (on && el.requestFullscreen) el.requestFullscreen().catch(() => {});
@@ -743,10 +776,17 @@
   // the pointer has been still for a moment.
   let exitTimer = 0;
   function pokeExit() {
-    const b = $('btn-exit');
-    b.classList.remove('idle');
+    const els = [$('btn-exit'), $('btn-fsplay')];
+    els.forEach((b) => b.classList.remove('idle'));
     clearTimeout(exitTimer);
-    exitTimer = setTimeout(() => { if (clean) b.classList.add('idle'); }, 2500);
+    exitTimer = setTimeout(() => { if (clean) els.forEach((b) => b.classList.add('idle')); }, 2500);
+  }
+
+  // While the animation runs the overlay buttons go away entirely. Canvas
+  // recording never saw them, but a screen recording would.
+  function setPlayingUI(on) {
+    document.body.classList.toggle('playing', on);
+    if (!on && clean) pokeExit();
   }
 
   // Settings edit the open stroke too, so a colour/width change is visible
@@ -851,10 +891,8 @@
       applyToOpen('arrow', opt.arrow);
       invalidateBake();
     };
-    $('btn-bg').onclick = () => {
-      document.body.classList.toggle('nobg');
-      $('btn-bg').classList.toggle('on', document.body.classList.contains('nobg'));
-    };
+    $('bgmode').addEventListener('change', (e) => setBgMode(e.target.value));
+    $('btn-fsplay').onclick = play;
 
     cv.addEventListener('pointerdown', onDown);
     cv.addEventListener('pointermove', onMove);
@@ -922,12 +960,16 @@
         case ']': $('width').value = Math.min(28, opt.width + 1); $('width').dispatchEvent(new Event('input')); break;
         case '0': fitBg(); break;
         case 'v': case 'V': recording ? stopRec() : startRec(); break;
-        case 'b': case 'B': $('btn-bg').click(); break;
+        case 'b': case 'B': {
+          const order = ['photo', 'black', 'white'];
+          setBgMode(order[(order.indexOf(bgMode) + 1) % order.length]);
+          break;
+        }
         case 'f': case 'F': setClean(!clean); break;
         case 'Escape':
           if (!$('help').hidden) $('help').hidden = true;
           else if (clean) setClean(false);
-          else if (playing) { playing = false; $('btn-play').classList.remove('on'); }
+          else if (playing) { playing = false; setPlayingUI(false); $('btn-play').classList.remove('on'); }
           else endStroke();
           break;
       }

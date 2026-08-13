@@ -202,6 +202,28 @@ body.clean #cv { box-shadow: none; }
 .exit:hover, .exit:focus-visible { opacity: 1; border-color: rgba(255, 255, 255, .5); }
 .exit kbd { opacity: .7; }
 
+/* Play, for when the toolbar is hidden. Bottom-centre so it is nowhere near
+   the exit pill in the opposite corner. */
+.fsplay {
+  top: auto;
+  right: auto;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 22px;
+  color: #4ade9a;
+  border-color: rgba(74, 222, 154, .45);
+}
+
+/* Both overlays disappear completely while the animation runs. They are DOM,
+   so canvas recording never sees them — but a SCREEN recording would, and
+   that is how this actually gets captured. */
+body.playing .exit {
+  opacity: 0;
+  pointer-events: none;
+  transition: none;   /* vanish on the same frame play is tapped, not over .45s */
+}
+
 /* ---- help ---- */
 #help {
   position: absolute;
