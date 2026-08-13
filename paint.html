@@ -29,7 +29,17 @@
     </select>
   </div>
 
-  <div class="grp" id="swatches"></div>
+  <div class="grp" id="tools">
+    <button class="btn tog on" data-kind="line" title="Q">／ 선</button>
+    <button class="btn tog" data-kind="circle" title="W">◯ 원</button>
+    <button class="btn tog" data-kind="rect" title="E">▭ 네모</button>
+  </div>
+
+  <div class="grp">
+    <span id="swatches"></span>
+    <input type="color" id="custom" class="sw sw-input" value="#2979ff" title="직접 지정">
+    <input type="text" id="hex" class="hex" value="#FFE600" maxlength="7" spellcheck="false" title="HEX 코드 입력">
+  </div>
 
   <div class="grp">
     <label class="sl">굵기<input type="range" id="width" min="2" max="28" step="1" value="9"><i id="width-v">9</i></label>
@@ -38,7 +48,13 @@
 
   <div class="grp">
     <label class="sl">속도<input type="range" id="speed" min="200" max="4000" step="50" value="1400"><i id="speed-v">1400</i></label>
-    <label class="sl">간격<input type="range" id="gap" min="0" max="1500" step="50" value="250"><i id="gap-v">250</i></label>
+    <label class="sl">획 간 대기<input type="range" id="gap" min="0" max="1500" step="50" value="250"><i id="gap-v">250</i></label>
+    <select id="ease" class="sel" title="선이 그려지는 가감속">
+      <option value="cubicOut" selected>Cubic Out · 끝 감속</option>
+      <option value="cubicIn">Cubic In · 처음 느림</option>
+      <option value="circEase">Circular · 양끝 느림</option>
+      <option value="linear">Linear · 일정</option>
+    </select>
   </div>
 
   <div class="grp">
@@ -61,21 +77,26 @@
   </div>
 </div>
 
+<button id="btn-exit" class="exit" hidden>✕ 전체화면 나가기 <kbd>Esc</kbd></button>
+
 <div id="help" hidden>
   <div class="card">
     <h3>조작법</h3>
     <table>
-      <tr><td>클릭</td><td>점 찍기 (찍은 순서대로 선이 그려집니다)</td></tr>
-      <tr><td>점 드래그</td><td>이미 찍은 점 옮기기</td></tr>
-      <tr><td><kbd>Shift</kbd> + 클릭</td><td>직전 점 기준 수평 / 수직 / 45° 고정</td></tr>
+      <tr><td><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd></td><td>선 · 원 · 네모 도구</td></tr>
+      <tr><td>클릭 (선)</td><td>점 찍기 — 찍은 순서대로 이어서 그려집니다</td></tr>
+      <tr><td>클릭 (원·네모)</td><td>두 번 클릭 = 대각선 양 끝. 두 번째 클릭에서 자동 완성</td></tr>
+      <tr><td>점 드래그</td><td>이미 찍은 점 옮기기 (도형은 크기 조절)</td></tr>
+      <tr><td><kbd>Shift</kbd> + 클릭</td><td>선은 수평/수직/45° 고정, 도형은 정원·정사각형</td></tr>
       <tr><td><kbd>Enter</kbd> · 더블클릭</td><td>현재 획 끝내고 다음 획 시작</td></tr>
       <tr><td><kbd>Backspace</kbd></td><td>마지막 점 (또는 마지막 획) 되돌리기</td></tr>
-      <tr><td><kbd>1</kbd>~<kbd>6</kbd></td><td>색상 선택</td></tr>
+      <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>빨 · 노 · 초 선택 (그 외 색은 옆의 동그라미나 HEX 칸)</td></tr>
       <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>굵기 조절</td></tr>
       <tr><td><kbd>Space</kbd></td><td>처음부터 재생</td></tr>
       <tr><td><kbd>R</kbd></td><td>재생하며 webm 녹화 → 자동 다운로드</td></tr>
       <tr><td><kbd>B</kbd></td><td>배경 끄기 (검정 위 네온만)</td></tr>
-      <tr><td><kbd>F</kbd> · <kbd>Esc</kbd></td><td>UI 숨기기 / 되돌리기</td></tr>
+      <tr><td><kbd>F</kbd> · 우하단 ⛶</td><td>전체화면 (도구모음 숨김)</td></tr>
+      <tr><td><kbd>Esc</kbd> · 우상단 ✕</td><td>전체화면 나가기</td></tr>
       <tr><td><kbd>Alt</kbd> + 드래그 · 휠</td><td>배경 이미지 이동 / 확대</td></tr>
       <tr><td><kbd>0</kbd></td><td>배경 이미지 맞춤 초기화</td></tr>
     </table>
