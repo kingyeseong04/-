@@ -64,11 +64,12 @@
   const strokes = [];                   // [{pts:[{u,v}], color, width, glow, arrow, open}]
   let drag = null;                      // {si, pi} — point being moved
   let panning = null;                   // {x, y} — Alt-drag background pan origin
+  let hover = null;                     // {x, y} — rubber-band target in canvas px
   let playing = false, playT = 0, playStart = 0;
   let recorder = null, chunks = null, stream = null, recording = false;
   let clean = false;
 
-  const opt = { color: COLORS[1], width: 9, glow: 1, speed: 1400, gap: 250, arrow: false, ease: 'cubicOut' };
+  const opt = { kind: 'line', color: COLORS[1], width: 9, glow: 1, speed: 1400, gap: 250, arrow: false, ease: 'cubicOut' };
 
   // ---------------------------------------------------------------- geometry
   const px = (p) => ({ x: p.u * CW, y: p.v * CH });
@@ -114,14 +115,51 @@
     return out;
   }
 
+  // Circles and rectangles are stored as their two defining corners but drawn
+  // as a dense polyline, so the whole animation / easing / bake path stays the
+  // same code as a straight line — a shape just has more points. The outline is
+  // generated in PIXEL space and converted back, otherwise a circle would come
+  // out as an ellipse on a non-square canvas.
+  const CIRCLE_SEGS = 96;
+
+  function shapePts(s) {
+    if (s.kind !== 'circle' && s.kind !== 'rect') return s.pts;
+    if (s.pts.length < 2) return s.pts;
+    const a = px(s.pts[0]), b = px(s.pts[1]);
+    const out = [];
+    const back = (x, y) => out.push({ u: x / CW, v: y / CH });
+    if (s.kind === 'rect') {
+      const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
+      const y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+      // top-left → clockwise → closed, so the pen ends where it started
+      back(x0, y0); back(x1, y0); back(x1, y1); back(x0, y1); back(x0, y0);
+    } else {
+      const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+      const rx = Math.abs(b.x - a.x) / 2, ry = Math.abs(b.y - a.y) / 2;
+      for (let i = 0; i <= CIRCLE_SEGS; i++) {
+        const t = -Math.PI / 2 + (i / CIRCLE_SEGS) * Math.PI * 2;   // start at 12 o'clock
+        back(cx + rx * Math.cos(t), cy + ry * Math.sin(t));
+      }
+    }
+    return out;
+  }
+
+  const isShape = (s) => s.kind === 'circle' || s.kind === 'rect';
+
   // Straighten a segment: Shift locks to horizontal / vertical / 45°, and an
   // un-shifted point that is already within a few px of level is nudged flat —
   // a support line that is 2px off looks wrong on video.
-  function snap(prev, x, y, shift) {
+  function snap(prev, x, y, shift, shape) {
     if (!prev) return { x, y };
     const a = px(prev);
     let dx = x - a.x, dy = y - a.y;
     const ax = Math.abs(dx), ay = Math.abs(dy);
+    if (shape) {
+      // For a box or an ellipse, Shift means "perfect square / circle", and the
+      // auto-flatten must not apply — it would collapse the shape into a line.
+      if (shift) { const m = (ax + ay) / 2; dx = Math.sign(dx) * m; dy = Math.sign(dy) * m; }
+      return { x: a.x + dx, y: a.y + dy };
+    }
     if (shift) {
       if (ay < ax * 0.4142) dy = 0;              // within 22.5° of horizontal
       else if (ax < ay * 0.4142) dx = 0;         // within 22.5° of vertical
@@ -141,7 +179,7 @@
     const items = [];
     let t = 0;
     for (const s of strokes) {
-      const dur = Math.max(90, (polyLen(s.pts) / opt.speed) * 1000);
+      const dur = Math.max(90, (polyLen(shapePts(s)) / opt.speed) * 1000);
       items.push({ start: t, dur: dur, end: t + dur });
       t += dur + opt.gap;
     }
@@ -217,10 +255,10 @@
 
   // Paint one stroke (whole or partially advanced) onto a context.
   function paintStroke(g, s, p) {
-    const pts = partial(s.pts, p);
+    const pts = partial(shapePts(s), p);
     if (pts.length < 2) return;
     neon(g, linePath(pts), s.color, s.width, s.glow);
-    if (s.arrow && p >= 1 && pts.length >= 2) {
+    if (s.arrow && !isShape(s) && p >= 1 && pts.length >= 2) {
       const n = pts.length;
       neon(g, arrowPath(pts[n - 2], pts[n - 1], Math.max(34, s.width * 5.5)), s.color, s.width, s.glow);
     }
@@ -242,6 +280,21 @@
     if (img && !document.body.classList.contains('nobg')) {
       ctx.drawImage(img, bg.ox, bg.oy, img.width * bg.scale, img.height * bg.scale);
     }
+  }
+
+  // Where the next click would land, as a thin dashed outline. Deliberately not
+  // rendered in neon — a full-brightness preview reads as already committed.
+  function drawPreview(open) {
+    if (!open || !hover || !open.pts.length) return;
+    const ghost = { kind: open.kind, pts: open.pts.concat([{ u: hover.x / CW, v: hover.y / CH }]) };
+    const pts = shapePts(ghost).map(px);
+    if (pts.length < 2) return;
+    ctx.save();
+    ctx.setLineDash([7, 6]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255,255,255,.55)';
+    ctx.stroke(linePath(isShape(ghost) ? pts : pts.slice(-2)));
+    ctx.restore();
   }
 
   function drawHandles() {
@@ -290,7 +343,7 @@
       bakeUpTo(strokes.length - (open ? 1 : 0));
       blitBake();
       if (open) paintStroke(ctx, open, 1);
-      if (!clean) drawHandles();
+      if (!clean) { drawPreview(open); drawHandles(); }
     }
 
     const total = sch.total / 1000;
@@ -394,24 +447,36 @@
 
     let s = openStroke();
     if (!s) {
-      s = { pts: [], color: opt.color, width: opt.width, glow: opt.glow, arrow: opt.arrow, ease: opt.ease, open: true };
+      s = {
+        kind: opt.kind, pts: [], color: opt.color, width: opt.width,
+        glow: opt.glow, arrow: opt.arrow, ease: opt.ease, open: true,
+      };
       strokes.push(s);
     }
     const prev = s.pts[s.pts.length - 1];
-    const p = snap(prev, x, y, e.shiftKey);
+    const p = snap(prev, x, y, e.shiftKey, isShape(s));
     // Swallow the second click of a double-click (and stray double taps).
     if (prev && Math.hypot(p.x - px(prev).x, p.y - px(prev).y) < DUP_PX) return;
     s.pts.push({ u: p.x / CW, v: p.y / CH });
     $('hint').hidden = true;   // drawing started; stop advertising the drop target
+    // A box or circle is fully defined by two corners, so it closes itself and
+    // the next click starts a new one.
+    if (isShape(s) && s.pts.length === 2) s.open = false;
   }
 
   function onMove(e) {
     const { x, y } = toCanvas(e);
     if (panning) { bg.ox = x - panning.x; bg.oy = y - panning.y; return; }
-    if (!drag) return;
+    if (!drag) {
+      // Rubber-band the next click so a circle or box can be sized before it
+      // is committed — placing one blind takes several undos otherwise.
+      const s = openStroke();
+      hover = (s && s.pts.length) ? snap(s.pts[s.pts.length - 1], x, y, e.shiftKey, isShape(s)) : null;
+      return;
+    }
     const s = strokes[drag.si];
     const prev = drag.pi > 0 ? s.pts[drag.pi - 1] : null;
-    const p = snap(prev, x, y, e.shiftKey);
+    const p = snap(prev, x, y, e.shiftKey, isShape(s));
     s.pts[drag.pi] = { u: p.x / CW, v: p.y / CH };
     if (!s.open) invalidateBake();   // a baked stroke changed shape
   }
@@ -433,10 +498,20 @@
 
   // ---------------------------------------------------------------- actions
   function endStroke() {
+    hover = null;
     const s = openStroke();
     if (!s) return;
     if (s.pts.length < 2) { strokes.pop(); return; }
     s.open = false;
+  }
+
+  // Switching tool always starts a fresh stroke — half a line finished as a box
+  // is never what was meant.
+  function setKind(k) {
+    endStroke();
+    opt.kind = k;
+    [...$('tools').children].forEach((el) => el.classList.toggle('on', el.dataset.kind === k));
+    $('btn-arrow').disabled = k !== 'line';
   }
 
   function undo() {
@@ -595,6 +670,7 @@
     selectColor(opt.color);
     setRatio('3:4');
 
+    [...$('tools').children].forEach((b) => { b.onclick = () => setKind(b.dataset.kind); });
     $('custom').addEventListener('input', (e) => selectColor(e.target.value));
     $('hex').addEventListener('input', (e) => {
       const v = e.target.value.trim().replace(/^#?/, '#');
@@ -645,6 +721,7 @@
     cv.addEventListener('pointerup', onUp);
     cv.addEventListener('pointercancel', onUp);
     cv.addEventListener('wheel', onWheel, { passive: false });
+    cv.addEventListener('pointerleave', () => { hover = null; });
     cv.addEventListener('dblclick', endStroke);
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -675,10 +752,19 @@
     });
 
     window.addEventListener('keydown', (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      // A slider keeps focus after it is dragged, so blanket-ignoring every
+      // focused control would silently kill Space / F right after adjusting
+      // speed. Only text-entry and selects swallow keys; a range gives up
+      // everything except its own arrow keys.
+      const t = e.target;
+      if (t.tagName === 'SELECT' || (t.tagName === 'INPUT' && t.type !== 'range')) return;
       const k = e.key;
+      if (t.tagName === 'INPUT' && /^Arrow/.test(k)) return;
       if (k >= '1' && k <= '3') { pickColor(Number(k) - 1); return; }
       switch (k) {
+        case 'q': case 'Q': setKind('line'); break;
+        case 'w': case 'W': setKind('circle'); break;
+        case 'e': case 'E': setKind('rect'); break;
         case 'Enter': endStroke(); break;
         case 'Backspace': e.preventDefault(); undo(); break;
         case ' ': e.preventDefault(); play(); break;

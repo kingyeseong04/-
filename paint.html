@@ -29,6 +29,12 @@
     </select>
   </div>
 
+  <div class="grp" id="tools">
+    <button class="btn tog on" data-kind="line" title="Q">／ 선</button>
+    <button class="btn tog" data-kind="circle" title="W">◯ 원</button>
+    <button class="btn tog" data-kind="rect" title="E">▭ 네모</button>
+  </div>
+
   <div class="grp">
     <span id="swatches"></span>
     <input type="color" id="custom" class="sw sw-input" value="#2979ff" title="직접 지정">
@@ -77,9 +83,11 @@
   <div class="card">
     <h3>조작법</h3>
     <table>
-      <tr><td>클릭</td><td>점 찍기 (찍은 순서대로 선이 그려집니다)</td></tr>
-      <tr><td>점 드래그</td><td>이미 찍은 점 옮기기</td></tr>
-      <tr><td><kbd>Shift</kbd> + 클릭</td><td>직전 점 기준 수평 / 수직 / 45° 고정</td></tr>
+      <tr><td><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd></td><td>선 · 원 · 네모 도구</td></tr>
+      <tr><td>클릭 (선)</td><td>점 찍기 — 찍은 순서대로 이어서 그려집니다</td></tr>
+      <tr><td>클릭 (원·네모)</td><td>두 번 클릭 = 대각선 양 끝. 두 번째 클릭에서 자동 완성</td></tr>
+      <tr><td>점 드래그</td><td>이미 찍은 점 옮기기 (도형은 크기 조절)</td></tr>
+      <tr><td><kbd>Shift</kbd> + 클릭</td><td>선은 수평/수직/45° 고정, 도형은 정원·정사각형</td></tr>
       <tr><td><kbd>Enter</kbd> · 더블클릭</td><td>현재 획 끝내고 다음 획 시작</td></tr>
       <tr><td><kbd>Backspace</kbd></td><td>마지막 점 (또는 마지막 획) 되돌리기</td></tr>
       <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>빨 · 노 · 초 선택 (그 외 색은 옆의 동그라미나 HEX 칸)</td></tr>
