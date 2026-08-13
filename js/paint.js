@@ -487,11 +487,32 @@
     if (recorder && recorder.state !== 'inactive') recorder.stop();
   }
 
-  function setClean(on) {
+  // Clean mode hides the toolbar and, where the browser allows it, takes the
+  // page fullscreen. `fromFs` marks the call as a reaction to a fullscreen
+  // change that already happened (browser Esc, window chrome) so we don't turn
+  // around and ask the browser to undo it again.
+  function setClean(on, fromFs) {
     clean = on;
     document.body.classList.toggle('clean', on);
     $('btn-clean').classList.toggle('on', on);
+    $('btn-exit').hidden = !on;
+    if (!fromFs) {
+      const el = document.documentElement;
+      if (on && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+      else if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    }
     layout();
+    if (on) pokeExit();
+  }
+
+  // Bring the exit button back to full opacity, then let it fade again once
+  // the pointer has been still for a moment.
+  let exitTimer = 0;
+  function pokeExit() {
+    const b = $('btn-exit');
+    b.classList.remove('idle');
+    clearTimeout(exitTimer);
+    exitTimer = setTimeout(() => { if (clean) b.classList.add('idle'); }, 2500);
   }
 
   // Settings edit the open stroke too, so a colour/width change is visible
@@ -554,6 +575,7 @@
     $('btn-play').onclick = play;
     $('btn-rec').onclick = () => (recording ? stopRec() : startRec());
     $('btn-clean').onclick = () => setClean(!clean);
+    $('btn-exit').onclick = () => setClean(false);
     $('btn-help').onclick = () => ($('help').hidden = false);
     $('help-close').onclick = () => ($('help').hidden = true);
     $('btn-arrow').onclick = () => {
@@ -576,6 +598,15 @@
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
 
     window.addEventListener('resize', layout);
+
+    // Leaving fullscreen by any route the page doesn't own — Esc, F11, the
+    // browser's own control — has to drop clean mode too, or the toolbar stays
+    // hidden with no way back to it.
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && clean) setClean(false, true);
+    });
+    ['pointermove', 'pointerdown', 'keydown'].forEach((t) =>
+      window.addEventListener(t, () => { if (clean) pokeExit(); }, { passive: true }));
 
     // drop / paste an image anywhere on the page
     ['dragenter', 'dragover'].forEach((t) =>

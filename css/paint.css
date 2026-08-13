@@ -143,6 +143,35 @@ body.clean #bar { display: none; }
 body.clean #stage { inset: 0; padding: 0; }
 body.clean #cv { box-shadow: none; }
 
+/* Way back out of clean/fullscreen mode, since the toolbar is gone. It dims
+   after a few idle seconds so it stays out of shot, but never disappears —
+   on a touch screen there is no Esc key to fall back on. */
+.exit {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 999px;
+  background: rgba(10, 12, 15, .72);
+  backdrop-filter: blur(6px);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity .45s ease;
+}
+.exit[hidden] { display: none; }
+.exit.idle { opacity: .14; }
+.exit:hover, .exit:focus-visible { opacity: 1; border-color: rgba(255, 255, 255, .5); }
+.exit kbd { opacity: .7; }
+
 /* ---- help ---- */
 #help {
   position: absolute;
