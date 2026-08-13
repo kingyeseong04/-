@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Neon Paint — 차트 위 네온 선 연출</title>
+<link rel="stylesheet" href="css/paint.css">
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hint">
+    <b>차트 캡처를 끌어다 놓으세요</b>
+    <span>또는 <kbd>Ctrl</kbd>+<kbd>V</kbd> 붙여넣기 · 아래 <b>이미지</b> 버튼</span>
+  </div>
+</div>
+
+<div id="bar">
+  <div class="grp">
+    <button id="btn-img" class="btn">이미지</button>
+    <input type="file" id="file" accept="image/*" hidden>
+    <select id="ratio" class="sel" title="캔버스 비율">
+      <option value="3:4" selected>3:4</option>
+      <option value="9:16">9:16</option>
+      <option value="1:1">1:1</option>
+      <option value="4:5">4:5</option>
+      <option value="16:9">16:9</option>
+    </select>
+  </div>
+
+  <div class="grp" id="swatches"></div>
+
+  <div class="grp">
+    <label class="sl">굵기<input type="range" id="width" min="2" max="28" step="1" value="9"><i id="width-v">9</i></label>
+    <label class="sl">글로우<input type="range" id="glow" min="0" max="200" step="5" value="100"><i id="glow-v">1.0</i></label>
+  </div>
+
+  <div class="grp">
+    <label class="sl">속도<input type="range" id="speed" min="200" max="4000" step="50" value="1400"><i id="speed-v">1400</i></label>
+    <label class="sl">간격<input type="range" id="gap" min="0" max="1500" step="50" value="250"><i id="gap-v">250</i></label>
+  </div>
+
+  <div class="grp">
+    <button id="btn-arrow" class="btn tog" title="현재 획 끝에 화살촉">화살표</button>
+    <button id="btn-end" class="btn" title="Enter — 현재 획 끝내고 새 획 시작">획 끝</button>
+    <button id="btn-undo" class="btn" title="Backspace">되돌리기</button>
+    <button id="btn-clear" class="btn danger">전체삭제</button>
+  </div>
+
+  <div class="grp">
+    <button id="btn-bg" class="btn tog" title="B — 배경을 검정으로 (편집기에서 스크린 블렌드용)">배경끄기</button>
+    <button id="btn-play" class="btn go" title="Space">▶ 재생</button>
+    <button id="btn-rec" class="btn rec" title="R — webm 녹화">⏺ 녹화</button>
+  </div>
+
+  <div class="grp right">
+    <span id="status"></span>
+    <button id="btn-help" class="btn ghost" title="도움말">?</button>
+    <button id="btn-clean" class="btn ghost" title="F — UI 숨기기">⛶</button>
+  </div>
+</div>
+
+<div id="help" hidden>
+  <div class="card">
+    <h3>조작법</h3>
+    <table>
+      <tr><td>클릭</td><td>점 찍기 (찍은 순서대로 선이 그려집니다)</td></tr>
+      <tr><td>점 드래그</td><td>이미 찍은 점 옮기기</td></tr>
+      <tr><td><kbd>Shift</kbd> + 클릭</td><td>직전 점 기준 수평 / 수직 / 45° 고정</td></tr>
+      <tr><td><kbd>Enter</kbd> · 더블클릭</td><td>현재 획 끝내고 다음 획 시작</td></tr>
+      <tr><td><kbd>Backspace</kbd></td><td>마지막 점 (또는 마지막 획) 되돌리기</td></tr>
+      <tr><td><kbd>1</kbd>~<kbd>6</kbd></td><td>색상 선택</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>굵기 조절</td></tr>
+      <tr><td><kbd>Space</kbd></td><td>처음부터 재생</td></tr>
+      <tr><td><kbd>R</kbd></td><td>재생하며 webm 녹화 → 자동 다운로드</td></tr>
+      <tr><td><kbd>B</kbd></td><td>배경 끄기 (검정 위 네온만)</td></tr>
+      <tr><td><kbd>F</kbd> · <kbd>Esc</kbd></td><td>UI 숨기기 / 되돌리기</td></tr>
+      <tr><td><kbd>Alt</kbd> + 드래그 · 휠</td><td>배경 이미지 이동 / 확대</td></tr>
+      <tr><td><kbd>0</kbd></td><td>배경 이미지 맞춤 초기화</td></tr>
+    </table>
+    <p class="tip">편집 영상에 얹을 때는 <b>배경끄기</b>로 녹화한 뒤, 편집 프로그램에서 <b>스크린(Screen) 블렌드</b>로 올리면 검정이 사라지고 네온만 남습니다.</p>
+    <button id="help-close" class="btn">닫기</button>
+  </div>
+</div>
+
+<script src="js/paint.js"></script>
+</body>
+</html>

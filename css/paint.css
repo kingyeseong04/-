@@ -1,0 +1,178 @@
+/* paint.css — standalone neon-line drawing page (paint.html).
+   Kept separate from styles.css: the replay app and this tool share no layout. */
+
+:root {
+  --bg: #0b0e11;
+  --panel: #14181d;
+  --panel-2: #1b2027;
+  --line: #262d36;
+  --text: #d7dde5;
+  --dim: #7d8794;
+  --accent: #2962ff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.4 -apple-system, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ---- stage ---- */
+#stage {
+  position: absolute;
+  inset: 0 0 var(--bar-h, 104px) 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+}
+
+#cv {
+  /* Sized by JS to fit the stage while holding the chosen aspect ratio. */
+  display: block;
+  background: #000;
+  box-shadow: 0 0 0 1px var(--line), 0 18px 60px rgba(0, 0, 0, .6);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+#hint {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+  color: var(--dim);
+  pointer-events: none;
+  text-shadow: 0 2px 10px #000;
+}
+#hint b { color: var(--text); font-size: 15px; }
+#hint[hidden] { display: none; }
+
+body.dragover #cv { box-shadow: 0 0 0 2px var(--accent), 0 18px 60px rgba(0, 0, 0, .6); }
+
+/* ---- toolbar ---- */
+#bar {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  min-height: 104px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+
+.grp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 14px;
+  border-right: 1px solid var(--line);
+}
+.grp:last-child { border-right: 0; }
+.grp.right { margin-left: auto; border-right: 0; padding-right: 0; }
+
+.btn {
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover { border-color: #3a444f; background: #222933; }
+.btn.on { border-color: var(--accent); color: #fff; background: #16305e; }
+.btn.go { border-color: #1d6b4a; background: #123626; color: #4ade9a; }
+.btn.rec { border-color: #6b1d24; background: #361216; color: #ff6b78; }
+.btn.rec.on { background: #f23645; border-color: #f23645; color: #fff; }
+.btn.danger:hover { border-color: #6b1d24; color: #ff6b78; }
+.btn.ghost { background: transparent; }
+.btn:disabled { opacity: .4; cursor: default; }
+
+.sel {
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+}
+
+.sl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.sl input { width: 92px; accent-color: var(--accent); }
+.sl i { font-style: normal; color: var(--text); min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---- colour swatches ---- */
+.sw {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor, inset 0 0 6px rgba(255, 255, 255, .5);
+  cursor: pointer;
+  padding: 0;
+}
+.sw.on { border-color: #fff; }
+
+#status { color: var(--dim); font-variant-numeric: tabular-nums; }
+
+/* ---- clean mode (recording / preview) ---- */
+body.clean #bar { display: none; }
+body.clean #stage { inset: 0; padding: 0; }
+body.clean #cv { box-shadow: none; }
+
+/* ---- help ---- */
+#help {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, .6);
+  z-index: 10;
+}
+#help[hidden] { display: none; }
+#help .card {
+  max-width: 560px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+}
+#help h3 { margin: 0 0 12px; }
+#help table { width: 100%; border-collapse: collapse; }
+#help td { padding: 4px 0; vertical-align: top; }
+#help td:first-child { width: 150px; color: var(--dim); white-space: nowrap; padding-right: 12px; }
+#help .tip { color: var(--dim); border-top: 1px solid var(--line); margin: 14px 0; padding-top: 12px; }
+kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  font: 600 11px/1.4 ui-monospace, Menlo, Consolas, monospace;
+}
