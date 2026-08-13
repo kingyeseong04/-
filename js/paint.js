@@ -123,7 +123,7 @@
   const CIRCLE_SEGS = 96;
 
   function shapePts(s) {
-    if (s.kind !== 'circle' && s.kind !== 'rect') return s.pts;
+    if (!isShape(s)) return s.pts;
     if (s.pts.length < 2) return s.pts;
     const a = px(s.pts[0]), b = px(s.pts[1]);
     const out = [];
@@ -144,20 +144,27 @@
     return out;
   }
 
-  const isShape = (s) => s.kind === 'circle' || s.kind === 'rect';
+  // 'circle' is the always-round tool; 'ellipse' is the freely stretched one.
+  // They share the same outline maths — a circle simply has its two corners
+  // squared off at input time, so rx and ry come out equal.
+  const isShape = (s) => s.kind === 'circle' || s.kind === 'ellipse' || s.kind === 'rect';
 
   // Straighten a segment: Shift locks to horizontal / vertical / 45°, and an
   // un-shifted point that is already within a few px of level is nudged flat —
   // a support line that is 2px off looks wrong on video.
-  function snap(prev, x, y, shift, shape) {
+  function snap(prev, x, y, shift, kind) {
     if (!prev) return { x, y };
     const a = px(prev);
     let dx = x - a.x, dy = y - a.y;
     const ax = Math.abs(dx), ay = Math.abs(dy);
-    if (shape) {
-      // For a box or an ellipse, Shift means "perfect square / circle", and the
-      // auto-flatten must not apply — it would collapse the shape into a line.
-      if (shift) { const m = (ax + ay) / 2; dx = Math.sign(dx) * m; dy = Math.sign(dy) * m; }
+    if (kind && kind !== 'line') {
+      // The round tool is square-constrained always; the stretchy ones only
+      // while Shift is held. The auto-flatten never applies to a shape — it
+      // would collapse it into a line.
+      if (shift || kind === 'circle') {
+        const m = (ax + ay) / 2;
+        dx = Math.sign(dx) * m; dy = Math.sign(dy) * m;
+      }
       return { x: a.x + dx, y: a.y + dy };
     }
     if (shift) {
@@ -258,9 +265,17 @@
     const pts = partial(shapePts(s), p);
     if (pts.length < 2) return;
     neon(g, linePath(pts), s.color, s.width, s.glow);
-    if (s.arrow && !isShape(s) && p >= 1 && pts.length >= 2) {
+    if (s.arrow && !isShape(s)) {
+      // The head rides the leading tip for the whole draw rather than popping
+      // in at the end, so the stroke reads as an arrow flying to its target.
+      // It scales up over the first stretch — a full-size head on a 5px stub
+      // just looks like a detached arrowhead floating on the chart.
       const n = pts.length;
-      neon(g, arrowPath(pts[n - 2], pts[n - 1], Math.max(34, s.width * 5.5)), s.color, s.width, s.glow);
+      const full = Math.max(34, s.width * 5.5);
+      let drawn = 0;
+      for (let i = 1; i < n; i++) drawn += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      const size = full * clamp(drawn / (full * 1.6), 0, 1);
+      if (size > 1) neon(g, arrowPath(pts[n - 2], pts[n - 1], size), s.color, s.width, s.glow);
     }
   }
 
@@ -454,7 +469,7 @@
       strokes.push(s);
     }
     const prev = s.pts[s.pts.length - 1];
-    const p = snap(prev, x, y, e.shiftKey, isShape(s));
+    const p = snap(prev, x, y, e.shiftKey, s.kind);
     // Swallow the second click of a double-click (and stray double taps).
     if (prev && Math.hypot(p.x - px(prev).x, p.y - px(prev).y) < DUP_PX) return;
     s.pts.push({ u: p.x / CW, v: p.y / CH });
@@ -471,12 +486,12 @@
       // Rubber-band the next click so a circle or box can be sized before it
       // is committed — placing one blind takes several undos otherwise.
       const s = openStroke();
-      hover = (s && s.pts.length) ? snap(s.pts[s.pts.length - 1], x, y, e.shiftKey, isShape(s)) : null;
+      hover = (s && s.pts.length) ? snap(s.pts[s.pts.length - 1], x, y, e.shiftKey, s.kind) : null;
       return;
     }
     const s = strokes[drag.si];
     const prev = drag.pi > 0 ? s.pts[drag.pi - 1] : null;
-    const p = snap(prev, x, y, e.shiftKey, isShape(s));
+    const p = snap(prev, x, y, e.shiftKey, s.kind);
     s.pts[drag.pi] = { u: p.x / CW, v: p.y / CH };
     if (!s.open) invalidateBake();   // a baked stroke changed shape
   }
@@ -764,14 +779,15 @@
       switch (k) {
         case 'q': case 'Q': setKind('line'); break;
         case 'w': case 'W': setKind('circle'); break;
-        case 'e': case 'E': setKind('rect'); break;
+        case 'e': case 'E': setKind('ellipse'); break;
+        case 'r': case 'R': setKind('rect'); break;
         case 'Enter': endStroke(); break;
         case 'Backspace': e.preventDefault(); undo(); break;
         case ' ': e.preventDefault(); play(); break;
         case '[': $('width').value = Math.max(2, opt.width - 1); $('width').dispatchEvent(new Event('input')); break;
         case ']': $('width').value = Math.min(28, opt.width + 1); $('width').dispatchEvent(new Event('input')); break;
         case '0': fitBg(); break;
-        case 'r': case 'R': recording ? stopRec() : startRec(); break;
+        case 'v': case 'V': recording ? stopRec() : startRec(); break;
         case 'b': case 'B': $('btn-bg').click(); break;
         case 'f': case 'F': setClean(!clean); break;
         case 'Escape':
