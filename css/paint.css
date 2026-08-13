@@ -20,8 +20,10 @@ html, body {
   color: var(--text);
   font: 13px/1.4 -apple-system, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif;
   overflow: hidden;
+  overscroll-behavior: none;      /* no rubber-band bounce while drawing on iPad */
   -webkit-user-select: none;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ---- stage ---- */
@@ -222,8 +224,42 @@ body.clean #cv { box-shadow: none; }
 #help h3 { margin: 0 0 12px; }
 #help table { width: 100%; border-collapse: collapse; }
 #help td { padding: 4px 0; vertical-align: top; }
+#help th { text-align: left; padding: 14px 0 4px; color: var(--text); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; border-bottom: 1px solid var(--line); }
+#help tr:first-child th { padding-top: 0; }
+#help .card { max-height: 86vh; overflow-y: auto; }
 #help td:first-child { width: 150px; color: var(--dim); white-space: nowrap; padding-right: 12px; }
 #help .tip { color: var(--dim); border-top: 1px solid var(--line); margin: 14px 0; padding-top: 12px; }
+
+/* ---- touch (iPad) ----
+   A 30px control is a mouse target, not a finger target. Everything that gets
+   tapped grows to ~44px, and taps stop being routed through the browser's
+   double-tap-to-zoom delay. */
+@media (pointer: coarse) {
+  .btn, .sel, .hex { height: 44px; padding: 0 14px; font-size: 14px; }
+  .sw, .sw-input { width: 40px; height: 40px; }
+  .hex { width: 100px; }
+  .sl { font-size: 13px; }
+  .sl input[type="range"] { width: 130px; height: 44px; }
+  .exit { height: 44px; padding: 0 18px; }
+  #bar { gap: 10px; padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); }
+  .grp { padding-right: 10px; gap: 8px; }
+}
+.btn, .sel, .sw, .sw-input, .exit { touch-action: manipulation; }
+
+/* Slider thumbs are the smallest thing on the bar; give them a real target. */
+@media (pointer: coarse) {
+  .sl input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #fff;
+  }
+  .sl input[type="range"] { -webkit-appearance: none; background: transparent; }
+  .sl input[type="range"]::-webkit-slider-runnable-track {
+    height: 5px; border-radius: 3px; background: var(--line);
+  }
+}
 kbd {
   display: inline-block;
   padding: 1px 5px;

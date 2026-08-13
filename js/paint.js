@@ -43,6 +43,7 @@
   const DUP_PX = 7;       // clicks closer than this to the last point are ignored
   const AUTO_SNAP_PX = 5; // un-shifted clicks this close to level/plumb are straightened
   const TAIL_MS = 900;    // extra recorded time after the last stroke finishes
+  const TAP_SLOP = 10;    // movement below this still counts as a tap, not a drag
 
   // ---- DOM ----
   const $ = (id) => document.getElementById(id);
@@ -65,6 +66,10 @@
   let drag = null;                      // {si, pi} — point being moved
   let panning = null;                   // {x, y} — Alt-drag background pan origin
   let hover = null;                     // {x, y} — rubber-band target in canvas px
+  const pointers = new Map();           // live pointers, for two-finger gestures
+  let pending = null;                   // finger down, not yet a tap or a drag
+  let gesture = null;                   // two-finger pan/pinch anchor
+  let dirty = true;                     // something changed → repaint needed
   let playing = false, playT = 0, playStart = 0;
   let recorder = null, chunks = null, stream = null, recording = false;
   let clean = false;
@@ -125,6 +130,11 @@
   function shapePts(s) {
     if (!isShape(s)) return s.pts;
     if (s.pts.length < 2) return s.pts;
+    // Cached: a circle expands to ~97 points, and this is called for every
+    // stroke on every frame by the scheduler. Regenerating them all each frame
+    // is pure garbage for a drawing that has not moved.
+    const key = s.kind + s.pts[0].u + ',' + s.pts[0].v + ',' + s.pts[1].u + ',' + s.pts[1].v + ',' + CW + 'x' + CH;
+    if (s.outKey === key) return s.outline;
     const a = px(s.pts[0]), b = px(s.pts[1]);
     const out = [];
     const back = (x, y) => out.push({ u: x / CW, v: y / CH });
@@ -141,6 +151,7 @@
         back(cx + rx * Math.cos(t), cy + ry * Math.sin(t));
       }
     }
+    s.outKey = key; s.outline = out;
     return out;
   }
 
@@ -282,6 +293,7 @@
   function invalidateBake() {
     bakeIdx = 0;
     bctx.clearRect(0, 0, CW, CH);
+    touch();
   }
 
   function bakeUpTo(n) {
@@ -300,8 +312,14 @@
   // Where the next click would land, as a thin dashed outline. Deliberately not
   // rendered in neon — a full-brightness preview reads as already committed.
   function drawPreview(open) {
-    if (!open || !hover || !open.pts.length) return;
-    const ghost = { kind: open.kind, pts: open.pts.concat([{ u: hover.x / CW, v: hover.y / CH }]) };
+    if (!hover) return;
+    // The anchor is the last placed point, or — on the very first drag of a new
+    // shape, where no stroke exists yet — wherever the finger went down.
+    let base = null, kind = opt.kind;
+    if (open && open.pts.length) { base = open.pts; kind = open.kind; }
+    else if (pending && pending.moved) base = [{ u: pending.x / CW, v: pending.y / CH }];
+    if (!base) return;
+    const ghost = { kind: kind, pts: base.concat([{ u: hover.x / CW, v: hover.y / CH }]) };
     const pts = shapePts(ghost).map(px);
     if (pts.length < 2) return;
     ctx.save();
@@ -336,9 +354,8 @@
     ctx.restore();
   }
 
-  function render() {
+  function render(sch) {
     drawBackground();
-    const sch = schedule();
 
     if (playing || recording) {
       let live = -1;
@@ -377,19 +394,24 @@
   }
 
   function frame(now) {
+    const sch = schedule();
     if (playing) {
       playT = now - playStart;
-      const total = schedule().total;
-      if (playT >= total + (recording ? TAIL_MS : 500)) {
+      if (playT >= sch.total + (recording ? TAIL_MS : 500)) {
         playing = false;
-        playT = total;
+        playT = sch.total;
         if (recording) stopRec();
         $('btn-play').classList.remove('on');
       }
     }
-    render();
+    // Idle frames paint nothing. On a tablet a permanently running canvas loop
+    // is the difference between the app being usable for an hour and the
+    // device getting hot — and the recorder only needs frames while it records.
+    if (playing || recording || dirty) { render(sch); dirty = false; }
     requestAnimationFrame(frame);
   }
+
+  function touch() { dirty = true; }
 
   // ----------------------------------------------------------------- canvas
   function setRatio(key) {
@@ -409,9 +431,11 @@
     const s = Math.min(aw / CW, ah / CH);
     cv.style.width = Math.floor(CW * s) + 'px';
     cv.style.height = Math.floor(CH * s) + 'px';
+    touch();
   }
 
   function fitBg() {
+    touch();
     if (!img) return;
     const s = Math.min(CW / img.width, CH / img.height);
     bg = { scale: s, ox: (CW - img.width * s) / 2, oy: (CH - img.height * s) / 2 };
@@ -419,7 +443,7 @@
 
   function loadImage(src) {
     const im = new Image();
-    im.onload = () => { img = im; fitBg(); $('hint').hidden = true; };
+    im.onload = () => { img = im; fitBg(); $('hint').hidden = true; touch(); };
     im.src = src;
   }
 
@@ -450,55 +474,145 @@
     return null;
   }
 
-  function onDown(e) {
-    if (playing) return;
-    cv.setPointerCapture(e.pointerId);
-    const { x, y } = toCanvas(e);
+  function newStroke() {
+    const s = {
+      kind: opt.kind, pts: [], color: opt.color, width: opt.width,
+      glow: opt.glow, arrow: opt.arrow, ease: opt.ease, open: true,
+    };
+    strokes.push(s);
+    return s;
+  }
 
-    if (e.altKey && img) { panning = { x: x - bg.ox, y: y - bg.oy }; return; }
-
-    const hit = hitPoint(x, y);
-    if (hit) { drag = hit; return; }
-
-    let s = openStroke();
-    if (!s) {
-      s = {
-        kind: opt.kind, pts: [], color: opt.color, width: opt.width,
-        glow: opt.glow, arrow: opt.arrow, ease: opt.ease, open: true,
-      };
-      strokes.push(s);
-    }
+  function addPoint(s, x, y, shift) {
     const prev = s.pts[s.pts.length - 1];
-    const p = snap(prev, x, y, e.shiftKey, s.kind);
+    const p = snap(prev, x, y, shift, s.kind);
     // Swallow the second click of a double-click (and stray double taps).
-    if (prev && Math.hypot(p.x - px(prev).x, p.y - px(prev).y) < DUP_PX) return;
+    if (prev && Math.hypot(p.x - px(prev).x, p.y - px(prev).y) < DUP_PX) return false;
     s.pts.push({ u: p.x / CW, v: p.y / CH });
     $('hint').hidden = true;   // drawing started; stop advertising the drop target
     // A box or circle is fully defined by two corners, so it closes itself and
-    // the next click starts a new one.
-    if (isShape(s) && s.pts.length === 2) s.open = false;
+    // the next tap starts a new one.
+    if (isShape(s) && s.pts.length === 2) { s.open = false; hover = null; }
+    return true;
+  }
+
+  function onDown(e) {
+    if (playing) return;
+    const { x, y } = toCanvas(e);
+    pointers.set(e.pointerId, { x, y });
+
+    // Second finger down starts a background pan/zoom and abandons whatever the
+    // first finger was in the middle of — a two-finger gesture must never leave
+    // a stray point behind.
+    if (pointers.size === 2) {
+      pending = null; drag = null; hover = null;
+      gesture = gestureState();
+      touch();
+      return;
+    }
+    if (pointers.size > 1) return;
+
+    try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+    if (e.altKey && img) { panning = { x: x - bg.ox, y: y - bg.oy }; return; }
+
+    const hit = hitPoint(x, y);
+    if (hit) { drag = hit; hover = null; touch(); return; }
+
+    // Nothing is committed yet: this becomes a tap (place a point) or a drag
+    // (rubber-band out a shape / segment) depending on what the finger does.
+    pending = { x, y, moved: false };
+    touch();
   }
 
   function onMove(e) {
     const { x, y } = toCanvas(e);
-    if (panning) { bg.ox = x - panning.x; bg.oy = y - panning.y; return; }
-    if (!drag) {
-      // Rubber-band the next click so a circle or box can be sized before it
-      // is committed — placing one blind takes several undos otherwise.
-      const s = openStroke();
-      hover = (s && s.pts.length) ? snap(s.pts[s.pts.length - 1], x, y, e.shiftKey, s.kind) : null;
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x, y });
+
+    if (gesture && pointers.size >= 2) { applyGesture(); touch(); return; }
+    if (panning) { bg.ox = x - panning.x; bg.oy = y - panning.y; touch(); return; }
+
+    if (drag) {
+      const s = strokes[drag.si];
+      const prev = drag.pi > 0 ? s.pts[drag.pi - 1] : null;
+      const p = snap(prev, x, y, e.shiftKey, s.kind);
+      s.pts[drag.pi] = { u: p.x / CW, v: p.y / CH };
+      if (!s.open) invalidateBake();   // a baked stroke changed shape
+      touch();
       return;
     }
-    const s = strokes[drag.si];
-    const prev = drag.pi > 0 ? s.pts[drag.pi - 1] : null;
-    const p = snap(prev, x, y, e.shiftKey, s.kind);
-    s.pts[drag.pi] = { u: p.x / CW, v: p.y / CH };
-    if (!s.open) invalidateBake();   // a baked stroke changed shape
+
+    if (pending) {
+      if (!pending.moved && Math.hypot(x - pending.x, y - pending.y) > TAP_SLOP) pending.moved = true;
+      if (pending.moved) {
+        // Live size preview while the finger is still down. Without this a
+        // touch user places every circle blind — there is no hover to rely on.
+        const s = openStroke();
+        const from = (s && s.pts.length) ? s.pts[s.pts.length - 1] : { u: pending.x / CW, v: pending.y / CH };
+        hover = snap(from, x, y, e.shiftKey, s ? s.kind : opt.kind);
+        pending.anchor = from;
+        touch();
+      }
+      return;
+    }
+
+    // Mouse hover (no button held) — same rubber band, no drag required.
+    // Only repaint when the band actually moves; otherwise sweeping the mouse
+    // across the canvas would redraw every frame for no visible change.
+    const s = openStroke();
+    const next = (s && s.pts.length) ? snap(s.pts[s.pts.length - 1], x, y, e.shiftKey, s.kind) : null;
+    if (!!next !== !!hover || (next && (next.x !== hover.x || next.y !== hover.y))) {
+      hover = next;
+      touch();
+    }
   }
 
   function onUp(e) {
     try { cv.releasePointerCapture(e.pointerId); } catch (_) {}
-    drag = null; panning = null;
+    pointers.delete(e.pointerId);
+    if (gesture) { if (pointers.size < 2) gesture = null; touch(); return; }
+    // Always drop the rubber band on release, whatever this gesture turned out
+    // to be — a ghost outline left behind after moving a point looks like a
+    // shape that failed to commit.
+    const wasDrag = drag;
+    drag = null; panning = null; hover = null;
+
+    const p = pending; pending = null;
+    if (!p || wasDrag) { touch(); return; }
+    const { x, y } = toCanvas(e);
+    let s = openStroke() || newStroke();
+    if (p.moved) {
+      // press → drag → release draws the whole thing in one gesture
+      if (!s.pts.length) addPoint(s, p.x, p.y, false);
+      addPoint(s, x, y, e.shiftKey);
+    } else {
+      addPoint(s, p.x, p.y, e.shiftKey);
+    }
+    hover = null;
+    touch();
+  }
+
+  // ---- background pan / pinch-zoom ----
+  function gestureState() {
+    const [a, b] = [...pointers.values()];
+    return {
+      dist: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
+      cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2,
+      bg: { scale: bg.scale, ox: bg.ox, oy: bg.oy },
+    };
+  }
+
+  function applyGesture() {
+    if (!img) return;
+    const [a, b] = [...pointers.values()];
+    const dist = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+    const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+    const g = gesture;
+    const ns = clamp(g.bg.scale * (dist / g.dist), 0.05, 12);
+    const k = ns / g.bg.scale;
+    // Zoom about the pinch centre, then follow however the centre itself moved.
+    bg.scale = ns;
+    bg.ox = g.cx - (g.cx - g.bg.ox) * k + (cx - g.cx);
+    bg.oy = g.cy - (g.cy - g.bg.oy) * k + (cy - g.cy);
   }
 
   function onWheel(e) {
@@ -509,11 +623,12 @@
     bg.ox = x - (x - bg.ox) * (ns / bg.scale);
     bg.oy = y - (y - bg.oy) * (ns / bg.scale);
     bg.scale = ns;
+    touch();
   }
 
   // ---------------------------------------------------------------- actions
   function endStroke() {
-    hover = null;
+    hover = null; touch();
     const s = openStroke();
     if (!s) return;
     if (s.pts.length < 2) { strokes.pop(); return; }
@@ -524,6 +639,7 @@
   // is never what was meant.
   function setKind(k) {
     endStroke();
+    touch();
     opt.kind = k;
     [...$('tools').children].forEach((el) => el.classList.toggle('on', el.dataset.kind === k));
     $('btn-arrow').disabled = k !== 'line';
@@ -558,9 +674,14 @@
       alert('이 브라우저는 캔버스 녹화를 지원하지 않습니다. 데스크톱 Chrome을 쓰거나 화면 녹화로 대신하세요.');
       return;
     }
-    const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    // Safari (iPad) has MediaRecorder but no VP8/VP9 — it encodes H.264 in mp4.
+    // Listing mp4 last keeps webm on Chrome while letting a tablet record at all.
+    const types = [
+      'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm',
+      'video/mp4;codecs=avc1', 'video/mp4',
+    ];
     const mime = types.find((t) => MediaRecorder.isTypeSupported(t));
-    if (!mime) { alert('이 브라우저에서 webm 녹화를 지원하지 않습니다.'); return; }
+    if (!mime) { alert('이 브라우저는 캔버스 녹화를 지원하지 않습니다. 화면 녹화를 사용하세요.'); return; }
     chunks = [];
     // Keep our own reference to the stream: if only the MediaRecorder holds it,
     // the capture track can be collected mid-recording and the file comes out
@@ -569,7 +690,8 @@
     recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 16e6 });
     recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
+      const ext = /mp4/.test(mime) ? 'mp4' : 'webm';
+      const blob = new Blob(chunks, { type: 'video/' + ext });
       if (blob.size < 2000) {
         // Header-only file: the encoder produced no frames (usually a machine
         // with no GPU video encoding). Better to say so than to hand over a
@@ -580,7 +702,7 @@
       }
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'neon-' + Date.now() + '.webm';
+      a.download = 'neon-' + Date.now() + '.' + ext;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 10000);
       recorder = null; chunks = null; stream = null;
@@ -613,6 +735,7 @@
       else if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     }
     layout();
+    touch();
     if (on) pokeExit();
   }
 
@@ -638,6 +761,7 @@
   // gets the ring, and the hex box always shows the colour in use so it can be
   // read off or pasted into.
   function selectColor(c) {
+    touch();
     opt.color = c;
     applyToOpen('color', c);
     const custom = $('custom');
@@ -674,6 +798,7 @@
       opt[key] = key === 'glow' ? v / 100 : v;
       out.textContent = fmt(opt[key]);
       applyToOpen(key, opt[key]);
+      touch();
       if (after) after();
     };
     el.addEventListener('input', sync);
@@ -741,6 +866,15 @@
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
 
     window.addEventListener('resize', layout);
+
+    // The toolbar wraps to more rows on a narrow screen, so its height cannot
+    // be a constant — measure it and let the stage size itself from that.
+    if (window.ResizeObserver) {
+      new ResizeObserver(() => {
+        document.documentElement.style.setProperty('--bar-h', $('bar').offsetHeight + 'px');
+        layout();
+      }).observe($('bar'));
+    }
 
     // Leaving fullscreen by any route the page doesn't own — Esc, F11, the
     // browser's own control — has to drop clean mode too, or the toolbar stays
