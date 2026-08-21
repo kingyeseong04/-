@@ -167,6 +167,7 @@ body.dragover #cv { box-shadow: 0 0 0 2px var(--accent), 0 18px 60px rgba(0, 0, 
 .hex.bad { border-color: #f23645; }
 
 #status { color: var(--dim); font-variant-numeric: tabular-nums; }
+#build { color: #4a545f; font-size: 11px; white-space: nowrap; }
 
 /* ---- clean mode (recording / preview) ---- */
 body.clean #bar { display: none; }

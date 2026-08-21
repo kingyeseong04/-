@@ -46,6 +46,11 @@
   const TAIL_MS = 900;    // extra recorded time after the last stroke finishes
   const TAP_SLOP = 10;    // movement below this still counts as a tap, not a drag
 
+  // Shown in the toolbar so it is possible to tell at a glance whether the
+  // browser is showing the newest deploy or a cached copy. Bump this and the
+  // ?v= query on the css/js tags together on every deploy.
+  const BUILD = 'v8 · 08-21 네온 블룸';
+
   // ---- DOM ----
   const $ = (id) => document.getElementById(id);
   const cv = $('cv');
@@ -925,6 +930,7 @@
 
   function init() {
     buildSwatches();
+    $('build').textContent = BUILD;
     selectColor(opt.color);
     setRatio('3:4');
 
