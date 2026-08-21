@@ -49,7 +49,7 @@
   // Shown in the toolbar so it is possible to tell at a glance whether the
   // browser is showing the newest deploy or a cached copy. Bump this and the
   // ?v= query on the css/js tags together on every deploy.
-  const BUILD = 'v8 · 08-21 네온 블룸';
+  const BUILD = 'v9 · 08-21 선명도';
 
   // ---- DOM ----
   const $ = (id) => document.getElementById(id);
@@ -80,6 +80,7 @@
   let recorder = null, chunks = null, stream = null, recording = false;
   let clean = false;
   let bgMode = 'photo';                 // 'photo' | 'black' | 'white'
+  let RES = 1;                          // backing-store pixels per logical pixel
 
   const opt = { kind: 'line', color: COLORS[1], width: 9, glow: 1, speed: 1400, gap: 250, arrow: false, ease: 'cubicOut' };
 
@@ -134,7 +135,10 @@
   // same code as a straight line — a shape just has more points. The outline is
   // generated in PIXEL space and converted back, otherwise a circle would come
   // out as an ellipse on a non-square canvas.
-  const CIRCLE_SEGS = 96;
+  // Segment count follows the drawn size: a fixed 96 leaves ~13px facets on a
+  // big circle, which reads as a polygon once the canvas is rendered sharp.
+  const circleSegs = (rx, ry) =>
+    Math.round(clamp(Math.PI * (rx + ry) / 5, 64, 320));
 
   function shapePts(s) {
     if (!isShape(s)) return s.pts;
@@ -155,8 +159,9 @@
     } else {
       const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
       const rx = Math.abs(b.x - a.x) / 2, ry = Math.abs(b.y - a.y) / 2;
-      for (let i = 0; i <= CIRCLE_SEGS; i++) {
-        const t = -Math.PI / 2 + (i / CIRCLE_SEGS) * Math.PI * 2;   // start at 12 o'clock
+      const segs = circleSegs(rx, ry);
+      for (let i = 0; i <= segs; i++) {
+        const t = -Math.PI / 2 + (i / segs) * Math.PI * 2;   // start at 12 o'clock
         back(cx + rx * Math.cos(t), cy + ry * Math.sin(t));
       }
     }
@@ -501,7 +506,7 @@
   function blitBake() {
     ctx.save();
     ctx.globalCompositeOperation = lightBg() ? 'source-over' : 'lighter';
-    ctx.drawImage(bake, 0, 0);
+    ctx.drawImage(bake, 0, 0, bake.width, bake.height, 0, 0, CW, CH);
     ctx.restore();
   }
 
@@ -530,12 +535,29 @@
   function setRatio(key) {
     const [w, h] = RATIOS[key] || RATIOS['3:4'];
     CW = w; CH = h;
-    cv.width = CW; cv.height = CH;
-    bake.width = CW; bake.height = CH;
     sizeBlooms();
-    invalidateBake();
+    sizeCanvases();
     fitBg();
     layout();
+  }
+
+  // Drawing coordinates stay logical (CW x CH); only the backing store grows.
+  // On a retina tablet the canvas was authored at 1080 wide and then stretched
+  // to ~1430 device pixels, which is what made diagonals and circle arcs look
+  // stepped while axis-aligned edges stayed clean. Rendering at the display's
+  // real pixel count removes the upscale entirely.
+  function sizeCanvases() {
+    const bw = Math.max(2, Math.round(CW * RES / 2) * 2);   // even: encoders prefer it
+    const bh = Math.max(2, Math.round(CH * RES / 2) * 2);
+    if (cv.width !== bw || cv.height !== bh) {
+      cv.width = bw; cv.height = bh;
+      bake.width = bw; bake.height = bh;
+    }
+    // Setting .width resets context state, so the transform is re-applied here.
+    const sx = bw / CW, sy = bh / CH;
+    ctx.setTransform(sx, 0, 0, sy, 0, 0);
+    bctx.setTransform(sx, 0, 0, sy, 0, 0);
+    invalidateBake();
   }
 
   function layout() {
@@ -543,8 +565,16 @@
     const aw = Math.max(1, stage.clientWidth - pad);
     const ah = Math.max(1, stage.clientHeight - pad);
     const s = Math.min(aw / CW, ah / CH);
-    cv.style.width = Math.floor(CW * s) + 'px';
+    const cssW = Math.floor(CW * s);
+    cv.style.width = cssW + 'px';
     cv.style.height = Math.floor(CH * s) + 'px';
+
+    // Match the backing store to the pixels actually on screen, 1:1. Anything
+    // else leaves the browser rescaling the canvas, and a fractional rescale is
+    // what shreds thin diagonals and circle arcs while leaving axis-aligned
+    // edges clean. Recording overrides this upward — see startRec.
+    const want = clamp((cssW * (window.devicePixelRatio || 1)) / CW, 0.3, 2);
+    if (Math.abs(want - RES) > 0.02) { RES = want; sizeCanvases(); }
     touch();
   }
 
@@ -798,6 +828,10 @@
     const mime = types.find((t) => MediaRecorder.isTypeSupported(t));
     if (!mime) { alert('이 브라우저는 캔버스 녹화를 지원하지 않습니다. 화면 녹화를 사용하세요.'); return; }
     chunks = [];
+    // The displayed size drives RES, so on a small window the backing store —
+    // and therefore the recording — would sit below the authored 1080. Force it
+    // up for the duration; layout() restores it when recording ends.
+    if (RES < 1) { RES = 1; sizeCanvases(); }
     // Keep our own reference to the stream: if only the MediaRecorder holds it,
     // the capture track can be collected mid-recording and the file comes out
     // with zero frames.
@@ -833,6 +867,7 @@
     recording = false;
     $('btn-rec').classList.remove('on');
     if (recorder && recorder.state !== 'inactive') recorder.stop();
+    layout();   // back to a display-matched backing store
   }
 
   // Clean mode hides the toolbar and, where the browser allows it, takes the
