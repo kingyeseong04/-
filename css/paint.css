@@ -62,18 +62,25 @@ html, body {
 body.dragover #cv { box-shadow: 0 0 0 2px var(--accent), 0 18px 60px rgba(0, 0, 0, .6); }
 
 /* ---- toolbar ---- */
-#bar {
+#dock {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  min-height: 104px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+
+#bar, #settings {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 14px;
   padding: 10px 14px;
-  background: var(--panel);
-  border-top: 1px solid var(--line);
 }
+#settings {
+  border-bottom: 1px solid var(--line);
+  background: #10141a;
+}
+#settings[hidden] { display: none; }
 
 .grp {
   display: flex;
@@ -170,7 +177,7 @@ body.dragover #cv { box-shadow: 0 0 0 2px var(--accent), 0 18px 60px rgba(0, 0, 
 #build { color: #4a545f; font-size: 11px; white-space: nowrap; }
 
 /* ---- clean mode (recording / preview) ---- */
-body.clean #bar { display: none; }
+body.clean #dock { display: none; }
 body.clean #stage { inset: 0; padding: 0; }
 body.clean #cv { box-shadow: none; }
 
@@ -264,7 +271,8 @@ body.playing .exit {
   .sl { font-size: 13px; }
   .sl input[type="range"] { width: 130px; height: 44px; }
   .exit { height: 44px; padding: 0 18px; }
-  #bar { gap: 10px; padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); }
+  #bar, #settings { gap: 10px; padding: 12px; }
+  #bar { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
   .grp { padding-right: 10px; gap: 8px; }
 }
 .btn, .sel, .sw, .sw-input, .exit { touch-action: manipulation; }
@@ -291,4 +299,17 @@ kbd {
   border-radius: 4px;
   background: var(--panel-2);
   font: 600 11px/1.4 ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* ---- portrait / narrow ----
+   A wrapping toolbar cost a quarter of the screen here. The rarely-touched
+   controls now live in the ⚙ drawer; what stays is squeezed so the two
+   remaining rows are as short as they can be. */
+@media (max-aspect-ratio: 1/1) {
+  #stage { padding: 8px; }
+  #bar, #settings { gap: 8px; padding: 8px 10px; }
+  .grp { padding-right: 8px; gap: 6px; }
+  .btn { padding: 0 10px; }
+  #status { display: none; }         /* the drawer shows the same counts */
+  .sl input[type="range"] { width: 108px; }
 }

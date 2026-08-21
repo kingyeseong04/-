@@ -49,7 +49,7 @@
   // Shown in the toolbar so it is possible to tell at a glance whether the
   // browser is showing the newest deploy or a cached copy. Bump this and the
   // ?v= query on the css/js tags together on every deploy.
-  const BUILD = 'v9 · 08-21 선명도';
+  const BUILD = 'v10 · 08-21 세로 화면';
 
   // ---- DOM ----
   const $ = (id) => document.getElementById(id);
@@ -560,6 +560,11 @@
     invalidateBake();
   }
 
+  function syncDock() {
+    document.documentElement.style.setProperty('--bar-h', $('dock').offsetHeight + 'px');
+    layout();
+  }
+
   function layout() {
     const pad = clean ? 0 : 28;
     const aw = Math.max(1, stage.clientWidth - pad);
@@ -1002,6 +1007,14 @@
     $('btn-rec').onclick = () => (recording ? stopRec() : startRec());
     $('btn-clean').onclick = () => setClean(!clean);
     $('btn-exit').onclick = () => setClean(false);
+    $('btn-more').onclick = () => {
+      const el = $('settings');
+      el.hidden = !el.hidden;
+      $('btn-more').classList.toggle('on', !el.hidden);
+      // The ResizeObserver would catch this a frame later, and for that one
+      // frame the canvas is still sized for the closed dock and overlaps it.
+      syncDock();
+    };
     $('btn-help').onclick = () => ($('help').hidden = false);
     $('help-close').onclick = () => ($('help').hidden = true);
     $('btn-arrow').onclick = () => {
@@ -1026,12 +1039,7 @@
 
     // The toolbar wraps to more rows on a narrow screen, so its height cannot
     // be a constant — measure it and let the stage size itself from that.
-    if (window.ResizeObserver) {
-      new ResizeObserver(() => {
-        document.documentElement.style.setProperty('--bar-h', $('bar').offsetHeight + 'px');
-        layout();
-      }).observe($('bar'));
-    }
+    if (window.ResizeObserver) new ResizeObserver(syncDock).observe($('dock'));
 
     // Leaving fullscreen by any route the page doesn't own — Esc, F11, the
     // browser's own control — has to drop clean mode too, or the toolbar stays
