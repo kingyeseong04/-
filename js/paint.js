@@ -49,7 +49,7 @@
   // Shown in the toolbar so it is possible to tell at a glance whether the
   // browser is showing the newest deploy or a cached copy. Bump this and the
   // ?v= query on the css/js tags together on every deploy.
-  const BUILD = 'v10 · 08-21 세로 화면';
+  const BUILD = 'v11 · 08-21 mp4 녹화';
 
   // ---- DOM ----
   const $ = (id) => document.getElementById(id);
@@ -824,11 +824,17 @@
       alert('이 브라우저는 캔버스 녹화를 지원하지 않습니다. 데스크톱 Chrome을 쓰거나 화면 녹화로 대신하세요.');
       return;
     }
-    // Safari (iPad) has MediaRecorder but no VP8/VP9 — it encodes H.264 in mp4.
-    // Listing mp4 last keeps webm on Chrome while letting a tablet record at all.
+    // Prefer mp4, but only when H.264 is named explicitly. iOS cannot play webm
+    // — that is why a recording made here opened in neither Photos nor the
+    // editor. The trap is that bare 'video/mp4' also reports as supported on
+    // Chromium and yields VP9 inside an mp4 wrapper (ftyp brands isom/iso6/
+    // iso2/vp09, no avcC box), which iOS rejects just the same while the .mp4
+    // extension hides why. So: explicit H.264 mp4, else honest webm, and bare
+    // mp4 only as a last resort for Safari, where it really is H.264.
     const types = [
+      'video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4;codecs=h264',
       'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm',
-      'video/mp4;codecs=avc1', 'video/mp4',
+      'video/mp4',
     ];
     const mime = types.find((t) => MediaRecorder.isTypeSupported(t));
     if (!mime) { alert('이 브라우저는 캔버스 녹화를 지원하지 않습니다. 화면 녹화를 사용하세요.'); return; }
@@ -844,7 +850,10 @@
     recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 16e6 });
     recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     recorder.onstop = () => {
-      const ext = /mp4/.test(mime) ? 'mp4' : 'webm';
+      // recorder.mimeType is what was actually negotiated, which can differ
+      // from the request — name the file after that, never after the guess.
+      const actual = (recorder && recorder.mimeType) || mime;
+      const ext = /mp4/.test(actual) ? 'mp4' : 'webm';
       const blob = new Blob(chunks, { type: 'video/' + ext });
       if (blob.size < 2000) {
         // Header-only file: the encoder produced no frames (usually a machine
