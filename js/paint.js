@@ -5,11 +5,12 @@
 // Straight segments only — no curve fitting — which is what chart mark-up
 // (support / resistance / breakout arrows) actually needs.
 //
-// The neon look is ADDITIVE, not a translucent marker: several blurred passes
-// of the colour composited with 'lighter', then a near-white core on top. That
-// is why a stroke reads as light emitted over the chart rather than ink laid on
-// top of it, and why '배경끄기' + a Screen blend in an editor drops the black
-// and keeps only the glow.
+// The neon look is ADDITIVE, not a translucent marker: the stroke is bloomed
+// through two small offscreen buffers scaled back up, then the lit tube is laid
+// over it. That is why a stroke reads as light emitted over the chart rather
+// than ink on top of it, and why '배경: 검정' + a Screen blend in an editor
+// drops the black and keeps only the glow. On a white background none of that
+// works, so there is a separate path — see neon().
 //
 // Points live in NORMALISED canvas coords {u,v} in 0..1 so they survive an
 // aspect-ratio change and the canvas being displayed at any on-screen size.
@@ -81,6 +82,7 @@
   const px = (p) => ({ x: p.u * CW, y: p.v * CH });
   const lightBg = () => bgMode === 'white';
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const sgn = (v) => (v < 0 ? -1 : 1);   // never 0, unlike Math.sign
 
   function openStroke() {
     const s = strokes[strokes.length - 1];
@@ -175,15 +177,18 @@
       // while Shift is held. The auto-flatten never applies to a shape — it
       // would collapse it into a line.
       if (shift || kind === 'circle') {
+        // sgn(), not Math.sign(): a perfectly horizontal drag has dy === 0, and
+        // Math.sign(0) is 0 — which would square the shape down onto a flat
+        // line instead of rounding it out.
         const m = (ax + ay) / 2;
-        dx = Math.sign(dx) * m; dy = Math.sign(dy) * m;
+        dx = sgn(dx) * m; dy = sgn(dy) * m;
       }
       return { x: a.x + dx, y: a.y + dy };
     }
     if (shift) {
       if (ay < ax * 0.4142) dy = 0;              // within 22.5° of horizontal
       else if (ax < ay * 0.4142) dx = 0;         // within 22.5° of vertical
-      else { const m = (ax + ay) / 2; dx = Math.sign(dx) * m; dy = Math.sign(dy) * m; }
+      else { const m = (ax + ay) / 2; dx = sgn(dx) * m; dy = sgn(dy) * m; }
     } else {
       if (ay <= AUTO_SNAP_PX) dy = 0;
       else if (ax <= AUTO_SNAP_PX) dx = 0;
@@ -219,59 +224,128 @@
   }
 
   // --------------------------------------------------------------- rendering
-  // Bloom is built from stacked strokes of the SAME path at increasing widths
-  // and low alpha, composited additively — deliberately not shadowBlur/filter.
-  // A halo this wide costs a ~100px blur kernel per pass, which stalls the
-  // frame loop badly enough that MediaRecorder captures nothing; stacked
-  // strokes give the same falloff for a fraction of the cost.
-  // [width multiplier, alpha] — widest and faintest first.
-  const HALO = [[7.0, 0.045], [5.0, 0.06], [3.4, 0.085], [2.3, 0.12], [1.6, 0.18], [1.0, 0.55]];
+  // Glow is real bloom: the stroke is rendered into two small offscreen
+  // buffers and scaled back up, so bilinear filtering does the blurring. That
+  // gives a continuous falloff instead of the visible stair-steps you get from
+  // stacking a handful of ever-wider strokes, and it costs two drawImage calls
+  // instead of a ~100px blur kernel (which stalls the frame loop hard enough
+  // that MediaRecorder captures nothing).
+  //
+  //   far  — 1/18 scale, the wide atmospheric haze
+  //   near — 1/5  scale, the tight halo hugging the line
+  //   then the line itself, then a slightly lightened core.
+  const BLOOM = [
+    { div: 18, spread: 1.9, alpha: 0.42 },
+    { div: 5,  spread: 1.25, alpha: 0.38 },
+  ];
+  const bloomBufs = BLOOM.map(() => document.createElement('canvas'));
 
-  function neon(g, path, color, width, glow) {
+  function sizeBlooms() {
+    BLOOM.forEach((b, i) => {
+      bloomBufs[i].width = Math.max(1, Math.round(CW / b.div));
+      bloomBufs[i].height = Math.max(1, Math.round(CH / b.div));
+    });
+  }
+
+  // The core keeps the stroke's hue instead of blowing out to pure white —
+  // a fully white centre reads as a cheap arcade sign rather than lit glass.
+  function lighten(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const m = (c) => Math.round(c + (255 - c) * amt);
+    return 'rgb(' + m(r) + ',' + m(g) + ',' + m(b) + ')';
+  }
+
+  function bloom(g, path, color, width, glow, light, box) {
+    for (let i = 0; i < BLOOM.length; i++) {
+      const cfg = BLOOM[i], buf = bloomBufs[i];
+      const s = 1 / cfg.div;
+      const b = buf.getContext('2d');
+      b.setTransform(s, 0, 0, s, 0, 0);
+      b.clearRect(0, 0, CW, CH);
+      b.lineCap = 'round';
+      b.lineJoin = 'round';
+      b.strokeStyle = color;
+      // Widen with glow, but keep a floor so glow=0 is a clean line, not a blob.
+      b.lineWidth = width * (1 + (cfg.spread - 1) * glow);
+      b.globalAlpha = 1;
+      b.stroke(path);
+      b.setTransform(1, 0, 0, 1, 0, 0);
+
+      // Composite only the stroke's own neighbourhood. The upscale costs
+      // destination pixels, and a support line spanning the frame still covers
+      // a sliver of it — blooming all 1080x1440 for that is most of the work
+      // thrown away. Padding covers the smear: about one destination pixel per
+      // buffer pixel, plus the drawn width.
+      const pad = width * cfg.spread + cfg.div * 3;
+      const dx0 = clamp(box.x0 - pad, 0, CW), dy0 = clamp(box.y0 - pad, 0, CH);
+      const dx1 = clamp(box.x1 + pad, 0, CW), dy1 = clamp(box.y1 + pad, 0, CH);
+      const dw = dx1 - dx0, dh = dy1 - dy0;
+      if (dw <= 0 || dh <= 0) continue;
+
+      g.globalCompositeOperation = light ? 'source-over' : 'lighter';
+      g.globalAlpha = cfg.alpha * glow * (light ? 0.5 : 1);
+      g.imageSmoothingEnabled = true;
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(buf, dx0 * s, dy0 * s, dw * s, dh * s, dx0, dy0, dw, dh);
+    }
+  }
+
+  function bboxOf(pts, pad) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of pts) {
+      if (p.x < x0) x0 = p.x;
+      if (p.x > x1) x1 = p.x;
+      if (p.y < y0) y0 = p.y;
+      if (p.y > y1) y1 = p.y;
+    }
+    return { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad };
+  }
+
+  function neon(g, path, color, width, glow, box) {
+    const light = lightBg();
     g.save();
     g.lineCap = 'round';
     g.lineJoin = 'round';
 
-    if (lightBg()) {
+    if (glow > 0.01) bloom(g, path, color, width, glow, light, box);
+
+    g.globalCompositeOperation = light ? 'source-over' : 'lighter';
+    g.imageSmoothingEnabled = true;
+
+    if (light) {
       // Additive blending has nowhere to go on white — every stroke saturates
-      // to white and vanishes, and the white-hot core is invisible anyway. On a
-      // light background the halo is painted normally and the colour itself
-      // becomes the core.
-      g.globalCompositeOperation = 'source-over';
-      g.strokeStyle = color;
-      for (const [mul, alpha] of HALO) {
-        g.lineWidth = width * (1 + (mul - 1) * glow);
-        g.globalAlpha = alpha * 0.45;
-        g.stroke(path);
-      }
+      // to white and vanishes, and a light core is invisible anyway. Here the
+      // colour itself is the line and the bloom sits under it.
       g.globalAlpha = 1;
+      g.strokeStyle = color;
       g.lineWidth = width;
       g.stroke(path);
       g.restore();
       return;
     }
 
-    g.globalCompositeOperation = 'lighter';
+    // The lit tube: colour body, then a narrower lightened core. Two soft
+    // shoulders in between keep the edge from turning into a hard rim.
+    g.globalAlpha = 0.55;
     g.strokeStyle = color;
-    for (const [mul, alpha] of HALO) {
-      // glow=0 collapses every pass onto the core width → a flat, solid line.
-      g.lineWidth = width * (1 + (mul - 1) * glow);
-      g.globalAlpha = alpha;
-      g.stroke(path);
-    }
-    // One small blur softens the stepped edges of the stack; kept tight so it
-    // stays cheap.
-    g.shadowColor = color;
-    g.shadowBlur = width * 1.6 * glow;
-    g.lineWidth = width;
-    g.globalAlpha = 0.5;
+    g.lineWidth = width * 1.5;
     g.stroke(path);
 
-    g.shadowBlur = 0;
-    g.globalAlpha = 1;
-    g.strokeStyle = '#ffffff';
-    g.lineWidth = Math.max(1, width * 0.34);
+    g.globalAlpha = 0.85;
+    g.lineWidth = width;
     g.stroke(path);
+
+    g.globalAlpha = 0.9;
+    g.strokeStyle = lighten(color, 0.55);
+    g.lineWidth = Math.max(1, width * 0.5);
+    g.stroke(path);
+
+    g.globalAlpha = 1;
+    g.strokeStyle = lighten(color, 0.86);
+    g.lineWidth = Math.max(1, width * 0.22);
+    g.stroke(path);
+
     g.restore();
   }
 
@@ -297,7 +371,7 @@
   function paintStroke(g, s, p) {
     const pts = partial(shapePts(s), p);
     if (pts.length < 2) return;
-    neon(g, linePath(pts), s.color, s.width, s.glow);
+    neon(g, linePath(pts), s.color, s.width, s.glow, bboxOf(pts, s.width));
     if (s.arrow && !isShape(s)) {
       // The head rides the leading tip for the whole draw rather than popping
       // in at the end, so the stroke reads as an arrow flying to its target.
@@ -308,7 +382,10 @@
       let drawn = 0;
       for (let i = 1; i < n; i++) drawn += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
       const size = full * clamp(drawn / (full * 1.6), 0, 1);
-      if (size > 1) neon(g, arrowPath(pts[n - 2], pts[n - 1], size), s.color, s.width, s.glow);
+      if (size > 1) {
+        neon(g, arrowPath(pts[n - 2], pts[n - 1], size), s.color, s.width, s.glow,
+             bboxOf([pts[n - 1]], size + s.width));
+      }
     }
   }
 
@@ -450,6 +527,7 @@
     CW = w; CH = h;
     cv.width = CW; cv.height = CH;
     bake.width = CW; bake.height = CH;
+    sizeBlooms();
     invalidateBake();
     fitBg();
     layout();
