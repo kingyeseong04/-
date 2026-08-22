@@ -49,7 +49,7 @@
   // Shown in the toolbar so it is possible to tell at a glance whether the
   // browser is showing the newest deploy or a cached copy. Bump this and the
   // ?v= query on the css/js tags together on every deploy.
-  const BUILD = 'v11 · 08-21 mp4 녹화';
+  const BUILD = 'v12 · 08-21 첫 프레임·파일명';
 
   // ---- DOM ----
   const $ = (id) => document.getElementById(id);
@@ -80,6 +80,7 @@
   let recorder = null, chunks = null, stream = null, recording = false;
   let clean = false;
   let bgMode = 'photo';                 // 'photo' | 'black' | 'white'
+  let preroll = false;                  // showing the pre-animation frame
   let RES = 1;                          // backing-store pixels per logical pixel
 
   const opt = { kind: 'line', color: COLORS[1], width: 9, glow: 1, speed: 1400, gap: 250, arrow: false, ease: 'cubicOut' };
@@ -474,7 +475,7 @@
   function render(sch) {
     drawBackground();
 
-    if (playing || recording) {
+    if (playing || recording || preroll) {
       let live = -1;
       let done = 0;
       for (let i = 0; i < strokes.length; i++) {
@@ -814,12 +815,15 @@
     playT = 0;
     playStart = performance.now();
     playing = true;
+    preroll = false;
     setPlayingUI(true);
     $('btn-play').classList.add('on');
   }
 
   function startRec() {
-    if (recording || !strokes.length) return;
+    if (recording) return;
+    endStroke();
+    if (!strokes.length) return;
     if (!cv.captureStream || typeof MediaRecorder === 'undefined') {
       alert('이 브라우저는 캔버스 녹화를 지원하지 않습니다. 데스크톱 Chrome을 쓰거나 화면 녹화로 대신하세요.');
       return;
@@ -843,6 +847,17 @@
     // and therefore the recording — would sit below the authored 1080. Force it
     // up for the duration; layout() restores it when recording ends.
     if (RES < 1) { RES = 1; sizeCanvases(); }
+
+    // captureStream grabs whatever is on the canvas the instant it is created,
+    // and that is still the finished drawing from editing — which is how a
+    // completed frame ended up at the head of every recording. Paint the t=0
+    // frame first, synchronously, then attach.
+    recording = true;
+    preroll = true;
+    playT = 0;
+    invalidateBake();
+    render(schedule());
+
     // Keep our own reference to the stream: if only the MediaRecorder holds it,
     // the capture track can be collected mid-recording and the file comes out
     // with zero frames.
@@ -865,15 +880,22 @@
       }
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'neon-' + Date.now() + '.' + ext;
+      a.download = fileName() + '.' + ext;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 10000);
       recorder = null; chunks = null; stream = null;
     };
-    recording = true;
     $('btn-rec').classList.add('on');
     recorder.start(250);   // chunked: without a timeslice some builds emit an empty blob
     play();
+  }
+
+  // Every export used to be neon-<epoch>, which is unreadable once a dozen of
+  // them sit in an editor's media bin. iOS has no save-as dialog (the File
+  // System Access API is Chrome-desktop only), so the name is chosen here.
+  function fileName() {
+    const raw = ($('fname').value || '').trim().replace(/[\\/:*?"<>|]+/g, '').slice(0, 60);
+    return raw || 'neon-' + Date.now();
   }
 
   function stopRec() {
@@ -890,6 +912,11 @@
   // around and ask the browser to undo it again.
   function setClean(on, fromFs) {
     clean = on;
+    // Clean mode is the capture view, so it shows the frame the animation
+    // starts from — not the finished drawing left over from editing. That
+    // leftover is what put a fully-drawn frame at the head of a recording.
+    preroll = on;
+    if (on) { playT = 0; invalidateBake(); }
     document.body.classList.toggle('clean', on);
     $('btn-clean').classList.toggle('on', on);
     $('btn-exit').hidden = !on;

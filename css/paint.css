@@ -173,6 +173,19 @@ body.dragover #cv { box-shadow: 0 0 0 2px var(--accent), 0 18px 60px rgba(0, 0, 
 .hex:focus { outline: none; border-color: var(--accent); }
 .hex.bad { border-color: #f23645; }
 
+.fname {
+  width: 190px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+}
+.fname:focus { outline: none; border-color: var(--accent); }
+@media (pointer: coarse) { .fname { height: 44px; width: 210px; } }
+
 #status { color: var(--dim); font-variant-numeric: tabular-nums; }
 #build { color: #4a545f; font-size: 11px; white-space: nowrap; }
 

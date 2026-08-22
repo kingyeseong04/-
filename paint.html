@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Neon Paint — 차트 위 네온 선 연출</title>
-<link rel="stylesheet" href="css/paint.css?v=11">
+<link rel="stylesheet" href="css/paint.css?v=12">
 </head>
 <body>
 
@@ -46,6 +46,7 @@
         <option value="circEase">Circular · 양끝 느림</option>
         <option value="linear">Linear · 일정</option>
       </select>
+      <input type="text" id="fname" class="fname" placeholder="파일명 (비우면 자동)" maxlength="60" spellcheck="false" title="녹화 파일 이름">
       <button id="btn-rec" class="btn rec" title="V — 캔버스 녹화 (mp4)">⏺ 녹화</button>
     </div>
     <div class="grp right">
@@ -106,7 +107,8 @@
       <tr><td>점을 끌기</td><td>이미 찍은 점 옮기기 (도형은 크기 조절)</td></tr>
       <tr><td>두 손가락</td><td>배경 사진 이동 · 오므리기/벌리기로 확대</td></tr>
       <tr><td>도구모음</td><td>도구 · 색 · 획끝 · 되돌리기 · 배경 · 재생이 항상 아래 두 줄에 있습니다</td></tr>
-      <tr><td>⚙ 버튼</td><td>이미지 · 비율 · 굵기 · 글로우 · 속도 · 획 간 대기 · 가감속 · 녹화 (자주 안 쓰는 것들)</td></tr>
+      <tr><td>⚙ 버튼</td><td>이미지 · 비율 · 굵기 · 글로우 · 속도 · 획 간 대기 · 가감속 · <b>파일명</b> · 녹화</td></tr>
+      <tr><td>파일명</td><td>녹화 전에 미리 정해둡니다. 비우면 <code>neon-(시각)</code>. 저장된 파일이 <code>download</code>로 나오면 그 브라우저가 한글 파일명을 못 받는 것이니 영문·숫자로 쓰세요.</td></tr>
       <tr><td>전체화면 중</td><td>아래 가운데 <b>▶ 재생</b>, 오른쪽 위 <b>✕ 나가기</b>. 재생이 시작되면 둘 다 사라져 화면녹화에 안 찍힙니다</td></tr>
 
       <tr><th colspan="2">키보드가 있을 때</th></tr>
@@ -120,11 +122,11 @@
       <tr><td><kbd>B</kbd> · <kbd>F</kbd> · <kbd>Esc</kbd></td><td>배경 전환(사진→검정→흰색) · 전체화면 · 나가기</td></tr>
       <tr><td><kbd>Alt</kbd>+드래그 · 휠 · <kbd>0</kbd></td><td>배경 이동 · 확대 · 맞춤 초기화</td></tr>
     </table>
-    <p class="tip">편집 영상에 얹을 때는 <b>배경: 검정</b>으로 녹화한 뒤, 편집 프로그램에서 <b>스크린(Screen) 블렌드</b>로 올리면 검정이 사라지고 네온만 남습니다. <b>배경: 흰색</b>은 밝은 화면용으로, 이때는 네온이 흰 바탕에서 안 보이지 않도록 다른 방식으로 그려집니다.</p>
+    <p class="tip">전체화면에 들어가면 캔버스가 <b>아무것도 안 그려진 상태</b>로 돌아갑니다 — 그대로 화면녹화를 시작하고 <b>▶ 재생</b>을 누르면 됩니다. 편집 영상에 얹을 때는 <b>배경: 검정</b>으로 녹화한 뒤, 편집 프로그램에서 <b>스크린(Screen) 블렌드</b>로 올리면 검정이 사라지고 네온만 남습니다. <b>배경: 흰색</b>은 밝은 화면용으로, 이때는 네온이 흰 바탕에서 안 보이지 않도록 다른 방식으로 그려집니다.</p>
     <button id="help-close" class="btn">닫기</button>
   </div>
 </div>
 
-<script src="js/paint.js?v=11"></script>
+<script src="js/paint.js?v=12"></script>
 </body>
 </html>
