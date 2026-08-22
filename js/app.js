@@ -575,10 +575,10 @@
     v = v || 0;
     if (state.quote === 'KRW') {
       const usd = state.fx ? v / state.fx : 0;
-      return (usd < 0 ? '-$' : '$') + Math.abs(usd).toLocaleString('en-US', { maximumFractionDigits: 2 });
+      return (usd < 0 ? '-' : '') + Math.abs(usd).toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' USD';
     }
     const won = Math.round(v * state.fx);
-    return (won < 0 ? '-₩' : '₩') + Math.abs(won).toLocaleString('en-US');
+    return (won < 0 ? '-' : '') + Math.abs(won).toLocaleString('en-US') + ' KRW';
   }
   // Backwards-compatible alias (older call sites).
   function fmtKRW(v) { return fmtConv(v); }
@@ -846,37 +846,41 @@
 
     const tbody = $('pos-rows');
     const isLong = account.qty > 0;
+    const side = isLong ? 'long' : 'short';
     const sig = account.qty === 0 ? 'flat'
-      : (isLong ? 'L' : 'S') + Math.abs(account.qty).toFixed(6) + '@' + account.avgEntry;
+      : side + Math.abs(account.qty).toFixed(6) + '@' + account.avgEntry + '/' + state.symbol + '/' + (account.leverage || 1);
+    // Bybit-style position card: coloured bar (sized to the 2-line Contracts
+    // cell) + BTCUSDT/Perp/Cross Nx, then Qty and a 3-line P&L, all centred.
     if (sig !== _posSig) {
       _posSig = sig;
       if (account.qty === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty">No open position</td></tr>';
+        tbody.innerHTML = '<div class="pos-empty">No open position</div>';
       } else {
-        const d = dec(account.avgEntry);
-        tbody.innerHTML = '<tr>' +
-          '<td>' + state.symbol + '</td>' +
-          '<td class="' + (isLong ? 'side-long' : 'side-short') + '">' +
-            (isLong ? 'Long' : 'Short') + ' ' + fmt(Math.abs(account.qty), 4) + '</td>' +
-          '<td id="pos-value-cell"></td>' +
-          '<td>' + fmt(account.avgEntry, d) + '</td>' +
-          '<td id="pos-mark-cell"></td>' +
-          '<td>' + fmt(account.liquidationPrice, d) + '</td>' +
-          '<td id="pos-pnl-cell"></td>' +
-          '<td><button class="row-close" data-close="1">Close</button></td>' +
-          '</tr>';
+        const full = (state.symbol || '').replace(/\.P$/i, '');   // BTCUSDT
+        const base = full.replace(/USDT$/i, '') || full;          // BTC
+        const lev = (Math.round((account.leverage || 1) * 100) / 100).toFixed(2);
+        tbody.innerHTML =
+          '<div class="pos-card ' + side + '">' +
+            '<div class="pc-bar"></div>' +
+            '<div class="pc-contracts">' +
+              '<div class="pc-sym">' + full + ' <span class="pc-perp">Perp</span></div>' +
+              '<div class="pc-lev">Cross ' + lev + 'x</div>' +
+            '</div>' +
+            '<div class="pc-qty ' + side + '">' + fmt(Math.abs(account.qty), 4) + ' ' + base + '</div>' +
+            '<div class="pc-pnl" id="pos-pnl-cell">' +
+              '<div class="pc-pnl-usd"></div><div class="pc-pnl-roi"></div><div class="pc-pnl-krw"></div>' +
+            '</div>' +
+          '</div>';
       }
     }
     if (account.qty !== 0) {
-      const d = dec(account.avgEntry);
-      const pnl = account.unrealizedPnl;
-      const vc = $('pos-value-cell'); if (vc) vc.textContent = fmt(account.notional);
-      const mc = $('pos-mark-cell'); if (mc) mc.textContent = fmt(account.markPrice, d);
+      const pnl = account.unrealizedPnl, pct = account.unrealizedPnlPct;
       const pc = $('pos-pnl-cell');
       if (pc) {
-        pc.className = pnl >= 0 ? 'up' : 'down';
-        pc.textContent = sign(pnl) + fmt(pnl) +
-          ' (' + sign(account.unrealizedPnlPct) + fmt(account.unrealizedPnlPct, 2) + '%)';
+        pc.className = 'pc-pnl ' + (pnl >= 0 ? 'up' : 'down');
+        pc.children[0].textContent = (pnl < 0 ? '-' : '') + fmt(Math.abs(pnl)) + ' USDT';
+        pc.children[1].textContent = '(' + (pct < 0 ? '-' : '') + fmt(Math.abs(pct), 2) + '%)';
+        pc.children[2].textContent = '≈' + fmtConv(pnl);
       }
     }
   }

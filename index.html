@@ -8,7 +8,7 @@
   <!-- Bybit's web UI renders in the platform system font (San Francisco on
        iPad/Safari). Use the same system stack so the app matches Bybit exactly
        on-device — and drop the external Google Fonts dependency. -->
-  <link rel="stylesheet" href="css/styles.css?v=62" />
+  <link rel="stylesheet" href="css/styles.css?v=63" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -107,14 +107,7 @@
         </div>
 
         <div class="tabpanel" id="panel-positions">
-          <table class="pos-table">
-            <thead>
-              <tr><th>Symbol</th><th>Qty</th><th>Value</th><th>Entry</th><th>Mark</th><th>Liq.</th><th>Unrealized P&amp;L</th><th></th></tr>
-            </thead>
-            <tbody id="pos-rows">
-              <tr id="pos-empty"><td colspan="8" class="empty">No open position</td></tr>
-            </tbody>
-          </table>
+          <div id="pos-rows" class="pos-cards"><div class="pos-empty">No open position</div></div>
           <!-- hidden holders kept for the app to update; surfaced in the row above -->
           <div id="position-box" class="hidden-fields flat">
             <span id="pos-side"></span><span id="pos-size"></span><span id="pos-entry"></span>
@@ -147,22 +140,22 @@
           <div class="ap-label">Unrealized P&amp;L</div>
           <div class="ap-val"><span id="ap-pnl-usdt">0.00</span> <span class="ap-unit">USDT</span></div>
           <div class="ap-pct" id="ap-pnl-pct">0.00%</div>
-          <div class="ap-krw" id="ap-pnl-krw">₩0</div>
+          <div class="ap-krw" id="ap-pnl-krw">0 KRW</div>
         </div>
         <div class="ap-block">
           <div class="ap-label">Equity</div>
           <div class="ap-val"><span id="ap-equity">10,000.00</span> <span class="ap-unit">USDT</span></div>
-          <div class="ap-krw" id="ap-equity-krw">₩0</div>
+          <div class="ap-krw" id="ap-equity-krw">0 KRW</div>
         </div>
         <div class="ap-block">
           <div class="ap-label">Available</div>
           <div class="ap-val"><span id="ap-available">10,000.00</span> <span class="ap-unit">USDT</span></div>
-          <div class="ap-krw" id="ap-available-krw">₩0</div>
+          <div class="ap-krw" id="ap-available-krw">0 KRW</div>
         </div>
         <div class="ap-block">
           <div class="ap-label">Last Price</div>
           <div class="ap-val" id="ap-price">0.00</div>
-          <div class="ap-krw" id="ap-price-krw">₩0</div>
+          <div class="ap-krw" id="ap-price-krw">0 KRW</div>
         </div>
       </div>
 
@@ -254,7 +247,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v62</span>
+    <span class="ver" title="버전 (최신 확인용)">v63</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
@@ -283,12 +276,12 @@
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=62"></script>
-  <script src="js/dataSource.js?v=62"></script>
-  <script src="js/indicators.js?v=62"></script>
-  <script src="js/trading.js?v=62"></script>
-  <script src="js/chart.js?v=62"></script>
-  <script src="js/draw.js?v=62"></script>
-  <script src="js/app.js?v=62"></script>
+  <script src="js/tickEngine.js?v=63"></script>
+  <script src="js/dataSource.js?v=63"></script>
+  <script src="js/indicators.js?v=63"></script>
+  <script src="js/trading.js?v=63"></script>
+  <script src="js/chart.js?v=63"></script>
+  <script src="js/draw.js?v=63"></script>
+  <script src="js/app.js?v=63"></script>
 </body>
 </html>
