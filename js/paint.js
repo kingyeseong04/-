@@ -28,18 +28,6 @@
   };
   const COLORS = ['#ff2f2f', '#ffe600', '#00e676'];   // 빨 · 노 · 초 (+ 직접 지정)
 
-  // Pen acceleration along a stroke. Progress is eased over the stroke's whole
-  // length, so on a multi-segment line the pen keeps easing across the corners
-  // instead of restarting per segment. All of these map 0→0 and 1→1, which is
-  // what lets the scheduler keep using raw progress to decide what is finished.
-  const EASE = {
-    linear:   (t) => t,
-    cubicOut: (t) => 1 - Math.pow(1 - t, 3),          // 빠르게 출발 → 도착하며 감속
-    cubicIn:  (t) => t * t * t,                       // 느리게 출발 → 최고 속도로 끝
-    circEase: (t) => t < 0.5                          // 양끝 느리고 중간이 빠름
-      ? (1 - Math.sqrt(1 - 4 * t * t)) / 2
-      : (Math.sqrt(1 - Math.pow(-2 * t + 2, 2)) + 1) / 2,
-  };
   const HIT_PX = 18;      // grab radius for dragging an existing point
   const DUP_PX = 7;       // clicks closer than this to the last point are ignored
   const AUTO_SNAP_PX = 5; // un-shifted clicks this close to level/plumb are straightened
@@ -49,7 +37,7 @@
   // Shown in the toolbar so it is possible to tell at a glance whether the
   // browser is showing the newest deploy or a cached copy. Bump this and the
   // ?v= query on the css/js tags together on every deploy.
-  const BUILD = 'v12 · 08-21 첫 프레임·파일명';
+  const BUILD = 'v13 · 08-22 linear 고정';
 
   // ---- DOM ----
   const $ = (id) => document.getElementById(id);
@@ -82,8 +70,9 @@
   let bgMode = 'photo';                 // 'photo' | 'black' | 'white'
   let preroll = false;                  // showing the pre-animation frame
   let RES = 1;                          // backing-store pixels per logical pixel
+  let lastStatus = null;                // avoid redundant DOM writes
 
-  const opt = { kind: 'line', color: COLORS[1], width: 9, glow: 1, speed: 1400, gap: 250, arrow: false, ease: 'cubicOut' };
+  const opt = { kind: 'line', color: COLORS[1], width: 9, glow: 1, speed: 1400, gap: 250, arrow: false };
 
   // ---------------------------------------------------------------- geometry
   const px = (p) => ({ x: p.u * CW, y: p.v * CH });
@@ -211,28 +200,37 @@
   // Strokes play one after another at a constant pen speed, so a long line
   // takes proportionally longer than a short one instead of every stroke
   // taking the same time regardless of length.
+  // Length is cached per stroke and invalidated by edits. Without it the
+  // scheduler re-walked every point of every stroke on every frame, and a
+  // circle is up to 320 of them.
+  function strokeLen(s) {
+    if (s.len == null || s.lenW !== CW || s.lenH !== CH) {
+      s.len = polyLen(shapePts(s));
+      s.lenW = CW; s.lenH = CH;
+    }
+    return s.len;
+  }
+
+  function editedStroke(s) { s.len = null; s.outKey = null; }
+
   function schedule() {
     const items = [];
     let t = 0;
     for (const s of strokes) {
-      const dur = Math.max(90, (polyLen(shapePts(s)) / opt.speed) * 1000);
+      const dur = Math.max(90, (strokeLen(s) / opt.speed) * 1000);
       items.push({ start: t, dur: dur, end: t + dur });
       t += dur + opt.gap;
     }
     return { items: items, total: items.length ? items[items.length - 1].end : 0 };
   }
 
-  // Raw 0..1 fraction of a stroke's time slot — used to decide what has
-  // finished, so it must stay un-eased.
+  // The pen runs at a constant rate: progress is the raw fraction of the
+  // stroke's time slot.
   function progressAt(item, t) {
     if (!item.dur) return 1;
     return clamp((t - item.start) / item.dur, 0, 1);
   }
 
-  // How far along its own length the pen has actually travelled.
-  function easedAt(s, item, t) {
-    return (EASE[s.ease] || EASE.linear)(progressAt(item, t));
-  }
 
   // --------------------------------------------------------------- rendering
   // Glow is real bloom: the stroke is rendered into two small offscreen
@@ -485,7 +483,7 @@
       }
       bakeUpTo(done);
       blitBake();
-      if (live >= 0) paintStroke(ctx, strokes[live], easedAt(strokes[live], sch.items[live], playT));
+      if (live >= 0) paintStroke(ctx, strokes[live], progressAt(sch.items[live], playT));
     } else {
       // Editing: everything is shown finished. Only the stroke still being
       // clicked stays out of the bake, since it changes on every click.
@@ -499,9 +497,12 @@
     const total = sch.total / 1000;
     const now = playing ? Math.min(playT, sch.total) / 1000 : total;
     const pts = strokes.reduce((n, s) => n + s.pts.length, 0);
-    statusEl.textContent = strokes.length
+    const txt = strokes.length
       ? `획 ${strokes.length} · 점 ${pts} · ${now.toFixed(1)} / ${total.toFixed(1)}s`
       : '';
+    // Writing textContent every frame is a layout invalidation for a string
+    // that changes ten times a second at most.
+    if (txt !== lastStatus) { statusEl.textContent = txt; lastStatus = txt; }
   }
 
   function blitBake() {
@@ -512,6 +513,8 @@
   }
 
   function frame(now) {
+    // Nothing to compute on an idle frame; schedule() allocates per stroke.
+    if (!(playing || recording || dirty)) { requestAnimationFrame(frame); return; }
     const sch = schedule();
     if (playing) {
       playT = now - playStart;
@@ -574,6 +577,7 @@
     const cssW = Math.floor(CW * s);
     cv.style.width = cssW + 'px';
     cv.style.height = Math.floor(CH * s) + 'px';
+    cvRect = null;
 
     // Match the backing store to the pixels actually on screen, 1:1. Anything
     // else leaves the browser rescaling the canvas, and a fractional rescale is
@@ -605,8 +609,16 @@
   }
 
   // --------------------------------------------------------------- pointers
+  // Cached: reading getBoundingClientRect on every pointermove forces a layout
+  // flush, and a drag fires it 60 times a second. Invalidated on resize.
+  let cvRect = null;
+  function canvasRect() {
+    if (!cvRect) cvRect = cv.getBoundingClientRect();
+    return cvRect;
+  }
+
   function toCanvas(e) {
-    const r = cv.getBoundingClientRect();
+    const r = canvasRect();
     return {
       x: (e.clientX - r.left) * (CW / r.width),
       y: (e.clientY - r.top) * (CH / r.height),
@@ -627,7 +639,7 @@
   function newStroke() {
     const s = {
       kind: opt.kind, pts: [], color: opt.color, width: opt.width,
-      glow: opt.glow, arrow: opt.arrow, ease: opt.ease, open: true,
+      glow: opt.glow, arrow: opt.arrow, open: true,
     };
     strokes.push(s);
     return s;
@@ -639,6 +651,7 @@
     // Swallow the second click of a double-click (and stray double taps).
     if (prev && Math.hypot(p.x - px(prev).x, p.y - px(prev).y) < DUP_PX) return false;
     s.pts.push({ u: p.x / CW, v: p.y / CH });
+    editedStroke(s);
     $('hint').hidden = true;   // drawing started; stop advertising the drop target
     // A box or circle is fully defined by two corners, so it closes itself and
     // the next tap starts a new one.
@@ -686,6 +699,7 @@
       const prev = drag.pi > 0 ? s.pts[drag.pi - 1] : null;
       const p = snap(prev, x, y, e.shiftKey, s.kind);
       s.pts[drag.pi] = { u: p.x / CW, v: p.y / CH };
+      editedStroke(s);
       if (!s.open) invalidateBake();   // a baked stroke changed shape
       touch();
       return;
@@ -798,7 +812,7 @@
   function undo() {
     const s = strokes[strokes.length - 1];
     if (!s) return;
-    if (s.pts.length > 1) s.pts.pop(); else strokes.pop();
+    if (s.pts.length > 1) { s.pts.pop(); editedStroke(s); } else strokes.pop();
     invalidateBake();
   }
 
@@ -875,7 +889,7 @@
         // with no GPU video encoding). Better to say so than to hand over a
         // webm that opens as a black rectangle.
         alert('녹화된 프레임이 없습니다. 이 PC에서 캔버스 녹화가 동작하지 않는 것 같습니다 — 속도를 늦춰 다시 시도하거나 화면 녹화를 사용하세요.');
-        recorder = null; chunks = null; stream = null;
+        recorder = null; chunks = null; releaseStream();
         return;
       }
       const a = document.createElement('a');
@@ -883,7 +897,7 @@
       a.download = fileName() + '.' + ext;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-      recorder = null; chunks = null; stream = null;
+      recorder = null; chunks = null; releaseStream();
     };
     $('btn-rec').classList.add('on');
     recorder.start(250);   // chunked: without a timeslice some builds emit an empty blob
@@ -896,6 +910,13 @@
   function fileName() {
     const raw = ($('fname').value || '').trim().replace(/[\\/:*?"<>|]+/g, '').slice(0, 60);
     return raw || 'neon-' + Date.now();
+  }
+
+  // A canvas capture track stays live after the recorder stops and keeps the
+  // compositor pulling frames; drop it explicitly.
+  function releaseStream() {
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    stream = null;
   }
 
   function stopRec() {
@@ -1022,10 +1043,6 @@
       [...$('swatches').children].forEach((el) => el.classList.toggle('on', el.dataset.color === v.toLowerCase()));
       $('custom').classList.toggle('on', !COLORS.includes(v.toLowerCase()));
       $('custom').style.boxShadow = '0 0 10px ' + $('custom').value;
-    });
-    $('ease').addEventListener('change', (e) => {
-      opt.ease = e.target.value;
-      applyToOpen('ease', opt.ease);
     });
 
     slider('width', 'width', (v) => String(v), invalidateBake);

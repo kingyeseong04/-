@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Neon Paint — 차트 위 네온 선 연출</title>
-<link rel="stylesheet" href="css/paint.css?v=12">
+<link rel="stylesheet" href="css/paint.css?v=13">
 </head>
 <body>
 
@@ -40,12 +40,6 @@
       <label class="sl">획 간 대기<input type="range" id="gap" min="0" max="1500" step="50" value="250"><i id="gap-v">250</i></label>
     </div>
     <div class="grp">
-      <select id="ease" class="sel" title="선이 그려지는 가감속">
-        <option value="cubicOut" selected>Cubic Out · 끝 감속</option>
-        <option value="cubicIn">Cubic In · 처음 느림</option>
-        <option value="circEase">Circular · 양끝 느림</option>
-        <option value="linear">Linear · 일정</option>
-      </select>
       <input type="text" id="fname" class="fname" placeholder="파일명 (비우면 자동)" maxlength="60" spellcheck="false" title="녹화 파일 이름">
       <button id="btn-rec" class="btn rec" title="V — 캔버스 녹화 (mp4)">⏺ 녹화</button>
     </div>
@@ -86,7 +80,7 @@
 
     <div class="grp right">
       <span id="status"></span>
-      <button id="btn-more" class="btn ghost tog" title="이미지 · 비율 · 굵기 · 속도 · 녹화">⚙</button>
+      <button id="btn-more" class="btn ghost tog" title="이미지 · 비율 · 굵기 · 속도 · 파일명 · 녹화">⚙</button>
       <button id="btn-help" class="btn ghost" title="도움말">?</button>
       <button id="btn-clean" class="btn ghost" title="F — UI 숨기기">⛶</button>
     </div>
@@ -107,7 +101,7 @@
       <tr><td>점을 끌기</td><td>이미 찍은 점 옮기기 (도형은 크기 조절)</td></tr>
       <tr><td>두 손가락</td><td>배경 사진 이동 · 오므리기/벌리기로 확대</td></tr>
       <tr><td>도구모음</td><td>도구 · 색 · 획끝 · 되돌리기 · 배경 · 재생이 항상 아래 두 줄에 있습니다</td></tr>
-      <tr><td>⚙ 버튼</td><td>이미지 · 비율 · 굵기 · 글로우 · 속도 · 획 간 대기 · 가감속 · <b>파일명</b> · 녹화</td></tr>
+      <tr><td>⚙ 버튼</td><td>이미지 · 비율 · 굵기 · 글로우 · 속도 · 획 간 대기 · <b>파일명</b> · 녹화</td></tr>
       <tr><td>파일명</td><td>녹화 전에 미리 정해둡니다. 비우면 <code>neon-(시각)</code>. 저장된 파일이 <code>download</code>로 나오면 그 브라우저가 한글 파일명을 못 받는 것이니 영문·숫자로 쓰세요.</td></tr>
       <tr><td>전체화면 중</td><td>아래 가운데 <b>▶ 재생</b>, 오른쪽 위 <b>✕ 나가기</b>. 재생이 시작되면 둘 다 사라져 화면녹화에 안 찍힙니다</td></tr>
 
@@ -127,6 +121,6 @@
   </div>
 </div>
 
-<script src="js/paint.js?v=12"></script>
+<script src="js/paint.js?v=13"></script>
 </body>
 </html>
