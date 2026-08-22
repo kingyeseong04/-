@@ -32,6 +32,27 @@
   </header>
 
   <div class="main">
+    <!-- Frame-mode header strip: the three Bybit position columns the videos
+         actually show — Contracts / Qty / Unrealized P&L(ROI). Hidden outside
+         frame mode; the normal account panel is used there. -->
+    <div id="frame-strip" class="frame-strip">
+      <div class="fs-cell fs-contracts">
+        <div class="fs-head">Contracts</div>
+        <div class="fs-sym"><span id="fs-symbol">—</span><span class="fs-perp">Perp</span></div>
+        <div class="fs-lev" id="fs-lev">Cross 1.00x</div>
+      </div>
+      <div class="fs-cell">
+        <div class="fs-head">Qty</div>
+        <div class="fs-qty" id="fs-qty">0</div>
+      </div>
+      <div class="fs-cell">
+        <div class="fs-head">Unrealized P&amp;L(ROI)</div>
+        <div class="fs-pnl" id="fs-pnl">0.0000 USDT</div>
+        <div class="fs-roi" id="fs-roi">(0.00%)</div>
+        <div class="fs-krw" id="fs-krw">≈₩0</div>
+      </div>
+    </div>
+
     <!-- Chart column + positions tabs -->
     <div class="col-chart">
       <div id="chart-wrap">

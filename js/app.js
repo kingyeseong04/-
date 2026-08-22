@@ -630,6 +630,30 @@
     $('ap-equity-krw').textContent = fmtConv(account.equity);
     $('ap-available').textContent = fmt(account.available);
     $('ap-available-krw').textContent = fmtConv(account.available);
+    updateFrameStrip(pnl, pct);
+  }
+
+  // Frame-mode header: Bybit's Contracts / Qty / Unrealized P&L(ROI) columns.
+  // Values are left as they are when flat — recording starts once a position is
+  // open, so there is nothing to blank out.
+  function updateFrameStrip(pnl, pct) {
+    if (!state.frame) return;                 // only mode that shows it
+    const strip = $('frame-strip');
+    const long = account.qty >= 0;
+    strip.className = 'frame-strip' + (long ? '' : ' short') + (pnl < 0 ? ' loss' : '');
+
+    const sym = (state.symbolDisp || state.symbol || '').replace(/\.P$/i, '');
+    $('fs-symbol').textContent = sym || '—';
+    const lev = account.leverage || parseFloat($('order-lev').value) || 1;
+    $('fs-lev').textContent = 'Cross ' + lev.toFixed(2) + 'x';
+
+    // Bybit quotes size in the base asset — BTCUSDT trades in BTC.
+    const base = sym.replace(/USDT$/i, '') || sym;
+    $('fs-qty').textContent = fmt(Math.abs(account.qty), 3) + (base ? ' ' + base : '');
+
+    $('fs-pnl').textContent = sign(pnl) + fmt(pnl, 4) + ' USDT';
+    $('fs-roi').textContent = '(' + sign(pct) + fmt(pct, 2) + '%)';
+    $('fs-krw').textContent = '≈' + fmtConv(pnl);
   }
 
   // Bybit-style position label sitting on the entry line: side-coloured P&L
@@ -1389,6 +1413,7 @@
   function setFrame(on) {
     state.frame = on;
     document.body.classList.toggle('frame', on);
+    if (on) updateAccountPanel();   // fill the strip before the first tick
     chart.setFrameLook(on);
     if (on) {
       recomputePriceRange();  // normal sticky scale (no eye-tracking) — no shake

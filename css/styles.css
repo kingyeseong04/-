@@ -314,41 +314,71 @@ body.clean .account-panel { padding-top: 22px; }
    A horizontal account strip (P&L / Equity / Available / Last Price) on top,
    and a candles-only 1440:1220 chart below it — grid + time axis kept, only the
    price-number axis removed. For compositing into an edited video's dark area. */
-body.frame { --fbar: 108px; }
+body.frame { --fbar: 150px; --fbot: 62px; }
 body.frame .stats-bar,
 body.frame .bottom-tabs,
 body.frame .controls,
 body.frame .order-form { display: none !important; }
 body.frame .main { flex-direction: column; height: 100vh; }
-/* col-order becomes the top horizontal stats strip */
-body.frame .col-order {
-  order: -1; flex: 0 0 var(--fbar); height: var(--fbar); width: 100%;
-  border-left: none; border-bottom: 1px solid var(--border);
-  background: #101014; overflow: hidden;
+/* The account panel is replaced by #frame-strip in frame mode. */
+body.frame .col-order { display: none !important; }
+
+/* Bybit's Positions row, rebuilt as three columns: Contracts / Qty /
+   Unrealized P&L(ROI). Same grey column heads, same green side accent, same
+   Perp chip — the ≈ line carries KRW at that day's rate instead of USD. */
+.frame-strip { display: none; }
+body.frame .frame-strip {
+  order: -1;
+  display: flex; align-items: stretch; gap: 0;
+  flex: 0 0 var(--fbar); height: var(--fbar); width: 100%;
+  padding: 10px 26px;
+  background: #101014;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
 }
-body.frame .account-panel {
-  flex-direction: row; justify-content: center; align-items: center;
-  gap: 18px; padding: 8px 20px; height: 100%; border-bottom: none;
+.frame-strip .fs-cell { flex: 1 1 0; min-width: 0; padding: 0 22px; }
+.frame-strip .fs-head {
+  color: #81858c; font-size: 15px; font-weight: 400; margin-bottom: 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-body.frame .account-panel .ap-block { flex: 0 0 auto; min-width: 0; }
-/* Only 3 numbers on top: P&L, Equity, Last Price — hide Available (3rd block). */
-body.frame .account-panel .ap-block:nth-child(3) { display: none; }
-body.frame .account-panel .ap-val { font-size: 28px; }
-/* No labels in the frame strip. */
-body.frame .account-panel .ap-label { display: none; }
-/* Percentage shown only under P&L (1st block). */
-body.frame .account-panel .ap-pct { display: none; }
-body.frame .account-panel .ap-block:nth-child(1) .ap-pct { display: block; font-size: 15px; }
-/* Small ₩ line only under P&L (1st) and Equity (2nd). */
-body.frame .account-panel .ap-krw { display: none; }
-body.frame .account-panel .ap-block:nth-child(1) .ap-krw,
-body.frame .account-panel .ap-block:nth-child(2) .ap-krw { display: block; font-size: 13px; margin-top: 1px; }
-/* chart fills the rest, centred, at the 1440:1220 ratio */
-body.frame .col-chart { flex: 1 1 auto; min-height: 0; align-items: center; justify-content: center; }
+/* green bar down the left of the position row, as Bybit draws it */
+.frame-strip .fs-contracts { position: relative; padding-left: 16px; }
+.frame-strip .fs-contracts::before {
+  content: ''; position: absolute; left: 0; top: 30px; bottom: 2px;
+  width: 3px; border-radius: 2px; background: var(--buy);
+}
+.frame-strip.short .fs-contracts::before { background: var(--sell); }
+.frame-strip .fs-sym {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text); font-size: 26px; font-weight: 700; white-space: nowrap;
+}
+.frame-strip .fs-perp {
+  font-size: 14px; font-weight: 500; color: #b6bac2;
+  background: #2b2f36; border-radius: 5px; padding: 3px 8px;
+}
+.frame-strip .fs-lev { color: var(--buy); font-size: 22px; font-weight: 600; margin-top: 2px; }
+.frame-strip.short .fs-lev { color: var(--sell); }
+.frame-strip .fs-qty { color: var(--buy); font-size: 26px; font-weight: 500; white-space: nowrap; }
+.frame-strip.short .fs-qty { color: var(--sell); }
+.frame-strip .fs-pnl { color: var(--buy); font-size: 26px; font-weight: 500; white-space: nowrap; }
+.frame-strip .fs-roi { color: var(--buy); font-size: 22px; font-weight: 500; }
+.frame-strip .fs-krw { color: var(--buy); font-size: 20px; font-weight: 500; white-space: nowrap; }
+.frame-strip.loss .fs-pnl,
+.frame-strip.loss .fs-roi,
+.frame-strip.loss .fs-krw { color: var(--sell); }
+
+/* No chart legend in frame mode — the strip above carries the numbers. */
+body.frame .tv-legend { display: none !important; }
+
+/* Chart fills everything left over, stopping just above the floating tools
+   rather than holding a fixed 1440:1220 box that left the lower third empty. */
+body.frame .col-chart { flex: 1 1 auto; min-height: 0; align-items: stretch; justify-content: stretch; }
 body.frame #chart-wrap {
-  flex: none;
-  width: min(100vw, calc((100vh - var(--fbar)) * 1440 / 1220));
-  height: min(calc(100vh - var(--fbar)), calc(100vw * 1220 / 1440));
+  /* flex:none, or growing to fill the column would override the height and
+     push the chart down under the floating tools. */
+  flex: 0 0 auto;
+  width: 100%;
+  height: calc(100vh - var(--fbar) - var(--fbot));
 }
 body.frame .exit-clean { display: flex; opacity: 1; }
 body.frame .clean-tools { display: flex; position: fixed; left: 10px; bottom: 10px; }
