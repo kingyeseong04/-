@@ -111,6 +111,14 @@
     }
     if (!isFinite(lo)) { priceRange = null; return; }
     const pad = (hi - lo) * 0.08 || hi * 0.001 || 1;
+    // Frame mode: bias the scale so the current price sits in the upper-middle
+    // (~42% from the top) instead of wherever the window's extremes push it —
+    // recomputed only on candle close, so there's no per-tick shake.
+    if (state.frame && state.lastPrice > 0) {
+      const span = Math.max((hi - lo) + 2 * pad, state.lastPrice * 0.004);
+      priceRange = { min: state.lastPrice - span * 0.58, max: state.lastPrice + span * 0.42, pad };
+      return;
+    }
     priceRange = { min: lo - pad, max: hi + pad, pad };
   }
   function expandPriceRangeToForming() {
@@ -135,6 +143,9 @@
   // fit the current range — so the entry line holds still across candles.
   function maybeRecenterRange() {
     if (!priceRange) { recomputePriceRange(); return; }
+    // Frame mode re-anchors every candle close to keep the current price in the
+    // upper-middle (per-candle, not per-tick → smooth, no shake).
+    if (state.frame) { recomputePriceRange(); return; }
     const from = Math.max(0, state.idx - (state.frame ? 104 : 48));
     let lo = Infinity, hi = -Infinity;
     for (let j = from; j < state.idx; j++) {
@@ -651,8 +662,9 @@
     const base = sym.replace(/USDT$/i, '') || sym;
     $('fs-qty').textContent = fmt(Math.abs(account.qty), 3) + (base ? ' ' + base : '');
 
-    $('fs-pnl').textContent = sign(pnl) + fmt(pnl, 4) + ' USDT';
-    $('fs-roi').textContent = '(' + sign(pct) + fmt(pct, 2) + '%)';
+    // Bybit shows no leading '+' on the P&L — colour carries the sign.
+    $('fs-pnl').textContent = (pnl < 0 ? '-' : '') + fmt(Math.abs(pnl), 4) + ' USDT';
+    $('fs-roi').textContent = '(' + (pct < 0 ? '-' : '') + fmt(Math.abs(pct), 2) + '%)';
     $('fs-krw').textContent = '≈' + fmtConv(pnl);
   }
 

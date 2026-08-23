@@ -380,11 +380,11 @@ body.frame .frame-strip {
 }
 .frame-strip .fs-lev { color: var(--buy); font-size: 22px; font-weight: 600; margin-top: 2px; }
 .frame-strip.short .fs-lev { color: var(--sell); }
-.frame-strip .fs-qty { color: var(--buy); font-size: 26px; font-weight: 500; white-space: nowrap; }
+.frame-strip .fs-qty { color: var(--buy); font-size: 26px; font-weight: 600; white-space: nowrap; }
 .frame-strip.short .fs-qty { color: var(--sell); }
-.frame-strip .fs-pnl { color: var(--buy); font-size: 26px; font-weight: 500; white-space: nowrap; }
-.frame-strip .fs-roi { color: var(--buy); font-size: 22px; font-weight: 500; }
-.frame-strip .fs-krw { color: var(--buy); font-size: 20px; font-weight: 500; white-space: nowrap; }
+.frame-strip .fs-pnl { color: var(--buy); font-size: 26px; font-weight: 600; white-space: nowrap; }
+.frame-strip .fs-roi { color: var(--buy); font-size: 22px; font-weight: 400; }
+.frame-strip .fs-krw { color: var(--buy); font-size: 20px; font-weight: 400; white-space: nowrap; }
 .frame-strip.loss .fs-pnl,
 .frame-strip.loss .fs-roi,
 .frame-strip.loss .fs-krw { color: var(--sell); }
