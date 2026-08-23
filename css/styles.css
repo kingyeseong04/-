@@ -351,40 +351,45 @@ body.frame .col-order { display: none !important; }
 .frame-strip { display: none; }
 body.frame .frame-strip {
   order: -1;
-  display: flex; align-items: stretch; gap: 0;
+  display: flex; align-items: stretch; justify-content: flex-start; gap: 30px;
   flex: 0 0 var(--fbar); height: var(--fbar); width: 100%;
-  padding: 10px 26px;
+  padding: 12px 34px;
   background: #101014;
   border-bottom: 1px solid var(--border);
   overflow: hidden;
 }
-.frame-strip .fs-cell { flex: 1 1 0; min-width: 0; padding: 0 22px; }
+/* Each column: grey head pinned to the top, value block filling and centring
+   the rest — so Qty (1 line) and the P&L (3 lines) both centre on the two-line
+   Contracts block. Columns are packed close (natural width), not spread. */
+.frame-strip .fs-cell { flex: 0 0 auto; min-width: 0; display: flex; flex-direction: column; }
 .frame-strip .fs-head {
-  color: #81858c; font-size: 15px; font-weight: 400; margin-bottom: 10px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: #81858c; font-size: 15px; font-weight: 400; margin-bottom: 8px; white-space: nowrap;
 }
-/* green bar down the left of the position row, as Bybit draws it */
-.frame-strip .fs-contracts { position: relative; padding-left: 16px; }
-.frame-strip .fs-contracts::before {
-  content: ''; position: absolute; left: 0; top: 30px; bottom: 2px;
-  width: 3px; border-radius: 2px; background: var(--buy);
-}
-.frame-strip.short .fs-contracts::before { background: var(--sell); }
+.frame-strip .fs-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+/* Contracts: coloured bar + info in a row; the bar stretches to the info's own
+   two-line height (not the whole strip), centred with it. */
+.frame-strip .fs-cont-row { display: flex; align-items: stretch; gap: 12px; }
+.frame-strip .fs-bar { flex: none; width: 3px; border-radius: 2px; background: var(--buy); }
+.frame-strip.short .fs-bar { background: var(--sell); }
+.frame-strip .fs-info { display: flex; flex-direction: column; justify-content: center; }
 .frame-strip .fs-sym {
   display: flex; align-items: center; gap: 8px;
-  color: var(--text); font-size: 26px; font-weight: 700; white-space: nowrap;
+  color: var(--text); font-size: 24px; font-weight: 700; white-space: nowrap; line-height: 1.2;
 }
 .frame-strip .fs-perp {
-  font-size: 14px; font-weight: 500; color: #b6bac2;
-  background: #2b2f36; border-radius: 5px; padding: 3px 8px;
+  font-size: 13px; font-weight: 500; color: #b6bac2;
+  background: #2b2f36; border-radius: 5px; padding: 2px 7px;
 }
-.frame-strip .fs-lev { color: var(--buy); font-size: 22px; font-weight: 600; margin-top: 2px; }
+.frame-strip .fs-lev { color: var(--buy); font-size: 18px; font-weight: 600; margin-top: 3px; line-height: 1.2; }
 .frame-strip.short .fs-lev { color: var(--sell); }
-.frame-strip .fs-qty { color: var(--buy); font-size: 26px; font-weight: 600; white-space: nowrap; }
+.frame-strip .fs-qty { color: var(--buy); font-size: 24px; font-weight: 600; white-space: nowrap; }
 .frame-strip.short .fs-qty { color: var(--sell); }
-.frame-strip .fs-pnl { color: var(--buy); font-size: 26px; font-weight: 600; white-space: nowrap; }
-.frame-strip .fs-roi { color: var(--buy); font-size: 22px; font-weight: 400; }
-.frame-strip .fs-krw { color: var(--buy); font-size: 20px; font-weight: 400; white-space: nowrap; }
+/* P&L three lines — identical size and weight. */
+.frame-strip .fs-pnl,
+.frame-strip .fs-roi,
+.frame-strip .fs-krw {
+  color: var(--buy); font-size: 24px; font-weight: 600; white-space: nowrap; line-height: 1.28;
+}
 .frame-strip.loss .fs-pnl,
 .frame-strip.loss .fs-roi,
 .frame-strip.loss .fs-krw { color: var(--sell); }
