@@ -670,10 +670,12 @@
     $('fs-krw').textContent = '≈' + fmtConv(pnl);
 
     // 잔고 = equity = wallet balance + unrealized P&L (so it moves live with the
-    // open position). Gold, USDT on top and the ≈KRW conversion beneath.
+    // open position). One gold line in won with a ₩ prefix (like the Bybit KRW
+    // display). KRW-quoted symbols hold equity in won already; others convert
+    // from USDT at the day's rate.
     const eq = account.equity;
-    $('fs-bal-usdt').textContent = fmt(eq, 4) + ' USDT';
-    $('fs-bal-krw').textContent = '≈' + fmtConv(eq);
+    const won = state.quote === 'KRW' ? Math.round(eq) : Math.round(eq * state.fx);
+    $('fs-bal-krw').textContent = '₩' + won.toLocaleString('en-US');
   }
 
   // Bybit-style position label sitting on the entry line: side-coloured P&L
