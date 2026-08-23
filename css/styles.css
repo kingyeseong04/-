@@ -358,48 +358,50 @@ body.frame .frame-strip {
   border-bottom: 1px solid var(--border);
   overflow: hidden;
 }
-/* Each column: grey head pinned to the top, value block filling and centring
-   the rest — so Qty (1 line) and the P&L (3 lines) both centre on the two-line
-   Contracts block. Columns are packed close (natural width), not spread. */
+/* No grey column heads — just the numbers, vertically centred. Each cell's
+   value block fills the strip height and centres, so Contracts (2 lines), Qty
+   (1 line) and the P&L (3 lines) all sit on the same middle line. Columns are
+   packed close (natural width), not spread. */
 .frame-strip .fs-cell { flex: 0 0 auto; min-width: 0; display: flex; flex-direction: column; }
-.frame-strip .fs-head {
-  color: #81858c; font-size: 15px; font-weight: 400; margin-bottom: 8px; white-space: nowrap;
-}
 .frame-strip .fs-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
-/* Contracts: coloured bar + info in a row; the bar stretches to the info's own
-   two-line height (not the whole strip), centred with it. */
-.frame-strip .fs-cont-row { display: flex; align-items: stretch; gap: 12px; }
-.frame-strip .fs-bar { flex: none; width: 3px; border-radius: 2px; background: var(--buy); }
+/* Contracts — matched to Bybit's position row: bold white symbol + grey "Perp"
+   chip on the first line, the Cross-leverage on the second in the side colour,
+   with a thin side-coloured bar spanning both lines. */
+.frame-strip .fs-cont-row { display: flex; align-items: stretch; gap: 13px; }
+.frame-strip .fs-bar { flex: none; width: 4px; border-radius: 2px; background: var(--buy); }
 .frame-strip.short .fs-bar { background: var(--sell); }
-.frame-strip .fs-info { display: flex; flex-direction: column; justify-content: center; }
+.frame-strip .fs-info { display: flex; flex-direction: column; justify-content: center; gap: 3px; }
 .frame-strip .fs-sym {
   display: flex; align-items: center; gap: 8px;
-  color: var(--text); font-size: 24px; font-weight: 700; white-space: nowrap; line-height: 1.2;
+  color: var(--text); font-size: 25px; font-weight: 700; white-space: nowrap; line-height: 1.15;
 }
 .frame-strip .fs-perp {
-  font-size: 13px; font-weight: 500; color: #b6bac2;
-  background: #2b2f36; border-radius: 5px; padding: 2px 7px;
+  font-size: 14px; font-weight: 500; color: #b6bac2;
+  background: #2b2f36; border-radius: 6px; padding: 3px 8px; line-height: 1;
 }
-.frame-strip .fs-lev { color: var(--buy); font-size: 18px; font-weight: 600; margin-top: 3px; line-height: 1.2; }
+.frame-strip .fs-lev { color: var(--buy); font-size: 22px; font-weight: 600; white-space: nowrap; line-height: 1.15; }
 .frame-strip.short .fs-lev { color: var(--sell); }
-.frame-strip .fs-qty { color: var(--buy); font-size: 24px; font-weight: 600; white-space: nowrap; }
+.frame-strip .fs-qty { color: var(--buy); font-size: 25px; font-weight: 600; white-space: nowrap; }
 .frame-strip.short .fs-qty { color: var(--sell); }
 /* P&L three lines — identical size and weight. */
 .frame-strip .fs-pnl,
 .frame-strip .fs-roi,
 .frame-strip .fs-krw {
-  color: var(--buy); font-size: 24px; font-weight: 600; white-space: nowrap; line-height: 1.28;
+  color: var(--buy); font-size: 25px; font-weight: 600; white-space: nowrap; line-height: 1.28;
 }
 .frame-strip.loss .fs-pnl,
 .frame-strip.loss .fs-roi,
 .frame-strip.loss .fs-krw { color: var(--sell); }
 
-/* 잔고 (equity = balance + unrealized) — pushed to the far right, gold, two
-   uniform lines: USDT on top, ≈KRW beneath. Colour is fixed (not P&L-tinted). */
-.frame-strip .fs-balance { margin-left: auto; text-align: right; }
-.frame-strip .fs-balance .fs-head { text-align: right; }
+/* 잔고 (equity = balance + unrealized) — far right. A vertically-stacked 잔/고
+   label (like the Bybit KRW display) sits left of one gold won line. */
+.frame-strip .fs-balance { flex-direction: row; align-items: center; gap: 12px; margin-left: auto; }
+.frame-strip .fs-bal-label {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #81858c; font-size: 16px; font-weight: 500; line-height: 1.12;
+}
 .frame-strip .fs-bal-krw {
-  color: #e8be6c; font-size: 24px; font-weight: 600; white-space: nowrap; line-height: 1.28;
+  color: #e8be6c; font-size: 30px; font-weight: 700; white-space: nowrap; line-height: 1.1;
 }
 
 /* No chart legend in frame mode — the strip above carries the numbers. */

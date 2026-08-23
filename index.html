@@ -8,7 +8,7 @@
   <!-- Bybit's web UI renders in the platform system font (San Francisco on
        iPad/Safari). Use the same system stack so the app matches Bybit exactly
        on-device — and drop the external Google Fonts dependency. -->
-  <link rel="stylesheet" href="css/styles.css?v=68" />
+  <link rel="stylesheet" href="css/styles.css?v=69" />
   <script src="js/vendor/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -37,7 +37,6 @@
          frame mode; the normal account panel is used there. -->
     <div id="frame-strip" class="frame-strip">
       <div class="fs-cell fs-contracts">
-        <div class="fs-head">Contracts</div>
         <div class="fs-body">
           <div class="fs-cont-row">
             <div class="fs-bar"></div>
@@ -49,11 +48,9 @@
         </div>
       </div>
       <div class="fs-cell">
-        <div class="fs-head">Qty</div>
         <div class="fs-body"><div class="fs-qty" id="fs-qty">0</div></div>
       </div>
       <div class="fs-cell">
-        <div class="fs-head">Unrealized P&amp;L(ROI)</div>
         <div class="fs-body">
           <div class="fs-pnl" id="fs-pnl">0.0000 USDT</div>
           <div class="fs-roi" id="fs-roi">(0.00%)</div>
@@ -61,10 +58,8 @@
         </div>
       </div>
       <div class="fs-cell fs-balance">
-        <div class="fs-head">잔고</div>
-        <div class="fs-body">
-          <div class="fs-bal-krw" id="fs-bal-krw">₩0</div>
-        </div>
+        <div class="fs-bal-label" aria-hidden="true"><span>잔</span><span>고</span></div>
+        <div class="fs-bal-krw" id="fs-bal-krw">₩0</div>
       </div>
     </div>
 
@@ -262,7 +257,7 @@
       <label id="speed-label">×· 1봉≈…</label>
     </div>
     <div id="status" class="status"></div>
-    <span class="ver" title="버전 (최신 확인용)">v68</span>
+    <span class="ver" title="버전 (최신 확인용)">v69</span>
 
     <div class="data-group">
       <span class="exchange-badge">Bybit</span>
@@ -291,12 +286,12 @@
     </div>
   </div>
 
-  <script src="js/tickEngine.js?v=68"></script>
-  <script src="js/dataSource.js?v=68"></script>
-  <script src="js/indicators.js?v=68"></script>
-  <script src="js/trading.js?v=68"></script>
-  <script src="js/chart.js?v=68"></script>
-  <script src="js/draw.js?v=68"></script>
-  <script src="js/app.js?v=68"></script>
+  <script src="js/tickEngine.js?v=69"></script>
+  <script src="js/dataSource.js?v=69"></script>
+  <script src="js/indicators.js?v=69"></script>
+  <script src="js/trading.js?v=69"></script>
+  <script src="js/chart.js?v=69"></script>
+  <script src="js/draw.js?v=69"></script>
+  <script src="js/app.js?v=69"></script>
 </body>
 </html>
