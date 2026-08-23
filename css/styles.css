@@ -376,18 +376,18 @@ body.frame .frame-strip {
   color: var(--text); font-size: 25px; font-weight: 700; white-space: nowrap; line-height: 1.15;
 }
 .frame-strip .fs-perp {
-  font-size: 16px; font-weight: 500; color: #e4e6eb;
-  background: #2b2f36; border-radius: 6px; padding: 3px 9px; line-height: 1;
+  font-size: 18px; font-weight: 500; color: #e4e6eb;
+  background: #2b2f36; border-radius: 6px; padding: 3px 10px; line-height: 1;
 }
 .frame-strip .fs-lev { color: var(--buy); font-size: 22px; font-weight: 500; white-space: nowrap; line-height: 1.15; }
 .frame-strip.short .fs-lev { color: var(--sell); }
-.frame-strip .fs-qty { color: var(--buy); font-size: 25px; font-weight: 500; white-space: nowrap; }
+/* Qty and P&L match the Cross-leverage line exactly (same size + weight). */
+.frame-strip .fs-qty { color: var(--buy); font-size: 22px; font-weight: 500; white-space: nowrap; }
 .frame-strip.short .fs-qty { color: var(--sell); }
-/* P&L three lines — identical size and weight. */
 .frame-strip .fs-pnl,
 .frame-strip .fs-roi,
 .frame-strip .fs-krw {
-  color: var(--buy); font-size: 25px; font-weight: 500; white-space: nowrap; line-height: 1.28;
+  color: var(--buy); font-size: 22px; font-weight: 500; white-space: nowrap; line-height: 1.28;
 }
 .frame-strip.loss .fs-pnl,
 .frame-strip.loss .fs-roi,
