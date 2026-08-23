@@ -379,15 +379,15 @@ body.frame .frame-strip {
   font-size: 14px; font-weight: 500; color: #b6bac2;
   background: #2b2f36; border-radius: 6px; padding: 3px 8px; line-height: 1;
 }
-.frame-strip .fs-lev { color: var(--buy); font-size: 22px; font-weight: 600; white-space: nowrap; line-height: 1.15; }
+.frame-strip .fs-lev { color: var(--buy); font-size: 22px; font-weight: 500; white-space: nowrap; line-height: 1.15; }
 .frame-strip.short .fs-lev { color: var(--sell); }
-.frame-strip .fs-qty { color: var(--buy); font-size: 25px; font-weight: 600; white-space: nowrap; }
+.frame-strip .fs-qty { color: var(--buy); font-size: 25px; font-weight: 500; white-space: nowrap; }
 .frame-strip.short .fs-qty { color: var(--sell); }
 /* P&L three lines — identical size and weight. */
 .frame-strip .fs-pnl,
 .frame-strip .fs-roi,
 .frame-strip .fs-krw {
-  color: var(--buy); font-size: 25px; font-weight: 600; white-space: nowrap; line-height: 1.28;
+  color: var(--buy); font-size: 25px; font-weight: 500; white-space: nowrap; line-height: 1.28;
 }
 .frame-strip.loss .fs-pnl,
 .frame-strip.loss .fs-roi,
@@ -402,6 +402,11 @@ body.frame .frame-strip {
 }
 .frame-strip .fs-bal-krw {
   color: #e8be6c; font-size: 30px; font-weight: 700; white-space: nowrap; line-height: 1.1;
+  /* Hold the number still at high speed: tabular figures keep every digit the
+     same width, and a reserved right-aligned box stops the whole thing (and the
+     잔/고 label beside it) from drifting left-right as the value ticks. */
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+  min-width: 220px; text-align: right;
 }
 
 /* No chart legend in frame mode — the strip above carries the numbers. */
