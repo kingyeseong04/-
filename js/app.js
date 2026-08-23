@@ -143,12 +143,22 @@
   // fit the current range — so the entry line holds still across candles.
   function maybeRecenterRange() {
     if (!priceRange) { recomputePriceRange(); return; }
-    // Frame mode used to re-anchor the scale around the last price on EVERY
-    // candle close, which made the entry/position line jump up and down at high
-    // speed. Now frame mode holds the band just like normal mode — the line
-    // stays put and the chart drifts naturally, stepping only when price runs
-    // out of the visible band (breakout below), so there's no per-candle shake.
-    const from = Math.max(0, state.idx - (state.frame ? 104 : 48));
+    // Frame mode: EXPAND-ONLY scale. The band is composed once (current price in
+    // the upper-middle) when frame mode / lock starts; from then on it only ever
+    // grows to fit new highs/lows and is NEVER re-centred or shrunk on a candle
+    // close. Re-centring on the price (as an earlier version did) made the whole
+    // axis jump every time price ran out of the band at high speed — this holds
+    // it still and lets the chart drift naturally instead.
+    if (state.frame) {
+      const c = state.candles[state.idx - 1]; // the candle that just closed
+      if (c) {
+        const pad = priceRange.pad;
+        if (c.low - pad < priceRange.min) priceRange.min = c.low - pad;
+        if (c.high + pad > priceRange.max) priceRange.max = c.high + pad;
+      }
+      return;
+    }
+    const from = Math.max(0, state.idx - 48);
     let lo = Infinity, hi = -Infinity;
     for (let j = from; j < state.idx; j++) {
       const c = state.candles[j]; if (!c) continue;
