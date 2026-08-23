@@ -143,9 +143,11 @@
   // fit the current range — so the entry line holds still across candles.
   function maybeRecenterRange() {
     if (!priceRange) { recomputePriceRange(); return; }
-    // Frame mode re-anchors every candle close to keep the current price in the
-    // upper-middle (per-candle, not per-tick → smooth, no shake).
-    if (state.frame) { recomputePriceRange(); return; }
+    // Frame mode used to re-anchor the scale around the last price on EVERY
+    // candle close, which made the entry/position line jump up and down at high
+    // speed. Now frame mode holds the band just like normal mode — the line
+    // stays put and the chart drifts naturally, stepping only when price runs
+    // out of the visible band (breakout below), so there's no per-candle shake.
     const from = Math.max(0, state.idx - (state.frame ? 104 : 48));
     let lo = Infinity, hi = -Infinity;
     for (let j = from; j < state.idx; j++) {
@@ -666,6 +668,12 @@
     $('fs-pnl').textContent = (pnl < 0 ? '-' : '') + fmt(Math.abs(pnl), 4) + ' USDT';
     $('fs-roi').textContent = '(' + (pct < 0 ? '-' : '') + fmt(Math.abs(pct), 2) + '%)';
     $('fs-krw').textContent = '≈' + fmtConv(pnl);
+
+    // 잔고 = equity = wallet balance + unrealized P&L (so it moves live with the
+    // open position). Gold, USDT on top and the ≈KRW conversion beneath.
+    const eq = account.equity;
+    $('fs-bal-usdt').textContent = fmt(eq, 4) + ' USDT';
+    $('fs-bal-krw').textContent = '≈' + fmtConv(eq);
   }
 
   // Bybit-style position label sitting on the entry line: side-coloured P&L
