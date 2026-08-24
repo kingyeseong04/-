@@ -26,7 +26,22 @@
     '4:5':  [1080, 1350],
     '16:9': [1920, 1080],
   };
-  const COLORS = ['#ff2f2f', '#ffe600', '#00e676'];   // 빨 · 노 · 초 (+ 직접 지정)
+  // 빨 · 노 · 초 · 파 · 분 (+ 직접 지정). The five match the five arrow stickers,
+  // so picking a colour is also how you pick which arrow gets placed.
+  const COLORS = ['#ff2f2f', '#ffe600', '#00e676', '#2979ff', '#ff3d9a'];
+
+  // Pre-drawn neon arrows, cropped to their content. tail/tip are where the
+  // curl ends and where the head points, in 0..1 of the file — a drag from one
+  // to the other is all the placement information an arrow needs, so the same
+  // press-drag-release that draws a box also lays an arrow down at the right
+  // size and angle.
+  const ARROWS = [
+    { file: 'img/arrow-red.webp',    tail: [0.9240, 0.9930], tip: [0.4680, 0.0060] },
+    { file: 'img/arrow-yellow.webp', tail: [0.9076, 0.9899], tip: [0.4272, 0.0061] },
+    { file: 'img/arrow-green.webp',  tail: [0.9006, 0.9929], tip: [0.4659, 0.0061] },
+    { file: 'img/arrow-blue.webp',   tail: [0.8886, 0.9847], tip: [0.4629, 0.0066] },
+    { file: 'img/arrow-pink.webp',   tail: [0.8543, 0.9874], tip: [0.5001, 0.0063] },
+  ];
 
   const HIT_PX = 18;      // grab radius for dragging an existing point
   const DUP_PX = 7;       // clicks closer than this to the last point are ignored
@@ -37,7 +52,7 @@
   // Shown in the toolbar so it is possible to tell at a glance whether the
   // browser is showing the newest deploy or a cached copy. Bump this and the
   // ?v= query on the css/js tags together on every deploy.
-  const BUILD = 'v13 · 08-22 linear 고정';
+  const BUILD = 'v14 · 08-24 화살표 스티커 · 60fps';
 
   // ---- DOM ----
   const $ = (id) => document.getElementById(id);
@@ -51,6 +66,15 @@
   const bake = document.createElement('canvas');
   const bctx = bake.getContext('2d');
   let bakeIdx = 0;
+
+  // Background + everything already baked, flattened. During an animation the
+  // only thing that changes from frame to frame is the one stroke still being
+  // drawn, so rebuilding the chart photo and re-blitting the bake underneath it
+  // sixty times a second is work thrown away — this collapses four full-canvas
+  // operations per frame into one.
+  const plate = document.createElement('canvas');
+  const pctx = plate.getContext('2d');
+  let plateDirty = true;
 
   // ---- state ----
   let CW = 1080, CH = 1440;
@@ -69,10 +93,37 @@
   let clean = false;
   let bgMode = 'photo';                 // 'photo' | 'black' | 'white'
   let preroll = false;                  // showing the pre-animation frame
+  let recFrames = 0, recT0 = 0;         // frames actually rendered while recording
   let RES = 1;                          // backing-store pixels per logical pixel
   let lastStatus = null;                // avoid redundant DOM writes
 
-  const opt = { kind: 'line', color: COLORS[1], width: 9, glow: 1, speed: 1400, gap: 250, arrow: false };
+  const opt = { kind: 'line', color: COLORS[1], width: 9, glow: 1, speed: 1400, gap: 250, arrow: false, fps: 60 };
+
+  // ------------------------------------------------------------ arrow assets
+  // Loaded up front (about 90KB each): an arrow that pops in a frame or two
+  // after it is placed would flicker in a recording.
+  const arrowImgs = ARROWS.map((a) => {
+    const im = new Image();
+    im.onload = touch;
+    im.src = a.file;
+    return im;
+  });
+
+  // Any colour maps to an arrow — the nearest of the five presets. That keeps
+  // the custom picker working instead of it silently doing nothing here.
+  function arrowIdx(hex) {
+    const n = parseInt(String(hex).slice(1), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    let best = 0, bd = Infinity;
+    COLORS.forEach((c, i) => {
+      const m = parseInt(c.slice(1), 16);
+      const d = ((m >> 16 & 255) - r) ** 2 + ((m >> 8 & 255) - g) ** 2 + ((m & 255) - b) ** 2;
+      if (d < bd) { bd = d; best = i; }
+    });
+    return best;
+  }
+
+  const arrowReady = (i) => { const im = arrowImgs[i]; return im.complete && im.naturalWidth ? im : null; };
 
   // ---------------------------------------------------------------- geometry
   const px = (p) => ({ x: p.u * CW, y: p.v * CH });
@@ -164,6 +215,10 @@
   // squared off at input time, so rx and ry come out equal.
   const isShape = (s) => s.kind === 'circle' || s.kind === 'ellipse' || s.kind === 'rect';
 
+  // Everything defined by exactly two taps: the shapes, plus an arrow sticker
+  // (tail and tip). These close themselves on the second point.
+  const isTwoPoint = (s) => isShape(s) || s.kind === 'img';
+
   // Straighten a segment: Shift locks to horizontal / vertical / 45°, and an
   // un-shifted point that is already within a few px of level is nudged flat —
   // a support line that is 2px off looks wrong on video.
@@ -172,7 +227,10 @@
     const a = px(prev);
     let dx = x - a.x, dy = y - a.y;
     const ax = Math.abs(dx), ay = Math.abs(dy);
-    if (kind && kind !== 'line') {
+    // An arrow sticker is a free vector like a line: it may point anywhere, and
+    // the same near-level nudge that flattens a support line is what makes a
+    // near-vertical arrow come out actually vertical.
+    if (kind && kind !== 'line' && kind !== 'img') {
       // The round tool is square-constrained always; the stretchy ones only
       // while Shift is held. The auto-flatten never applies to a shape — it
       // would collapse it into a line.
@@ -265,20 +323,20 @@
     return 'rgb(' + m(r) + ',' + m(g) + ',' + m(b) + ')';
   }
 
-  function bloom(g, path, color, width, glow, light, box) {
+  // `paint(b, cfg)` puts the thing to be bloomed into the small buffer, which
+  // already carries the downscale transform. A line strokes a path into it; an
+  // arrow sticker draws its image. `spread` is the drawn width, used only to
+  // work out how far the smear can reach outside the given box.
+  function bloom(g, paint, glow, light, box, spread) {
     for (let i = 0; i < BLOOM.length; i++) {
       const cfg = BLOOM[i], buf = bloomBufs[i];
       const s = 1 / cfg.div;
       const b = buf.getContext('2d');
       b.setTransform(s, 0, 0, s, 0, 0);
       b.clearRect(0, 0, CW, CH);
-      b.lineCap = 'round';
-      b.lineJoin = 'round';
-      b.strokeStyle = color;
-      // Widen with glow, but keep a floor so glow=0 is a clean line, not a blob.
-      b.lineWidth = width * (1 + (cfg.spread - 1) * glow);
       b.globalAlpha = 1;
-      b.stroke(path);
+      b.globalCompositeOperation = 'source-over';
+      paint(b, cfg);
       b.setTransform(1, 0, 0, 1, 0, 0);
 
       // Composite only the stroke's own neighbourhood. The upscale costs
@@ -286,7 +344,7 @@
       // a sliver of it — blooming all 1080x1440 for that is most of the work
       // thrown away. Padding covers the smear: about one destination pixel per
       // buffer pixel, plus the drawn width.
-      const pad = width * cfg.spread + cfg.div * 3;
+      const pad = spread * cfg.spread + cfg.div * 3;
       const dx0 = clamp(box.x0 - pad, 0, CW), dy0 = clamp(box.y0 - pad, 0, CH);
       const dx1 = clamp(box.x1 + pad, 0, CW), dy1 = clamp(box.y1 + pad, 0, CH);
       const dw = dx1 - dx0, dh = dy1 - dy0;
@@ -295,7 +353,12 @@
       g.globalCompositeOperation = light ? 'source-over' : 'lighter';
       g.globalAlpha = cfg.alpha * glow * (light ? 0.5 : 1);
       g.imageSmoothingEnabled = true;
-      g.imageSmoothingQuality = 'high';
+      // Plain bilinear, deliberately. The source here is an already-blurred
+      // thumbnail, so a bicubic resample has nothing left to recover — measured
+      // side by side the two are the same picture (mean difference well under
+      // one level per channel) while 'high' costs about four times as much, and
+      // this upscale is the single most expensive thing in the frame.
+      g.imageSmoothingQuality = 'low';
       g.drawImage(buf, dx0 * s, dy0 * s, dw * s, dh * s, dx0, dy0, dw, dh);
     }
   }
@@ -317,7 +380,16 @@
     g.lineCap = 'round';
     g.lineJoin = 'round';
 
-    if (glow > 0.01) bloom(g, path, color, width, glow, light, box);
+    if (glow > 0.01) {
+      bloom(g, (b, cfg) => {
+        b.lineCap = 'round';
+        b.lineJoin = 'round';
+        b.strokeStyle = color;
+        // Widen with glow, but keep a floor so glow=0 is a clean line, not a blob.
+        b.lineWidth = width * (1 + (cfg.spread - 1) * glow);
+        b.stroke(path);
+      }, glow, light, box, width);
+    }
 
     g.globalCompositeOperation = light ? 'source-over' : 'lighter';
     g.imageSmoothingEnabled = true;
@@ -376,8 +448,98 @@
     return p;
   }
 
+  // ---- arrow stickers ----
+  // The two points are mapped onto the file's own tail and tip with a
+  // similarity transform, so the arrow keeps its proportions at any angle and
+  // any size — no squashing, whatever the drag.
+  function arrowGeom(s, im, idx) {
+    const meta = ARROWS[idx];
+    const a = px(s.pts[0]), b = px(s.pts[1]);
+    const ax = meta.tail[0] * im.width, ay = meta.tail[1] * im.height;
+    const bx = meta.tip[0] * im.width,  by = meta.tip[1] * im.height;
+    const ilen = Math.max(1, Math.hypot(bx - ax, by - ay));
+    const dlen = Math.hypot(b.x - a.x, b.y - a.y);
+    const k = dlen / ilen;
+    const rot = Math.atan2(b.y - a.y, b.x - a.x) - Math.atan2(by - ay, bx - ax);
+    const cos = Math.cos(rot), sin = Math.sin(rot);
+    const to = (x, y) => {
+      const dx = (x - ax) * k, dy = (y - ay) * k;
+      return { x: a.x + dx * cos - dy * sin, y: a.y + dx * sin + dy * cos };
+    };
+    // Real transformed bounds, so the bloom composite covers the arrow and not
+    // just the line between the two handles — the curl swings well off it.
+    const box = bboxOf([to(0, 0), to(im.width, 0), to(im.width, im.height), to(0, im.height)], 2);
+    return { a, ax, ay, bx, by, ilen, k, cos, sin, box, dlen };
+  }
+
+  function arrowXform(g, m) {
+    g.translate(m.a.x, m.a.y);
+    g.rotate(Math.atan2(m.sin, m.cos));
+    g.scale(m.k, m.k);
+    g.translate(-m.ax, -m.ay);
+  }
+
+  // Reveal: a straight edge sweeping from tail to tip, clipped in the file's own
+  // space so it travels along the arrow rather than across the screen. The arrow
+  // grows out of its tail the same way a drawn line grows from its first point.
+  function arrowClip(g, m, p) {
+    if (p >= 1) return;
+    const ux = (m.bx - m.ax) / m.ilen, uy = (m.by - m.ay) / m.ilen;
+    const nx = -uy, ny = ux;
+    const BIG = m.ilen * 4;
+    const f = m.ilen * p;
+    const at = (t, u) => [m.ax + ux * t + nx * u, m.ay + uy * t + ny * u];
+    const c = [at(-BIG, BIG), at(f, BIG), at(f, -BIG), at(-BIG, -BIG)];
+    g.beginPath();
+    g.moveTo(c[0][0], c[0][1]);
+    for (let i = 1; i < 4; i++) g.lineTo(c[i][0], c[i][1]);
+    g.clip();
+  }
+
+  function paintArrow(g, s, p, alpha) {
+    if (s.pts.length < 2 || p <= 0) return;
+    const idx = arrowIdx(s.color);
+    const im = arrowReady(idx);
+    if (!im) return;
+    const m = arrowGeom(s, im, idx);
+    if (m.dlen < 2) return;
+    const light = lightBg();
+
+    const put = (h) => {
+      h.save();
+      arrowXform(h, m);
+      arrowClip(h, m, p);
+      h.imageSmoothingEnabled = true;
+      h.imageSmoothingQuality = 'high';
+      h.drawImage(im, 0, 0);
+      h.restore();
+    };
+
+    // These files already carry their own glow, so the bloom on top is a light
+    // touch — enough to sit them in the same light as the drawn strokes rather
+    // than looking pasted onto the chart.
+    // bloom() leaves its own alpha and composite op behind, so it is fenced off
+    // here the way neon() fences it: without this the leftover alpha lands on
+    // the bake context and every stroke baked after the first comes out dim.
+    if (s.glow > 0.01 && alpha == null) {
+      g.save();
+      bloom(g, put, Math.min(1, s.glow * 0.55), light, m.box, 0);
+      g.restore();
+    }
+
+    // Solid, unlike a drawn stroke: these are painted artwork with their own
+    // highlights, and adding them to the chart made the candles read straight
+    // through the arrow body. The bloom above is what carries the light.
+    g.save();
+    g.globalAlpha = alpha == null ? 1 : alpha;
+    g.globalCompositeOperation = 'source-over';
+    put(g);
+    g.restore();
+  }
+
   // Paint one stroke (whole or partially advanced) onto a context.
   function paintStroke(g, s, p) {
+    if (s.kind === 'img') { paintArrow(g, s, p, null); return; }
     const pts = partial(shapePts(s), p);
     if (pts.length < 2) return;
     neon(g, linePath(pts), s.color, s.width, s.glow, bboxOf(pts, s.width));
@@ -401,20 +563,32 @@
   function invalidateBake() {
     bakeIdx = 0;
     bctx.clearRect(0, 0, CW, CH);
+    plateDirty = true;
     touch();
   }
 
   function bakeUpTo(n) {
-    while (bakeIdx < n) { paintStroke(bctx, strokes[bakeIdx], 1); bakeIdx++; }
+    while (bakeIdx < n) { paintStroke(bctx, strokes[bakeIdx], 1); bakeIdx++; plateDirty = true; }
   }
 
-  function drawBackground() {
-    ctx.clearRect(0, 0, CW, CH);
-    ctx.fillStyle = lightBg() ? '#ffffff' : '#000000';
-    ctx.fillRect(0, 0, CW, CH);
+  // Rebuilt only when the background moved or another stroke finished.
+  function syncPlate() {
+    if (!plateDirty) return;
+    plateDirty = false;
+    pctx.clearRect(0, 0, CW, CH);
+    pctx.fillStyle = lightBg() ? '#ffffff' : '#000000';
+    pctx.fillRect(0, 0, CW, CH);
     if (img && bgMode === 'photo') {
-      ctx.drawImage(img, bg.ox, bg.oy, img.width * bg.scale, img.height * bg.scale);
+      pctx.drawImage(img, bg.ox, bg.oy, img.width * bg.scale, img.height * bg.scale);
     }
+    // The bake is premultiplied, so source-over is dst*(1-a) + src: a solid
+    // core replaces, a glow halo blends by its own alpha. Over pure black —
+    // which is what gets recorded for a Screen blend — that is identical to
+    // adding, and it also lets an opaque sticker cover what sits under it.
+    pctx.save();
+    pctx.globalCompositeOperation = 'source-over';
+    pctx.drawImage(bake, 0, 0, bake.width, bake.height, 0, 0, CW, CH);
+    pctx.restore();
   }
 
   function setBgMode(m) {
@@ -434,6 +608,12 @@
     else if (pending && pending.moved) base = [{ u: pending.x / CW, v: pending.y / CH }];
     if (!base) return;
     const ghost = { kind: kind, pts: base.concat([{ u: hover.x / CW, v: hover.y / CH }]) };
+    // For a sticker the dashed axis says almost nothing about where the arrow
+    // will land, so the arrow itself is previewed, dimmed.
+    if (kind === 'img') {
+      paintArrow(ctx, { kind: 'img', pts: ghost.pts.slice(-2), color: opt.color }, 1, 0.45);
+      return;
+    }
     const pts = shapePts(ghost).map(px);
     if (pts.length < 2) return;
     ctx.save();
@@ -471,8 +651,6 @@
   }
 
   function render(sch) {
-    drawBackground();
-
     if (playing || recording || preroll) {
       let live = -1;
       let done = 0;
@@ -482,14 +660,17 @@
         else { if (p > 0) live = i; break; }
       }
       bakeUpTo(done);
-      blitBake();
+      blitPlate();
+      // The live stroke is always the newest thing on screen, so painting it
+      // straight over the plate puts it in the same z-order the bake will give
+      // it a moment later — it does not shift when it finishes.
       if (live >= 0) paintStroke(ctx, strokes[live], progressAt(sch.items[live], playT));
     } else {
       // Editing: everything is shown finished. Only the stroke still being
       // clicked stays out of the bake, since it changes on every click.
       const open = openStroke();
       bakeUpTo(strokes.length - (open ? 1 : 0));
-      blitBake();
+      blitPlate();
       if (open) paintStroke(ctx, open, 1);
       if (!clean) { drawPreview(open); drawHandles(); }
     }
@@ -505,10 +686,16 @@
     if (txt !== lastStatus) { statusEl.textContent = txt; lastStatus = txt; }
   }
 
-  function blitBake() {
+  // The bake is already premultiplied, so source-over here is dst*(1-a) + src:
+  // a full-alpha core replaces, a low-alpha glow halo blends. That is the same
+  // result 'lighter' gave over a dark chart (and exactly the same over pure
+  // black, which is what actually gets recorded), but it also lets an opaque
+  // sticker cover what is under it instead of the chart adding through it.
+  function blitPlate() {
+    syncPlate();
     ctx.save();
-    ctx.globalCompositeOperation = lightBg() ? 'source-over' : 'lighter';
-    ctx.drawImage(bake, 0, 0, bake.width, bake.height, 0, 0, CW, CH);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(plate, 0, 0, plate.width, plate.height, 0, 0, CW, CH);
     ctx.restore();
   }
 
@@ -529,7 +716,11 @@
     // Idle frames paint nothing. On a tablet a permanently running canvas loop
     // is the difference between the app being usable for an hour and the
     // device getting hot — and the recorder only needs frames while it records.
-    if (playing || recording || dirty) { render(sch); dirty = false; }
+    if (playing || recording || dirty) {
+      render(sch);
+      dirty = false;
+      if (recording) recFrames++;
+    }
     requestAnimationFrame(frame);
   }
 
@@ -556,11 +747,13 @@
     if (cv.width !== bw || cv.height !== bh) {
       cv.width = bw; cv.height = bh;
       bake.width = bw; bake.height = bh;
+      plate.width = bw; plate.height = bh;
     }
     // Setting .width resets context state, so the transform is re-applied here.
     const sx = bw / CW, sy = bh / CH;
     ctx.setTransform(sx, 0, 0, sy, 0, 0);
     bctx.setTransform(sx, 0, 0, sy, 0, 0);
+    pctx.setTransform(sx, 0, 0, sy, 0, 0);
     invalidateBake();
   }
 
@@ -590,6 +783,7 @@
 
   function fitBg() {
     touch();
+    plateDirty = true;
     if (!img) return;
     const s = Math.min(CW / img.width, CH / img.height);
     bg = { scale: s, ox: (CW - img.width * s) / 2, oy: (CH - img.height * s) / 2 };
@@ -655,7 +849,7 @@
     $('hint').hidden = true;   // drawing started; stop advertising the drop target
     // A box or circle is fully defined by two corners, so it closes itself and
     // the next tap starts a new one.
-    if (isShape(s) && s.pts.length === 2) { s.open = false; hover = null; }
+    if (isTwoPoint(s) && s.pts.length === 2) { s.open = false; hover = null; }
     return true;
   }
 
@@ -691,8 +885,8 @@
     const { x, y } = toCanvas(e);
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x, y });
 
-    if (gesture && pointers.size >= 2) { applyGesture(); touch(); return; }
-    if (panning) { bg.ox = x - panning.x; bg.oy = y - panning.y; touch(); return; }
+    if (gesture && pointers.size >= 2) { applyGesture(); plateDirty = true; touch(); return; }
+    if (panning) { bg.ox = x - panning.x; bg.oy = y - panning.y; plateDirty = true; touch(); return; }
 
     if (drag) {
       const s = strokes[drag.si];
@@ -787,6 +981,7 @@
     bg.ox = x - (x - bg.ox) * (ns / bg.scale);
     bg.oy = y - (y - bg.oy) * (ns / bg.scale);
     bg.scale = ns;
+    plateDirty = true;
     touch();
   }
 
@@ -875,8 +1070,16 @@
     // Keep our own reference to the stream: if only the MediaRecorder holds it,
     // the capture track can be collected mid-recording and the file comes out
     // with zero frames.
-    stream = cv.captureStream(60);
-    recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 16e6 });
+    // The render loop is driven by requestAnimationFrame, so it already produces
+    // a new frame every display refresh — asking the capture track for 60 is
+    // what turns that into a 60fps file rather than the browser's 30fps default.
+    // Bitrate scales with it: 16Mbps spread over twice the frames is where a
+    // neon gradient starts to band.
+    stream = cv.captureStream(opt.fps);
+    recorder = new MediaRecorder(stream, {
+      mimeType: mime,
+      videoBitsPerSecond: opt.fps >= 60 ? 26e6 : 16e6,
+    });
     recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
     recorder.onstop = () => {
       // recorder.mimeType is what was actually negotiated, which can differ
@@ -900,6 +1103,8 @@
       recorder = null; chunks = null; releaseStream();
     };
     $('btn-rec').classList.add('on');
+    recFrames = 0; recT0 = performance.now();
+    $('recinfo').textContent = '녹화 중…';
     recorder.start(250);   // chunked: without a timeslice some builds emit an empty blob
     play();
   }
@@ -922,6 +1127,16 @@
   function stopRec() {
     if (!recording) return;
     recording = false;
+    // What the canvas actually managed, not what was asked for. 60fps is a
+    // request to the capture track; whether the device kept up is a different
+    // question, and this is the only honest way to answer it on the device
+    // rather than guessing from a desktop.
+    const secs = (performance.now() - recT0) / 1000;
+    if (secs > 0.3) {
+      const got = recFrames / secs;
+      $('recinfo').textContent = '실측 ' + got.toFixed(0) + 'fps / 요청 ' + opt.fps + 'fps'
+        + (got < opt.fps * 0.8 ? ' — 굵기·글로우를 낮추거나 30fps로' : ' ✓');
+    }
     $('btn-rec').classList.remove('on');
     if (recorder && recorder.state !== 'inactive') recorder.stop();
     layout();   // back to a display-matched backing store
@@ -993,6 +1208,8 @@
     hex.classList.remove('bad');
   }
 
+  const SW_NAMES = ['빨강', '노랑', '초록', '파랑', '분홍'];
+
   function buildSwatches() {
     const wrap = $('swatches');
     COLORS.forEach((c, i) => {
@@ -1000,7 +1217,7 @@
       b.className = 'sw';
       b.style.color = c;
       b.dataset.color = c;
-      b.title = String(i + 1);
+      b.title = SW_NAMES[i] + ' (' + (i + 1) + ') — 화살표 도구에서는 이 색 화살표';
       b.onclick = () => selectColor(c);
       wrap.appendChild(b);
     });
@@ -1051,6 +1268,7 @@
     slider('gap', 'gap', (v) => String(v));
 
     $('ratio').addEventListener('change', (e) => setRatio(e.target.value));
+    $('fps').addEventListener('change', (e) => { opt.fps = Number(e.target.value); });
     $('btn-img').onclick = () => $('file').click();
     $('file').onchange = (e) => loadFile(e.target.files[0]);
     $('btn-end').onclick = endStroke;
@@ -1127,12 +1345,13 @@
       if (t.tagName === 'SELECT' || (t.tagName === 'INPUT' && t.type !== 'range')) return;
       const k = e.key;
       if (t.tagName === 'INPUT' && /^Arrow/.test(k)) return;
-      if (k >= '1' && k <= '3') { pickColor(Number(k) - 1); return; }
+      if (k >= '1' && k <= String(COLORS.length)) { pickColor(Number(k) - 1); return; }
       switch (k) {
         case 'q': case 'Q': setKind('line'); break;
         case 'w': case 'W': setKind('circle'); break;
         case 'e': case 'E': setKind('ellipse'); break;
         case 'r': case 'R': setKind('rect'); break;
+        case 't': case 'T': setKind('img'); break;
         case 'Enter': endStroke(); break;
         case 'Backspace': e.preventDefault(); undo(); break;
         case ' ': e.preventDefault(); play(); break;

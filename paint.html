@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Neon Paint — 차트 위 네온 선 연출</title>
-<link rel="stylesheet" href="css/paint.css?v=13">
+<link rel="stylesheet" href="css/paint.css?v=14">
 </head>
 <body>
 
@@ -40,8 +40,16 @@
       <label class="sl">획 간 대기<input type="range" id="gap" min="0" max="1500" step="50" value="250"><i id="gap-v">250</i></label>
     </div>
     <div class="grp">
+      <input type="text" id="hex" class="hex" value="#FFE600" maxlength="7" spellcheck="false" title="HEX 코드 입력">
+      <select id="fps" class="sel" title="녹화 프레임레이트">
+        <option value="60" selected>60fps</option>
+        <option value="30">30fps</option>
+      </select>
+    </div>
+    <div class="grp">
       <input type="text" id="fname" class="fname" placeholder="파일명 (비우면 자동)" maxlength="60" spellcheck="false" title="녹화 파일 이름">
       <button id="btn-rec" class="btn rec" title="V — 캔버스 녹화 (mp4)">⏺ 녹화</button>
+      <span id="recinfo" title="이 기기가 실제로 뽑아낸 프레임 수"></span>
     </div>
     <div class="grp right">
       <span id="build" title="지금 브라우저가 띄우고 있는 버전"></span>
@@ -54,16 +62,16 @@
       <button class="btn tog" data-kind="circle" title="W — 항상 완전한 원">◯ 정원</button>
       <button class="btn tog" data-kind="ellipse" title="E — 가로세로 자유">⬭ 타원</button>
       <button class="btn tog" data-kind="rect" title="R">▭ 네모</button>
+      <button class="btn tog" data-kind="img" title="T — 네온 화살표 스티커. 꼬리에서 머리 방향으로 끌면 그 크기·각도로 놓입니다">➜ 화살표</button>
     </div>
 
     <div class="grp">
       <span id="swatches"></span>
       <input type="color" id="custom" class="sw sw-input" value="#2979ff" title="직접 지정">
-      <input type="text" id="hex" class="hex" value="#FFE600" maxlength="7" spellcheck="false" title="HEX 코드 입력">
     </div>
 
     <div class="grp">
-      <button id="btn-arrow" class="btn tog" title="현재 획 끝에 화살촉">화살표</button>
+      <button id="btn-arrow" class="btn tog" title="현재 획 끝에 화살촉">화살촉</button>
       <button id="btn-end" class="btn" title="Enter — 현재 획 끝내고 새 획 시작">획 끝</button>
       <button id="btn-undo" class="btn" title="Backspace">되돌리기</button>
       <button id="btn-clear" class="btn danger">전체삭제</button>
@@ -98,19 +106,21 @@
       <tr><td>탭 (선)</td><td>점 찍기 — 찍은 순서대로 이어서 그려집니다</td></tr>
       <tr><td>누른 채 끌기</td><td>크기를 보면서 도형·선을 한 번에 그립니다 (놓으면 완성)</td></tr>
       <tr><td>탭 · 탭 (도형)</td><td>두 번 탭 = 대각선 양 끝. 두 번째 탭에서 자동 완성</td></tr>
+      <tr><td><b>➜ 화살표</b></td><td><b>꼬리 → 머리</b> 방향으로 끌면 그 길이가 화살표 크기, 그 방향이 각도가 됩니다. 색 5개(빨·노·초·파·분)가 각각 화살표 5개입니다. 재생하면 꼬리에서 머리 쪽으로 뻗어 나옵니다</td></tr>
       <tr><td>점을 끌기</td><td>이미 찍은 점 옮기기 (도형은 크기 조절)</td></tr>
       <tr><td>두 손가락</td><td>배경 사진 이동 · 오므리기/벌리기로 확대</td></tr>
       <tr><td>도구모음</td><td>도구 · 색 · 획끝 · 되돌리기 · 배경 · 재생이 항상 아래 두 줄에 있습니다</td></tr>
-      <tr><td>⚙ 버튼</td><td>이미지 · 비율 · 굵기 · 글로우 · 속도 · 획 간 대기 · <b>파일명</b> · 녹화</td></tr>
+      <tr><td>⚙ 버튼</td><td>이미지 · 비율 · 굵기 · 글로우 · 속도 · 획 간 대기 · HEX · <b>프레임레이트</b> · <b>파일명</b> · 녹화</td></tr>
+      <tr><td>프레임레이트</td><td>기본 <b>60fps</b>로 녹화합니다. 편집 타임라인이 30fps면 30으로 낮춰도 되고, 60이면 슬로우모션 여유가 생깁니다</td></tr>
       <tr><td>파일명</td><td>녹화 전에 미리 정해둡니다. 비우면 <code>neon-(시각)</code>. 저장된 파일이 <code>download</code>로 나오면 그 브라우저가 한글 파일명을 못 받는 것이니 영문·숫자로 쓰세요.</td></tr>
       <tr><td>전체화면 중</td><td>아래 가운데 <b>▶ 재생</b>, 오른쪽 위 <b>✕ 나가기</b>. 재생이 시작되면 둘 다 사라져 화면녹화에 안 찍힙니다</td></tr>
 
       <tr><th colspan="2">키보드가 있을 때</th></tr>
-      <tr><td><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd></td><td>선 · 정원 · 타원 · 네모 도구</td></tr>
+      <tr><td><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>T</kbd></td><td>선 · 정원 · 타원 · 네모 · 화살표 도구</td></tr>
       <tr><td><kbd>Shift</kbd> + 클릭</td><td>선은 수평/수직/45° 고정, 타원·네모는 정원·정사각형</td></tr>
       <tr><td><kbd>Enter</kbd> · 더블클릭</td><td>현재 획 끝내고 다음 획 시작</td></tr>
       <tr><td><kbd>Backspace</kbd></td><td>마지막 점 (또는 마지막 획) 되돌리기</td></tr>
-      <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>빨 · 노 · 초 선택</td></tr>
+      <tr><td><kbd>1</kbd>~<kbd>5</kbd></td><td>빨 · 노 · 초 · 파 · 분 선택</td></tr>
       <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>굵기 조절</td></tr>
       <tr><td><kbd>Space</kbd> · <kbd>V</kbd></td><td>재생 · 녹화</td></tr>
       <tr><td><kbd>B</kbd> · <kbd>F</kbd> · <kbd>Esc</kbd></td><td>배경 전환(사진→검정→흰색) · 전체화면 · 나가기</td></tr>
@@ -121,6 +131,6 @@
   </div>
 </div>
 
-<script src="js/paint.js?v=13"></script>
+<script src="js/paint.js?v=14"></script>
 </body>
 </html>
