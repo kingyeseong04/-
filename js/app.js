@@ -675,7 +675,7 @@
     $('fs-qty').textContent = fmt(Math.abs(account.qty), 3) + (base ? ' ' + base : '');
 
     // Bybit shows no leading '+' on the P&L — colour carries the sign.
-    $('fs-pnl').textContent = (pnl < 0 ? '-' : '') + fmt(Math.abs(pnl), 4) + ' USDT';
+    $('fs-pnl').textContent = (pnl < 0 ? '-' : '') + fmt(Math.abs(pnl), 2) + ' USDT';
     $('fs-roi').textContent = '(' + (pct < 0 ? '-' : '') + fmt(Math.abs(pct), 2) + '%)';
     $('fs-krw').textContent = '≈' + fmtConv(pnl);
 
