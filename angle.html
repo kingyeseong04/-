@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>빗각 알림 — 피보나치 채널 터치 알림</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/angle.css?v=1">
+<script src="js/vendor/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand">빗각<i>알림</i><span class="sub">Fib Channel Touch Alerts</span></div>
+  <input id="sym" list="symlist" value="DRAMUSDT.P" spellcheck="false" title="심볼">
+  <datalist id="symlist"></datalist>
+  <select id="tf" title="시간봉">
+    <option value="5m">5m</option>
+    <option value="15m">15m</option>
+    <option value="30m">30m</option>
+    <option value="1h">1h</option>
+    <option value="4h" selected>4h</option>
+    <option value="1d">1d</option>
+  </select>
+  <input id="bars" type="number" min="80" max="1000" step="20" value="300" title="불러올 캔들 개수">
+  <button class="btn primary" id="btn-load">Load</button>
+  <span class="spacer"></span>
+  <span id="status">준비됨</span>
+</header>
+
+<div id="chart-wrap">
+  <div id="chart"></div>
+  <canvas id="ov"></canvas>
+  <div id="legend"><b>—</b></div>
+  <div id="tools">
+    <button class="btn" id="t-fib" title="빗각 그리기 (3번 탭)">빗각</button>
+    <button class="btn on" id="t-magnet" title="자석: 캔들 고·저·시·종에 붙임">자석</button>
+    <button class="btn" id="t-edit" title="선택한 빗각의 점을 끌어 수정">편집</button>
+    <button class="btn" id="t-fit" title="전체 보기">⤢</button>
+  </div>
+  <div id="hint" hidden></div>
+</div>
+
+<section id="panel">
+  <nav class="tabs">
+    <button class="tab on" data-tab="list">빗각 목록</button>
+    <button class="tab" data-tab="alerts">알림</button>
+    <button class="tab" data-tab="set">설정</button>
+    <span class="spacer"></span>
+    <span id="watch-pill"><span class="dot"></span><span id="watch-txt">감시 꺼짐</span></span>
+    <button class="btn sm" id="btn-watch">감시 시작</button>
+    <button class="tab" id="btn-collapse" title="패널 접기">▾</button>
+  </nav>
+
+  <div class="tab-body" id="tab-list"></div>
+
+  <div class="tab-body" id="tab-alerts" hidden>
+    <div class="set-row">
+      <button class="btn sm" id="btn-perm">알림 권한 허용</button>
+      <button class="btn sm" id="btn-test">테스트 알림</button>
+      <button class="btn sm danger" id="btn-clearlog">기록 지우기</button>
+    </div>
+    <div id="log"></div>
+  </div>
+
+  <div class="tab-body" id="tab-set" hidden>
+    <div class="set-row">
+      <span class="lbl">감시 주기</span>
+      <input id="p-poll" type="number" min="5" max="600" step="5" style="width:80px"> 초
+      <span class="note">캔들이 만들어지는 동안에도 고가·저가로 터치를 잡습니다. 5~30초를 권장합니다.</span>
+    </div>
+    <div class="set-row">
+      <span class="lbl">기본 레벨</span>
+      <input id="p-levels" type="text" style="flex:1;min-width:160px" placeholder="0, 0.5, 1, 1.5, 2, 2.5, 3">
+      <span class="note">새로 그리는 빗각에 적용될 기본값입니다. (1:1 = 1, 1:1.5 = 1.5 …)</span>
+    </div>
+    <div class="set-row">
+      <span class="lbl">기본 허용오차</span>
+      <input id="p-tol" type="number" min="0" max="5" step="0.05" style="width:80px"> %
+      <span class="note">선에서 이만큼 이내로 들어오면 "터치"로 봅니다.</span>
+    </div>
+    <div class="set-row">
+      <label class="sw"><input type="checkbox" id="p-near"> 근접 알림도 받기</label>
+      <input id="p-nearpct" type="number" min="0.05" max="10" step="0.05" style="width:80px"> %
+      <span class="note">선까지 이 거리 안으로 들어오면 미리 알려줍니다 (터치 전 준비용).</span>
+    </div>
+    <div class="set-row">
+      <label class="sw"><input type="checkbox" id="p-sound" checked> 소리</label>
+      <label class="sw"><input type="checkbox" id="p-notify" checked> 브라우저 알림</label>
+      <label class="sw"><input type="checkbox" id="p-wake"> 화면 켜둠 (모바일)</label>
+    </div>
+    <div class="set-row">
+      <span class="lbl">백업 · 이동</span>
+      <button class="btn sm" id="btn-export">내보내기</button>
+      <button class="btn sm" id="btn-import">불러오기</button>
+      <span class="note">종목별로 쌓아둔 빗각은 이 브라우저에 저장됩니다. 폰↔PC로 옮길 땐 JSON을 복사하세요.</span>
+    </div>
+    <textarea id="io" placeholder="내보내기를 누르면 여기에 JSON이 나옵니다. 붙여넣고 불러오기를 누르면 합쳐집니다." hidden></textarea>
+    <div class="set-row" style="border:none">
+      <span class="note" style="margin-top:6px">
+        <b>아이폰</b>은 사파리에서 <b>홈 화면에 추가</b>한 뒤 열어야 브라우저 알림이 뜹니다. 그 전에는 소리와 화면 표시로만 알립니다.
+      </span>
+      <span class="note">
+        <b class="hl">폰이 잠겨 있어도 오는 진짜 푸시</b>가 필요하면, 각 빗각의 <b>Pine</b> 버튼으로 스크립트를 복사해
+        트레이딩뷰에 붙여넣고 알림(Alert)을 걸어 두세요. 이 페이지의 알림은 <b>페이지가 열려 있는 동안</b>만 동작합니다.
+      </span>
+    </div>
+  </div>
+</section>
+
+<div id="modal" hidden><div class="sheet" id="sheet"></div></div>
+
+<script src="js/dataSource.js?v=74"></script>
+<script src="js/chart.js?v=74"></script>
+<script src="js/angle.js?v=1"></script>
+</body>
+</html>

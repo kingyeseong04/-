@@ -1,0 +1,187 @@
+/* angle.css — 빗각(피보나치 채널) 알림 페이지.
+   메인 앱(css/styles.css)과 같은 Bybit 다크 팔레트를 쓰되, 이 페이지만 쓰는
+   레이아웃(차트 + 아래 패널)을 독립적으로 정의한다. */
+:root {
+  --bg: #17181e;
+  --panel: #1e2027;
+  --panel2: #16171c;
+  --border: #2a2d35;
+  --hover: #23262e;
+  --text: #eaecef;
+  --muted: #7a7e87;
+  --buy: #20b26c;
+  --sell: #ef454a;
+  --accent: #f7a600;
+  --field: #232630;
+  --fib-blue: #2962ff;
+  --fib-yellow: #e3b505;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  display: flex; flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  overflow: hidden;
+}
+input, select, textarea { -webkit-user-select: text; user-select: text; }
+button, select, label { touch-action: manipulation; }
+
+/* ---------- top bar ---------- */
+.bar {
+  flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 7px 10px; background: var(--panel); border-bottom: 1px solid var(--border);
+}
+.bar .brand { font-size: 15px; font-weight: 700; margin-right: 2px; white-space: nowrap; }
+.bar .brand i { font-style: normal; color: var(--accent); }
+.bar .sub { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.bar .spacer { flex: 1; }
+input, select {
+  background: var(--field); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 8px; font: inherit; outline: none; min-width: 0;
+}
+input:focus, select:focus { border-color: #3d4250; }
+#sym { width: 138px; font-weight: 600; }
+#tf { width: 74px; }
+#bars { width: 68px; }
+.btn {
+  background: var(--field); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 11px; font: inherit; font-weight: 600; cursor: pointer;
+}
+.btn:hover { background: var(--hover); }
+.btn.on { background: #2b3350; border-color: var(--fib-blue); color: #cfe0ff; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #17181e; }
+.btn.danger { color: var(--sell); }
+.btn.sm { padding: 3px 8px; font-size: 12px; font-weight: 500; }
+#status { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+#status.err { color: var(--sell); }
+#status.ok { color: var(--buy); }
+
+/* ---------- chart ---------- */
+#chart-wrap { position: relative; flex: 1 1 auto; min-height: 180px; background: #101014; }
+#chart { position: absolute; inset: 0; }
+#ov { position: absolute; inset: 0; z-index: 4; pointer-events: none; touch-action: none; }
+#legend {
+  position: absolute; left: 10px; top: 8px; z-index: 5; pointer-events: none;
+  font-size: 12.5px; color: var(--muted);
+}
+#legend b { color: var(--text); font-size: 14px; }
+/* Left side, under the legend: the right edge belongs to the price axis, and
+   buttons parked there covered the very numbers a 빗각 is aimed at. */
+#tools {
+  position: absolute; left: 8px; top: 30px; z-index: 6;
+  display: flex; flex-direction: column; gap: 6px;
+}
+#tools .btn { padding: 6px 9px; font-size: 12px; background: rgba(30,32,39,.92); }
+#hint {
+  position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); z-index: 6;
+  background: rgba(41,98,255,.92); color: #fff; padding: 6px 12px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 600; white-space: nowrap; pointer-events: none;
+}
+#hint[hidden] { display: none; }
+
+/* ---------- bottom panel ---------- */
+#panel {
+  flex: none; height: 44vh; min-height: 150px; display: flex; flex-direction: column;
+  background: var(--panel2); border-top: 1px solid var(--border);
+}
+#panel.collapsed { height: 38px; }
+#panel.collapsed .tab-body { display: none; }
+.tabs { flex: none; display: flex; align-items: center; gap: 2px; padding: 0 6px; border-bottom: 1px solid var(--border); }
+.tab {
+  background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted);
+  padding: 9px 11px; font: inherit; font-weight: 600; cursor: pointer;
+}
+.tab.on { color: var(--text); border-bottom-color: var(--accent); }
+.tabs .spacer { flex: 1; }
+.tab-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px; }
+.tab-body[hidden] { display: none; }
+
+/* watch pill in the tab strip */
+#watch-pill {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted);
+  padding: 0 8px;
+}
+#watch-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #4a4e58; }
+#watch-pill.on .dot { background: var(--buy); box-shadow: 0 0 7px var(--buy); }
+
+/* ---------- setup list ---------- */
+.grp-head { font-size: 11.5px; color: var(--muted); font-weight: 700; margin: 8px 2px 5px; letter-spacing: .3px; }
+.grp-head:first-child { margin-top: 0; }
+.card {
+  border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
+  padding: 8px 10px; margin-bottom: 7px;
+}
+.card.sel { border-color: var(--fib-blue); }
+.card .row1 { display: flex; align-items: center; gap: 8px; }
+.card .nm { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .tag {
+  font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+  background: #2a2d35; color: var(--muted);
+}
+.card .tag.long { background: rgba(32,178,108,.16); color: var(--buy); }
+.card .tag.short { background: rgba(239,69,74,.16); color: var(--sell); }
+.card .meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.card .row2 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.card .row2 label { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.card .row2 input[type=text], .card .row2 input[type=number] { padding: 3px 6px; font-size: 12px; }
+.lv-in { width: 168px; max-width: 46vw; }
+.tol-in { width: 62px; }
+.sw { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+.sw input { width: 16px; height: 16px; accent-color: var(--accent); }
+.empty { color: var(--muted); text-align: center; padding: 26px 10px; font-size: 12.5px; line-height: 1.7; }
+
+/* ---------- alerts ---------- */
+.log-item {
+  display: flex; gap: 9px; align-items: baseline; padding: 7px 8px; border-radius: 7px;
+  border: 1px solid var(--border); background: var(--panel); margin-bottom: 6px;
+}
+.log-item .t { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.log-item .b { flex: 1; min-width: 0; }
+.log-item .s { font-weight: 700; }
+.log-item .d { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.log-item.near { opacity: .72; }
+.log-item.touch { border-color: var(--accent); }
+
+/* ---------- settings ---------- */
+.set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 7px 2px; border-bottom: 1px solid var(--border); }
+.set-row .lbl { min-width: 108px; font-weight: 600; }
+.set-row .note { flex-basis: 100%; font-size: 11.5px; color: var(--muted); line-height: 1.6; }
+textarea {
+  width: 100%; height: 120px; background: var(--field); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; padding: 8px; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
+  resize: vertical;
+}
+.hl { color: var(--accent); }
+kbd {
+  background: var(--field); border: 1px solid var(--border); border-bottom-width: 2px;
+  border-radius: 4px; padding: 0 5px; font: inherit; font-size: 11px;
+}
+
+/* ---------- modal (좌표 입력 / Pine) ---------- */
+#modal {
+  position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.62);
+  display: flex; align-items: center; justify-content: center; padding: 14px;
+}
+#modal[hidden] { display: none; }
+.sheet {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  width: min(560px, 100%); max-height: 86vh; overflow-y: auto; padding: 14px;
+}
+.sheet h3 { margin: 0 0 4px; font-size: 15px; }
+.sheet p.sub { margin: 0 0 12px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.pt-row { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+.pt-row .lb { width: 96px; font-size: 12px; color: var(--muted); }
+.pt-row input[type=datetime-local] { flex: 1; min-width: 0; }
+.pt-row input[type=number] { width: 104px; }
+.sheet .foot { display: flex; gap: 7px; justify-content: flex-end; margin-top: 12px; }
+
+@media (max-width: 560px) {
+  .bar { padding: 6px 8px; gap: 6px; }
+  .bar .brand .sub { display: none; }
+  #sym { width: 118px; }
+  #panel { height: 46vh; }
+  .lv-in { width: 100%; }
+}
