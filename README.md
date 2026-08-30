@@ -167,6 +167,29 @@ paint.html         네온 선 연출 도구 (독립 페이지)
 css/paint.css      해당 페이지 스타일
 js/paint.js        점 찍기 · 네온 렌더링 · 타임라인 · 화살표 배치 · 녹화
 img/arrow-*.webp   네온 화살표 5색 (원본 PNG를 내용 영역만 잘라 축소, 5장 합쳐 460KB)
+
+tools/yt_transcript.py  유튜브 자막 → 시간초 + 스크립트 추출기 (CLI)
 ```
+
+## 유튜브 자막 추출기 (tools/yt_transcript.py)
+
+영상 링크에서 자막을 받아 `[분:초] 문장` 형태로 뽑아 줍니다. 영상 참고용 타임스탬프를 만들 때 씁니다.
+
+```bash
+pip install youtube-transcript-api        # 또는 pip install yt-dlp
+
+python3 tools/yt_transcript.py "https://youtu.be/VIDEO_ID"
+python3 tools/yt_transcript.py VIDEO_ID --lang ko en --merge 15
+python3 tools/yt_transcript.py URL --format srt --out script.srt
+```
+
+| 옵션 | 설명 |
+| --- | --- |
+| `--lang ko en` | 선호 자막 언어 순서 (기본 `ko en`) |
+| `--merge 15` | 15초 단위로 문장을 묶어 읽기 좋게 정리 (0이면 원본 그대로) |
+| `--format` | `ts`(기본, `[분:초] 텍스트`) · `plain` · `srt` · `json` |
+| `--out` | 파일로 저장 |
+
+링크는 `watch?v=`, `youtu.be/`, `/shorts/`, `/embed/`, `/live/`, 순수 ID를 모두 인식하고 여러 개를 한 번에 넘길 수 있습니다. `youtube-transcript-api`가 없으면 `yt-dlp`로 자동 폴백하며, 둘 다 없으면 설치 안내를 출력합니다. 자막이 아예 없는 영상은 추출할 수 없습니다(음성 인식은 하지 않습니다).
 
 > ⚠️ 이 도구는 교육·연습용 시뮬레이터입니다. 합성 틱은 실제 체결 흐름이 아니며, 투자 조언이 아닙니다.
