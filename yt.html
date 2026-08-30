@@ -1,0 +1,526 @@
+<title>자막 타임스탬프 정리기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #eef2f1;
+    --surface: #ffffff;
+    --surface-2: #e4eae8;
+    --line: #cfd9d6;
+    --ink: #14201e;
+    --muted: #5b6a67;
+    --accent: #0e6b60;
+    --accent-soft: #d5e8e4;
+    --stamp: #a75c12;
+    --stamp-soft: #f4e6d5;
+    --focus: #0e6b60;
+    --shadow: 0 1px 2px rgba(20, 32, 30, .06), 0 8px 24px -18px rgba(20, 32, 30, .45);
+    --display: "Bricolage Grotesque", "IBM Plex Sans KR", system-ui, sans-serif;
+    --body: "IBM Plex Sans KR", system-ui, -apple-system, "Malgun Gothic", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0d1413;
+      --surface: #161f1e;
+      --surface-2: #1e2827;
+      --line: #2c3937;
+      --ink: #e4ebe9;
+      --muted: #93a4a0;
+      --accent: #4cc3b2;
+      --accent-soft: #17332f;
+      --stamp: #dd9a4c;
+      --stamp-soft: #33281a;
+      --focus: #4cc3b2;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 28px -20px rgba(0, 0, 0, .9);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d1413;
+    --surface: #161f1e;
+    --surface-2: #1e2827;
+    --line: #2c3937;
+    --ink: #e4ebe9;
+    --muted: #93a4a0;
+    --accent: #4cc3b2;
+    --accent-soft: #17332f;
+    --stamp: #dd9a4c;
+    --stamp-soft: #33281a;
+    --focus: #4cc3b2;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 28px -20px rgba(0, 0, 0, .9);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 64px; }
+
+  header.top { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 800; font-size: clamp(28px, 4.4vw, 42px);
+    line-height: 1.08; letter-spacing: -.02em; margin: 0; text-wrap: balance;
+  }
+  .lede { margin: 0; color: var(--muted); max-width: 62ch; }
+
+  ol.steps {
+    list-style: none; display: grid; gap: 10px; margin: 0 0 22px; padding: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    counter-reset: step;
+  }
+  ol.steps li {
+    counter-increment: step;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; box-shadow: var(--shadow);
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13.5px; color: var(--muted);
+  }
+  ol.steps li::before {
+    content: counter(step);
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    color: var(--accent); background: var(--accent-soft);
+    border-radius: 5px; padding: 1px 6px; flex: none; margin-top: 2px;
+  }
+  ol.steps b { color: var(--ink); font-weight: 600; }
+
+  .workspace { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); align-items: start; }
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .panel-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2);
+  }
+  .panel-title { font-family: var(--display); font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
+  .panel-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  textarea#paste {
+    width: 100%; min-height: 260px; resize: vertical;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+    color: var(--ink); background: var(--ground);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+  }
+  textarea#paste::placeholder { color: var(--muted); opacity: .8; }
+
+  label.field { display: flex; flex-direction: column; gap: 6px; }
+  .field-label {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  input[type="url"] {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink);
+    background: var(--ground); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 11px; width: 100%;
+  }
+  .hint { font-size: 12.5px; color: var(--muted); }
+
+  .segmented { display: flex; flex-wrap: wrap; gap: 6px; }
+  .segmented button {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    color: var(--muted); background: var(--ground);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 12px; cursor: pointer;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .segmented button:hover { color: var(--ink); border-color: var(--muted); }
+  .segmented button[aria-pressed="true"] {
+    color: var(--accent); background: var(--accent-soft); border-color: var(--accent);
+  }
+
+  .actions { display: flex; gap: 8px; }
+  button.ghost, button.solid {
+    font-family: var(--body); font-size: 12.5px; font-weight: 600;
+    border-radius: 8px; padding: 7px 13px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    transition: background .15s ease, border-color .15s ease;
+  }
+  button.ghost:hover { border-color: var(--muted); }
+  button.solid { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+  :root[data-theme="dark"] button.solid, :root:not([data-theme="light"]) button.solid { color: #0d1413; }
+  button.solid:hover { filter: brightness(1.06); }
+  button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visible {
+    outline: 2px solid var(--focus); outline-offset: 2px;
+  }
+
+  .stats {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .stats b { color: var(--ink); font-weight: 600; }
+
+  .out { max-height: 60vh; overflow: auto; padding: 4px 16px 16px; }
+  .line { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .line:last-child { border-bottom: 0; }
+  .stamp {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    color: var(--stamp); background: var(--stamp-soft);
+    border-radius: 5px; padding: 1px 6px; text-align: center;
+    align-self: start; text-decoration: none; font-variant-numeric: tabular-nums;
+  }
+  a.stamp:hover { text-decoration: underline; }
+  .line p { margin: 0; }
+  pre.raw {
+    margin: 0; padding: 4px 16px 16px; max-height: 60vh; overflow: auto;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.7;
+    white-space: pre-wrap; word-break: break-word; color: var(--ink);
+  }
+  .empty { padding: 40px 16px 48px; text-align: center; color: var(--muted); font-size: 13.5px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
+    background: var(--ink); color: var(--ground);
+    font-size: 13px; padding: 9px 16px; border-radius: 999px;
+    opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  footer.note { margin-top: 26px; color: var(--muted); font-size: 12.5px; max-width: 70ch; }
+  footer.note code { font-family: var(--mono); font-size: 11.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 900px) {
+    ol.steps { grid-template-columns: 1fr; }
+    .workspace { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">youtube · transcript</div>
+    <h1>자막 타임스탬프 정리기</h1>
+    <p class="lede">유튜브 스크립트 패널에서 복사한 자막을 <b>[분:초] 문장</b> 형태로 정리합니다. 초 단위로 문장을 묶고, 영상 링크를 넣으면 그 시점으로 바로 가는 링크가 붙습니다.</p>
+  </header>
+
+  <ol class="steps">
+    <li><span>유튜브 영상 아래 <b>⋯ 더보기 → 스크립트 표시</b>를 누릅니다.</span></li>
+    <li><span>오른쪽 스크립트 패널을 <b>드래그해 전체 복사</b>합니다 (Ctrl/⌘+A는 페이지 전체가 잡히니 드래그 권장).</span></li>
+    <li><span>아래 상자에 <b>붙여넣으면</b> 오른쪽에 바로 정리됩니다.</span></li>
+  </ol>
+
+  <div class="workspace">
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">붙여넣기</div>
+        <div class="actions">
+          <button class="ghost" id="sample" type="button">예시 넣기</button>
+          <button class="ghost" id="clear" type="button">비우기</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <textarea id="paste" spellcheck="false" placeholder="0:04&#10;안녕하세요 오늘은&#10;0:09&#10;차트 보는 법을 정리해 보겠습니다&#10;&#10;— 유튜브 스크립트 패널 · SRT · VTT 형식을 모두 인식합니다."></textarea>
+
+        <label class="field">
+          <span class="field-label">영상 링크 (선택)</span>
+          <input type="url" id="videoUrl" spellcheck="false" placeholder="https://youtu.be/VIDEO_ID">
+        </label>
+        <p class="hint" id="urlHint">링크를 넣으면 타임스탬프가 해당 시점으로 이동하는 링크가 됩니다.</p>
+
+        <div>
+          <div class="field-label" style="margin-bottom:7px">문장 묶기</div>
+          <div class="segmented" id="mergeGroup" role="group" aria-label="문장 묶기 간격">
+            <button type="button" data-merge="0" aria-pressed="true">원본</button>
+            <button type="button" data-merge="10" aria-pressed="false">10초</button>
+            <button type="button" data-merge="15" aria-pressed="false">15초</button>
+            <button type="button" data-merge="30" aria-pressed="false">30초</button>
+            <button type="button" data-merge="60" aria-pressed="false">1분</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="field-label" style="margin-bottom:7px">출력 형식</div>
+          <div class="segmented" id="formatGroup" role="group" aria-label="출력 형식">
+            <button type="button" data-format="ts" aria-pressed="true">[분:초] 텍스트</button>
+            <button type="button" data-format="plain" aria-pressed="false">본문만</button>
+            <button type="button" data-format="srt" aria-pressed="false">SRT 자막</button>
+            <button type="button" data-format="md" aria-pressed="false">링크 목록</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div class="panel-title">결과</div>
+        <div class="actions">
+          <button class="ghost" id="toggleView" type="button">텍스트 보기</button>
+          <button class="solid" id="copy" type="button">복사</button>
+        </div>
+      </div>
+      <div class="panel-body" style="padding-bottom:10px">
+        <div class="stats" id="stats"><span>붙여넣기를 기다리는 중</span></div>
+      </div>
+      <div class="out" id="preview"><p class="empty">왼쪽에 자막을 붙여넣으면 여기에 정리된 스크립트가 나옵니다.</p></div>
+      <pre class="raw" id="raw" hidden></pre>
+    </section>
+  </div>
+
+  <footer class="note">
+    브라우저 안에서만 동작합니다 — 붙여넣은 자막은 어디로도 전송되지 않습니다. 유튜브가 CORS를 막고 있어 링크만으로 자막을 자동으로 받아오는 것은 브라우저에서 불가능합니다. 링크만 넣고 자동으로 받고 싶으면 저장소의 <code>tools/yt_transcript.py</code>를 터미널에서 쓰세요.
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  var paste = document.getElementById('paste');
+  var videoUrl = document.getElementById('videoUrl');
+  var preview = document.getElementById('preview');
+  var raw = document.getElementById('raw');
+  var stats = document.getElementById('stats');
+  var toast = document.getElementById('toast');
+  var state = { merge: 0, format: 'ts', rawText: '', showRaw: false };
+
+  var SAMPLE = [
+    '0:00', '자 오늘은 캔들 하나가 실제로 어떻게 움직이는지',
+    '0:06', '틱 단위로 쪼개서 보겠습니다',
+    '0:12', '먼저 1분봉을 열고 시가 고가 저가 종가를 확인합니다',
+    '0:21', '여기서 중요한 건 순서예요 고가가 먼저인지 저가가 먼저인지',
+    '0:33', '그 순서에 따라 청산이 되기도 하고 살아남기도 합니다',
+    '0:47', '그래서 백테스트를 할 때는 항상 최악의 순서를 가정하는 게 안전합니다',
+    '1:02', '다음 영상에서는 레버리지와 청산가 계산을 다뤄보겠습니다'
+  ].join('\n');
+
+  // ---- 파싱 ------------------------------------------------------------
+  var STAMP = /^(?:(\d+):)?(\d{1,2}):(\d{2})(?:[.,](\d{1,3}))?$/;
+
+  function toSeconds(h, m, s, ms) {
+    return (parseInt(h || 0, 10) * 3600) + (parseInt(m, 10) * 60) + parseInt(s, 10) +
+      (ms ? parseInt((ms + '00').slice(0, 3), 10) / 1000 : 0);
+  }
+
+  function parse(text) {
+    var lines = text.replace(/\r/g, '').split('\n');
+    var cues = [];
+    var cur = null;
+    var arrow = /^((?:\d+:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?)\s*-->\s*((?:\d+:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?)/;
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line || line === 'WEBVTT' || /^\d+$/.test(line)) {
+        if (/^\d+$/.test(line) && cur) { /* SRT 인덱스 줄은 버린다 */ }
+        continue;
+      }
+
+      var range = line.match(arrow);
+      if (range) {
+        var a = range[1].match(STAMP), b = range[2].match(STAMP);
+        cur = { start: toSeconds(a[1], a[2], a[3], a[4]), end: toSeconds(b[1], b[2], b[3], b[4]), text: [] };
+        cues.push(cur);
+        continue;
+      }
+
+      var head = line.match(/^((?:\d+:)?\d{1,2}:\d{2})(?:\s+(.*))?$/);
+      if (head) {
+        var t = head[1].match(STAMP);
+        cur = { start: toSeconds(t[1], t[2], t[3], null), end: null, text: [] };
+        cues.push(cur);
+        if (head[2]) cur.text.push(head[2].trim());
+        continue;
+      }
+
+      if (cur) cur.text.push(line);
+    }
+
+    var out = [];
+    for (var j = 0; j < cues.length; j++) {
+      var c = cues[j];
+      var body = c.text.join(' ').replace(/\s+/g, ' ').trim();
+      if (!body) continue;
+      var end = c.end;
+      if (end == null) {
+        var next = cues[j + 1];
+        end = next ? next.start : c.start + Math.max(2, body.length / 9);
+      }
+      if (out.length && out[out.length - 1].text === body) { out[out.length - 1].end = end; continue; }
+      out.push({ start: c.start, end: end, text: body });
+    }
+    return out;
+  }
+
+  function merge(cues, win) {
+    if (!win) return cues;
+    var out = [], buf = [], start = null, end = null;
+    for (var i = 0; i < cues.length; i++) {
+      var c = cues[i];
+      if (start === null) start = c.start;
+      buf.push(c.text);
+      end = c.end;
+      if (end - start >= win) { out.push({ start: start, end: end, text: buf.join(' ') }); buf = []; start = null; }
+    }
+    if (buf.length) out.push({ start: start, end: end, text: buf.join(' ') });
+    return out;
+  }
+
+  // ---- 출력 ------------------------------------------------------------
+  function stamp(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    var mm = h ? String(m).padStart(2, '0') : String(m);
+    return (h ? h + ':' : '') + mm + ':' + String(s).padStart(2, '0');
+  }
+
+  function srtStamp(sec) {
+    var ms = Math.round(sec * 1000);
+    var h = Math.floor(ms / 3600000); ms -= h * 3600000;
+    var m = Math.floor(ms / 60000); ms -= m * 60000;
+    var s = Math.floor(ms / 1000); ms -= s * 1000;
+    return [h, m, s].map(function (n) { return String(n).padStart(2, '0'); }).join(':') + ',' + String(ms).padStart(3, '0');
+  }
+
+  function videoId(url) {
+    var m = String(url).match(/(?:v=|\/shorts\/|\/embed\/|\/live\/|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    if (m) return m[1];
+    return /^[A-Za-z0-9_-]{11}$/.test(String(url).trim()) ? String(url).trim() : '';
+  }
+
+  function linkFor(id, sec) { return 'https://youtu.be/' + id + '?t=' + Math.floor(sec); }
+
+  function render(cues, fmt, id) {
+    if (fmt === 'plain') return cues.map(function (c) { return c.text; }).join('\n');
+    if (fmt === 'srt') {
+      return cues.map(function (c, i) {
+        return (i + 1) + '\n' + srtStamp(c.start) + ' --> ' + srtStamp(c.end) + '\n' + c.text + '\n';
+      }).join('\n');
+    }
+    if (fmt === 'md') {
+      return cues.map(function (c) {
+        return id ? '- [' + stamp(c.start) + '](' + linkFor(id, c.start) + ') ' + c.text
+                  : '- ' + stamp(c.start) + ' ' + c.text;
+      }).join('\n');
+    }
+    return cues.map(function (c) { return '[' + stamp(c.start) + '] ' + c.text; }).join('\n');
+  }
+
+  function update() {
+    var cues = merge(parse(paste.value), state.merge);
+    var id = videoId(videoUrl.value);
+    state.rawText = render(cues, state.format, id);
+    raw.textContent = state.rawText;
+
+    preview.innerHTML = '';
+    if (!cues.length) {
+      var p = document.createElement('p');
+      p.className = 'empty';
+      p.textContent = paste.value.trim()
+        ? '타임스탬프를 찾지 못했습니다. 스크립트 패널을 통째로 복사했는지 확인해 주세요.'
+        : '왼쪽에 자막을 붙여넣으면 여기에 정리된 스크립트가 나옵니다.';
+      preview.appendChild(p);
+      stats.innerHTML = '<span>붙여넣기를 기다리는 중</span>';
+      return;
+    }
+
+    var frag = document.createDocumentFragment();
+    cues.forEach(function (c) {
+      var row = document.createElement('div');
+      row.className = 'line';
+      var tag;
+      if (id) {
+        tag = document.createElement('a');
+        tag.href = linkFor(id, c.start);
+        tag.target = '_blank';
+        tag.rel = 'noopener';
+      } else {
+        tag = document.createElement('span');
+      }
+      tag.className = 'stamp';
+      tag.textContent = stamp(c.start);
+      var body = document.createElement('p');
+      body.textContent = c.text;
+      row.appendChild(tag);
+      row.appendChild(body);
+      frag.appendChild(row);
+    });
+    preview.appendChild(frag);
+
+    var chars = cues.reduce(function (n, c) { return n + c.text.length; }, 0);
+    var total = cues[cues.length - 1].end;
+    stats.innerHTML = '<span><b>' + cues.length + '</b> 줄</span>' +
+      '<span>영상 길이 <b>' + stamp(total) + '</b></span>' +
+      '<span><b>' + chars.toLocaleString('ko-KR') + '</b> 자</span>' +
+      (id ? '<span>링크 <b>연결됨</b></span>' : '<span>링크 <b>없음</b></span>');
+  }
+
+  function say(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(say.t);
+    say.t = setTimeout(function () { toast.classList.remove('show'); }, 1800);
+  }
+
+  // ---- 이벤트 ----------------------------------------------------------
+  paste.addEventListener('input', update);
+  videoUrl.addEventListener('input', update);
+
+  document.getElementById('mergeGroup').addEventListener('click', function (e) {
+    var btn = e.target.closest('button'); if (!btn) return;
+    state.merge = parseInt(btn.dataset.merge, 10);
+    [].forEach.call(this.querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(b === btn));
+    });
+    update();
+  });
+
+  document.getElementById('formatGroup').addEventListener('click', function (e) {
+    var btn = e.target.closest('button'); if (!btn) return;
+    state.format = btn.dataset.format;
+    [].forEach.call(this.querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(b === btn));
+    });
+    update();
+  });
+
+  document.getElementById('sample').addEventListener('click', function () {
+    paste.value = SAMPLE;
+    if (!videoUrl.value) videoUrl.value = 'https://youtu.be/dQw4w9WgXcQ';
+    update();
+  });
+
+  document.getElementById('clear').addEventListener('click', function () {
+    paste.value = ''; update(); paste.focus();
+  });
+
+  document.getElementById('toggleView').addEventListener('click', function () {
+    state.showRaw = !state.showRaw;
+    raw.hidden = !state.showRaw;
+    preview.hidden = state.showRaw;
+    this.textContent = state.showRaw ? '미리보기' : '텍스트 보기';
+  });
+
+  document.getElementById('copy').addEventListener('click', function () {
+    if (!state.rawText) { say('복사할 내용이 아직 없습니다'); return; }
+    var done = function () { say('복사했습니다'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(state.rawText).then(done, fallback);
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = state.rawText;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); }
+      catch (err) { say('복사에 실패했습니다 — 텍스트 보기에서 직접 선택해 주세요'); }
+      document.body.removeChild(ta);
+    }
+  });
+
+  update();
+})();
+</script>
